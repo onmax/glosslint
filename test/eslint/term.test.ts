@@ -1,4 +1,8 @@
+import { Linter } from "eslint";
+import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vite-plus/test";
+import { defineCorpus } from "../../src/corpus.ts";
+import glosslint from "../../src/eslint.ts";
 import { covered, tester } from "./setup.ts";
 
 describe("term in TS", () => {
@@ -255,5 +259,38 @@ describe("term in YAML", () => {
     const code = `a: >\n  Set the re-charge\n  point here.\n`;
     const { result } = await invalid(code, { output: null, errors: 1 });
     expect(covered(code, result.messages[0]!)).toBe("re-charge\n  point");
+  });
+});
+
+describe("term fixes converge", () => {
+  const plans = defineCorpus({
+    terms: [
+      { term: "Dock Plus", abbr: ["D+"] },
+      { term: "Pass+", case: "exact" },
+      { term: "Day Pass", case: "exact" },
+    ],
+  });
+  const config: Linter.Config[] = [
+    ...glosslint({ corpus: plans, files: ["**/*.ts"] }),
+    { files: ["**/*.ts"], languageOptions: { parser: tseslint.parser as Linter.Parser } },
+  ];
+  const fix = (code: string) =>
+    new Linter({ configType: "flat" }).verifyAndFix(code, config, { filename: "file.ts" });
+
+  it("leaves the bare word of a term with symbols alone, so the fixer does not loop", () => {
+    const result = fix('const a = "Upgrade to D+ or take Plan D, then buy a pass";\n');
+    expect(result.fixed).toBe(false);
+    expect(result.messages).toEqual([]);
+  });
+
+  it("fixes the casing of a term with symbols once", () => {
+    expect(fix('const a = "Buy a pass+ now";\n').output).toBe('const a = "Buy a Pass+ now";\n');
+  });
+
+  it("passes an exact term split across lines, and never fixes across a line break", () => {
+    expect(fix("const a = `Buy a Day\nPass now`;\n").messages).toEqual([]);
+    const wrong = fix("const a = `Buy a day\npass now`;\n");
+    expect(wrong.fixed).toBe(false);
+    expect(wrong.messages.map((message) => message.messageId)).toEqual(["GLOSSLINT_CASE"]);
   });
 });

@@ -259,6 +259,15 @@ function isCorpus(value: unknown): value is Corpus {
   );
 }
 
+/**
+ * Sets `key` and moves it to the end, so `terms` lists them from lowest to highest precedence and a term's
+ * abbreviations and avoid words beat those of the terms before it.
+ */
+function setLast(map: Map<string, Term>, key: string, term: Term): void {
+  map.delete(key);
+  map.set(key, term);
+}
+
 /** Validates a corpus, merges what it extends, and returns it flat. Throws a `GlosslintConfigError` on a bad term. */
 export function defineCorpus(input: CorpusInput): Corpus {
   const fail: Fail = (code, why, fix) => {
@@ -287,7 +296,7 @@ export function defineCorpus(input: CorpusInput): Corpus {
         `Entry ${index + 1} of "extends" is not a corpus.`,
         `Pass a preset, fromGlossaryTable(…) or the result of defineCorpus(…).`,
       );
-    for (const term of corpus.terms) merged.set(termKey(term.term), term);
+    for (const term of corpus.terms) setLast(merged, termKey(term.term), term);
     allow.push(...corpus.allow);
   }
 
@@ -305,7 +314,7 @@ export function defineCorpus(input: CorpusInput): Corpus {
       });
     own.set(key, term);
   }
-  for (const [key, term] of own) merged.set(key, term);
+  for (const [key, term] of own) setLast(merged, key, term);
   allow.push(...(input.allow ?? []));
 
   return Object.freeze({

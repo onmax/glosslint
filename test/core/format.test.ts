@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { defineCorpus } from "../../src/corpus.ts";
 import { formatFinding, formatFindings, toJson } from "../../src/format.ts";
 import { createMatcher } from "../../src/matcher.ts";
 import type { CliFinding } from "../../src/types.ts";
@@ -49,6 +50,18 @@ describe("formatFinding", () => {
         "╰▶ see: https://example.com/docs/docks",
       ].join("\n"),
     );
+  });
+
+  it("starts a lowercase reason with a capital", () => {
+    expect(formatFinding({ ...avoid, why: "racks are unpowered." }).split("\n")[1]).toBe(
+      "├▶ why: Racks are unpowered.",
+    );
+    const [finding] = createMatcher(
+      defineCorpus({
+        terms: [{ term: "Dock", avoid: [{ word: "rack", why: "racks are unpowered" }] }],
+      }),
+    ).check("Return it to the rack.");
+    expect(finding?.message).toBe('Use "dock" instead of "rack". Racks are unpowered.');
   });
 
   it("omits absent lines and ends with ╰▶", () => {

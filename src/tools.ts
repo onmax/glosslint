@@ -1,6 +1,6 @@
 import { createMatcher, kindOf } from "./matcher.ts";
 import type { Corpus, CorpusTestFailure, Finding, Term, X18nGlossaryEntry } from "./types.ts";
-import { splitWords, termKey } from "./words.ts";
+import { capitalise, splitWords, termKey } from "./words.ts";
 
 /** Checks every term's examples: each `bad` one must be reported and each `good` one must not. */
 export function testCorpus(corpus: Corpus): CorpusTestFailure[] {
@@ -148,14 +148,14 @@ export function explainMatches(corpus: Corpus, query: string): ExplainMatch[] {
   const avoids = new Map<string, { term: Term; word: string; why?: string }>();
   for (const term of corpus.terms) terms.set(termKey(term.term), term);
   for (const term of corpus.terms) {
-    for (const abbr of term.abbr ?? [])
-      if (!abbrs.has(termKey(abbr))) abbrs.set(termKey(abbr), term);
+    // Later terms win, as in the matcher: `defineCorpus` lists them from lowest to highest precedence.
+    for (const abbr of term.abbr ?? []) abbrs.set(termKey(abbr), term);
     for (const list of Object.values(term.forms ?? {}))
       for (const form of list) if (!forms.has(termKey(form))) forms.set(termKey(form), term);
     for (const avoid of term.avoid ?? []) {
       const { word, why } = typeof avoid === "string" ? { word: avoid, why: undefined } : avoid;
       const avoidKey = termKey(word);
-      if (!avoids.has(avoidKey)) avoids.set(avoidKey, { term, word, ...(why ? { why } : {}) });
+      avoids.set(avoidKey, { term, word, ...(why ? { why } : {}) });
     }
   }
   const matches: ExplainMatch[] = [];
@@ -175,7 +175,7 @@ export function explainMatches(corpus: Corpus, query: string): ExplainMatch[] {
   if (asForm) add(asForm, `"${query.trim()}" is a form of ${asForm.term}.`);
   const asAvoid = byKey(avoids, key);
   if (asAvoid) {
-    const why = asAvoid.why ? ` ${sentence(asAvoid.why)}` : "";
+    const why = asAvoid.why ? ` ${sentence(capitalise(asAvoid.why))}` : "";
     add(asAvoid.term, `"${asAvoid.word}" is an avoid word for ${asAvoid.term.term}.${why}`);
   }
   if (matches.length > 0) return matches;

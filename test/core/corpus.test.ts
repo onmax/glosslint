@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../../src/corpus.ts";
 import { GlosslintConfigError } from "../../src/errors.ts";
+import { createMatcher } from "../../src/matcher.ts";
+import inclusive from "../../src/presets/inclusive.ts";
 import type { CorpusInput } from "../../src/types.ts";
 import { bike, bikeTerms } from "./bike.ts";
 
@@ -43,11 +45,11 @@ describe("defineCorpus", () => {
       allow: ["bike rack"],
     });
 
-    it("lets later extends win per term key", () => {
+    it("lets later extends win per term key, and lists the winner after the terms it beats", () => {
       const corpus = defineCorpus({ extends: [first, second] });
       expect(corpus.terms.map((term) => [term.term, term.description])).toEqual([
-        ["dock", "second"],
         ["Station", "first"],
+        ["dock", "second"],
         ["Helmet", "second"],
       ]);
     });
@@ -76,6 +78,61 @@ describe("defineCorpus", () => {
         "Recharge Point",
         "day pass",
       ]);
+    });
+
+    it("lets the own terms' avoid words beat a preset's", () => {
+      const corpus = defineCorpus({
+        extends: [inclusive],
+        terms: [
+          {
+            term: "Trusted rider list",
+            avoid: [{ word: "whitelist", why: "Ops calls it the trusted rider list." }],
+          },
+        ],
+      });
+      const findings = createMatcher(corpus).check("Add the rider to the whitelist.");
+      expect(findings.map((f) => [f.code, f.term.term, f.fix?.replace, f.why])).toEqual([
+        [
+          "GLOSSLINT_AVOID",
+          "Trusted rider list",
+          "trusted rider list",
+          "Ops calls it the trusted rider list.",
+        ],
+      ]);
+    });
+
+    it("lets a later extends entry's avoid words and abbreviations win", () => {
+      const a = defineCorpus({
+        terms: [
+          { term: "Station", avoid: ["hub"] },
+          { term: "Day Pass", abbr: ["DP"] },
+        ],
+      });
+      const b = defineCorpus({
+        terms: [
+          { term: "Depot", avoid: ["hub"] },
+          { term: "Dock pass", abbr: ["DP"] },
+        ],
+      });
+      const both = createMatcher(defineCorpus({ extends: [a, b] }));
+      expect(both.check("Go to the hub with a Dp.").map((f) => [f.code, f.term.term])).toEqual([
+        ["GLOSSLINT_AVOID", "Depot"],
+        ["GLOSSLINT_CASE", "Dock pass"],
+      ]);
+      const own = createMatcher(
+        defineCorpus({ extends: [a], terms: [{ term: "Dock pass", abbr: ["DP"] }] }),
+      );
+      expect(own.check("Buy a Dp.").map((f) => f.term.term)).toEqual(["Dock pass"]);
+    });
+
+    it("lets an own term that overrides a key keep its precedence over later extends", () => {
+      const a = defineCorpus({ terms: [{ term: "Station", avoid: ["hub"] }] });
+      const b = defineCorpus({ terms: [{ term: "Depot", avoid: ["hub"] }] });
+      const corpus = defineCorpus({
+        extends: [a, b],
+        terms: [{ term: "station", avoid: ["hub"] }],
+      });
+      expect(createMatcher(corpus).check("Go to the hub.")[0]?.term.term).toBe("station");
     });
 
     it("concatenates allow lists, extends first", () => {

@@ -303,7 +303,66 @@ describe("terms with symbols", () => {
     expect(hits("Built on node.JS", undefined, symbols)).toEqual(["CASE node.JS -> Node.js"]);
     expect(hits("Built on NodeJS", undefined, symbols)).toEqual(["TERM NodeJS -> Node.js"]);
     expect(hits("Open Notepad++ now", undefined, symbols)).toEqual([]);
-    expect(hits("Open notepad++ now", undefined, symbols)).toEqual(["CASE notepad -> Notepad"]);
+    expect(hits("Open notepad++ now", undefined, symbols)).toEqual(["CASE notepad++ -> Notepad++"]);
+  });
+});
+
+describe("terms and abbreviations with leading or trailing symbols", () => {
+  const plans = createMatcher(
+    defineCorpus({
+      terms: [
+        { term: "Dock Plus", abbr: ["D+"] },
+        { term: "Pass+", case: "exact" },
+        { term: "#RideFree", case: "exact" },
+      ],
+    }),
+  );
+
+  /** Applies every autofix, as ESLint's fixer does on each pass. */
+  function fixed(text: string): string {
+    return plans
+      .check(text)
+      .filter((finding) => finding.fix?.kind === "autofix")
+      .sort((a, b) => b.start - a.start)
+      .reduce((out, f) => out.slice(0, f.start) + f.fix!.replace + out.slice(f.end), text);
+  }
+
+  it("reports an abbreviation with symbols only where the text holds them", () => {
+    expect(hits("Upgrade to D+ today.", undefined, plans)).toEqual([]);
+    expect(hits("Use Plan D instead.", undefined, plans)).toEqual([]);
+    expect(fixed("Use Plan D instead.")).toBe("Use Plan D instead.");
+  });
+
+  it("leaves the bare word of an exact term with symbols alone", () => {
+    expect(hits("Buy a pass today.", undefined, plans)).toEqual([]);
+    expect(hits("Riders ride free on Sundays.", undefined, plans)).toEqual([]);
+  });
+
+  it("reports the casing of a term with symbols over the whole term, and the fix converges", () => {
+    expect(hits("Buy a pass+ today.", undefined, plans)).toEqual(["CASE pass+ -> Pass+"]);
+    expect(hits("Tag it #ridefree", undefined, plans)).toEqual(["CASE #ridefree -> #RideFree"]);
+    const once = fixed("Buy a pass+ and tag it #ridefree.");
+    expect(once).toBe("Buy a Pass+ and tag it #RideFree.");
+    expect(fixed(once)).toBe(once);
+  });
+});
+
+describe("terms split across a line break", () => {
+  const exact = createMatcher(defineCorpus({ terms: [{ term: "Day Pass", case: "exact" }] }));
+
+  it("passes a correctly cased exact term split across lines", () => {
+    expect(hits("Buy a Day\nPass now", undefined, exact)).toEqual([]);
+    expect(hits("Buy a Day\r\n  Pass now", undefined, exact)).toEqual([]);
+    expect(hits("Ride an\neBike now")).toEqual([]);
+  });
+
+  it("reports a wrong casing across lines without a fix that would join them", () => {
+    const [finding] = exact.check("Buy a day\r\npass now");
+    expect(finding).toMatchObject({ code: "GLOSSLINT_CASE", text: "day\r\npass" });
+    expect(finding?.fix).toBeUndefined();
+    const [split] = matcher.check("An E\nBike");
+    expect(split).toMatchObject({ code: "GLOSSLINT_TERM", text: "E\nBike" });
+    expect(split?.fix).toBeUndefined();
   });
 });
 
@@ -339,6 +398,21 @@ describe("kind identifier", () => {
     ]);
     expect(hits("daypassId", "identifier")).toEqual(["TERM daypass -> dayPass"]);
     expect(hits("isCheckOut", "identifier")).toEqual(["TERM CheckOut -> Checkout"]);
+  });
+
+  it("takes the casing and separator from the matched words, not the whole name", () => {
+    expect(hits("_reChargePoint", "identifier")).toEqual(["TERM reChargePoint -> rechargePoint"]);
+    expect(hits("max_reChargePoint", "identifier")).toEqual([
+      "TERM reChargePoint -> rechargePoint",
+    ]);
+    expect(hits("MAX_RE_CHARGE_POINT", "identifier")).toEqual([
+      "TERM RE_CHARGE_POINT -> RECHARGE_POINT",
+    ]);
+    expect(hits("bike-re-charge-point", "identifier")).toEqual([
+      "TERM re-charge-point -> recharge-point",
+    ]);
+    expect(hits("max_daypass", "identifier")).toEqual(["TERM daypass -> day_pass"]);
+    expect(hits("_daypass", "identifier")).toEqual(["TERM daypass -> dayPass"]);
   });
 
   it("gives the rename fix kind and a rename headline", () => {
@@ -387,6 +461,17 @@ describe("kindOf", () => {
     expect(kindOf("label", "Return the bike to any dock within the next ten minutes")).toBe(
       "unknown",
     );
+  });
+
+  it("matches whole words of the key only", () => {
+    expect(kindOf("tabLabel", "Buy a day pass")).toBe("label");
+    expect(kindOf("settings.tabs.rides", "Ride history")).toBe("label");
+    expect(kindOf("displayName", "Day pass")).toBe("label");
+    expect(kindOf("tableDescription", "Buy a day pass today")).toBe("sentence");
+    expect(kindOf("stableHint", "Docks near you")).toBe("sentence");
+    expect(kindOf("databaseHelp", "Docks near you")).toBe("sentence");
+    expect(kindOf("rename", "Docks near you")).toBe("unknown");
+    expect(kindOf("stable", "Docks near you")).toBe("unknown");
   });
 
   it("returns unknown without a hint", () => {

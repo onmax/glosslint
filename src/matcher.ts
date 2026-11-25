@@ -8,7 +8,7 @@ import type {
   Term,
   TextKind,
 } from "./types.ts";
-import { splitWords, termKey, tokenize, WORD_GAP } from "./words.ts";
+import { capitalise, splitWords, termKey, tokenize, WORD_GAP } from "./words.ts";
 
 /** Options for `createMatcher`. */
 export interface MatcherOptions {
@@ -18,12 +18,16 @@ export interface MatcherOptions {
 
 interface Entry {
   term: Term;
-  /** The form to write, without leading or trailing symbols such as the `++` of `Notepad++`. */
+  /** The form to write, with any leading or trailing symbols such as the `++` of `Notepad++`. */
   canonical: string;
   mode: CaseMode | "abbr";
   skip: ReadonlySet<string>;
-  /** The canonical form's words, lowercased. */
+  /** The canonical form's words without its symbols, lowercased. */
   words: string[];
+  /** Symbols the canonical form starts with, such as the `.` of `.NET`, which must stand right before the word. */
+  lead: string;
+  /** Symbols the canonical form ends with, such as the `#` of `C#`, which must stand right after the word. */
+  trail: string;
 }
 
 interface AvoidEntry {
@@ -131,8 +135,11 @@ function periodsFit(written: string, word: string): boolean {
   return j === w.length;
 }
 
-function stripSymbols(text: string): string {
-  return text.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+/** Splits `C++` into "", "C" and "++": the symbols before the first letter or digit, the rest, and the symbols after the last. */
+function symbols(text: string): { lead: string; core: string; trail: string } {
+  const lead = /^[^\p{L}\p{N}]*/u.exec(text)![0];
+  const trail = /[^\p{L}\p{N}]*$/u.exec(text.slice(lead.length))![0];
+  return { lead, core: text.slice(lead.length, text.length - trail.length), trail };
 }
 
 /** Writes `canonical` with the writer's capitals: each word starts as the writer's letter at that place does. */
@@ -190,14 +197,14 @@ function makeFinding(
   text: string,
   term: Term,
   headline: string,
-  fix: { kind: FixKind; replace: string },
+  fix: { kind: FixKind; replace: string } | undefined,
   reason?: string,
 ): Finding {
   const see = term.links?.[0]?.url;
   const why = reason ?? term.nuance;
   const parts = [
     headline,
-    reason && endSentence(reason),
+    reason && endSentence(capitalise(reason)),
     term.description && `${term.term}: ${endSentence(term.description)}`,
     term.nuance && term.nuance !== reason ? endSentence(term.nuance) : undefined,
     see && `See ${see}`,
@@ -209,7 +216,7 @@ function makeFinding(
     text,
     message: parts.filter(Boolean).join(" "),
     ...(why ? { why } : {}),
-    fix,
+    ...(fix ? { fix } : {}),
     term,
     ...(see ? { see } : {}),
   };
@@ -238,7 +245,13 @@ function longest<T>(
   index: number,
   max: number,
   gap: (between: string) => boolean,
-  find: (key: string) => { value: T; suffix: number } | undefined,
+  find: (
+    key: string,
+  ) =>
+    | { value: T; suffix: number }
+    | ReadonlyArray<{ value: T; suffix: number } | undefined>
+    | undefined,
+  accept: (hit: Hit<T>) => Hit<T> | undefined = (hit) => hit,
 ): Hit<T> | undefined {
   let count = 1;
   while (
@@ -250,16 +263,19 @@ function longest<T>(
   for (let n = count; n >= 1; n--) {
     const run = words.slice(index, index + n);
     const found = find(run.map((word) => word.key).join(""));
-    if (!found) continue;
     const start = run[0]!.start;
     const end = run.at(-1)!.end;
-    return {
-      value: found.value,
-      start,
-      end,
-      next: index + n,
-      suffix: text.slice(end - found.suffix, end),
-    };
+    for (const candidate of [found].flat()) {
+      if (!candidate) continue;
+      const hit = accept({
+        value: candidate.value,
+        start,
+        end,
+        next: index + n,
+        suffix: text.slice(end - candidate.suffix, end),
+      });
+      if (hit) return hit;
+    }
   }
   return undefined;
 }
@@ -277,10 +293,25 @@ function identifierWords(text: string): Word[] {
   return words;
 }
 
-/** Writes words in the casing style of `identifier`: snake, kebab or camel, starting as `part` does. */
-function identifierStyle(words: readonly string[], part: string, identifier: string): string {
+/**
+ * The separator `part` uses: `_` or `-` between its words, none between camel humps, and for a
+ * single word the one joining it to a neighbouring word of `identifier`. A leading `_`, as in
+ * `_dockCount`, joins no words, so it is not a separator.
+ */
+function separatorOf(part: string, identifier: string, start: number, end: number): string {
+  const inner = /[\p{L}\p{N}]([_-])[\p{L}\p{N}]/u.exec(part)?.[1];
+  if (inner) return inner;
+  if (splitWords(part).length > 1) return "";
+  const before = identifier[start - 1] ?? "";
+  if (/[_-]/.test(before) && ALNUM.test(identifier[start - 2] ?? "")) return before;
+  const after = identifier[end] ?? "";
+  if (/[_-]/.test(after) && ALNUM.test(identifier[end + 1] ?? "")) return after;
+  return "";
+}
+
+/** Writes words in the casing style of `part`, the matched words of an identifier: snake, kebab or camel. */
+function identifierStyle(words: readonly string[], part: string, separator: string): string {
   const upper = isAllCaps(part);
-  const separator = identifier.includes("_") ? "_" : identifier.includes("-") ? "-" : "";
   if (separator) {
     const joined = words.join(separator);
     return upper ? joined.toUpperCase() : joined;
@@ -304,30 +335,36 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
   const abbrs = new Map<string, Entry>();
   const keep = new Set<string>();
   let maxWords = 1;
+  // `defineCorpus` lists terms from lowest to highest precedence, so a later abbreviation or avoid word wins.
   for (const term of corpus.terms) {
     const key = termKey(term.term);
-    const canonical = stripSymbols(term.term) || term.term;
+    const { lead, core, trail } = symbols(term.term);
     const entry: Entry = {
       term,
-      canonical,
+      canonical: term.term,
       mode: term.case ?? "spelling",
       skip: new Set(term.skip),
-      words: splitWords(canonical).map((word) => word.toLowerCase()),
+      words: splitWords(core || term.term).map((word) => word.toLowerCase()),
+      lead,
+      trail,
     };
     terms.set(key, entry);
     if (entry.mode === "exact") keep.add(key);
     maxWords = Math.max(maxWords, entry.words.length);
     for (const abbr of term.abbr ?? []) {
       const abbrKey = termKey(abbr);
-      if (abbrs.has(abbrKey)) continue;
+      const parts = symbols(abbr);
+      const words = splitWords(parts.core || abbr).map((w) => w.toLowerCase());
       abbrs.set(abbrKey, {
         ...entry,
         canonical: abbr,
         mode: "abbr",
-        words: splitWords(abbr).map((w) => w.toLowerCase()),
+        words,
+        lead: parts.lead,
+        trail: parts.trail,
       });
       keep.add(abbrKey);
-      maxWords = Math.max(maxWords, splitWords(abbr).length);
+      maxWords = Math.max(maxWords, words.length);
     }
   }
   const avoids = new Map<string, AvoidEntry>();
@@ -337,7 +374,8 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       const { word, why } = typeof avoid === "string" ? { word: avoid, why: undefined } : avoid;
       const key = termKey(word);
       // An avoid word with a term's key is a spelling of that term, which the TERM pass reports.
-      if (terms.has(key) || avoids.has(key)) continue;
+      if (terms.has(key)) continue;
+      avoids.delete(key);
       avoids.set(key, {
         term: entry.term,
         entry,
@@ -353,7 +391,19 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
   const avoidLimit = maxAvoidWords + 1;
   const textGap = (between: string): boolean => WORD_GAP.test(between);
   const avoidGap = (between: string): boolean => WORD_GAP.test(between.replace(/^\./, ""));
-  const findTerm = (key: string) => lookup(terms, key) ?? lookup(abbrs, key);
+  // `C++` and the abbreviation `C#` share the key `c`, so both are tried until one's symbols fit.
+  const findTerm = (key: string) => [lookup(terms, key), lookup(abbrs, key)];
+  // A term with symbols, such as `C#` or `.NET`, matches only where the text holds them too, and its hit covers them.
+  const withSymbols =
+    (text: string) =>
+    (hit: Hit<Entry>): Hit<Entry> | undefined => {
+      const { lead, trail } = hit.value;
+      if (lead === "" && trail === "") return hit;
+      if (trail !== "" && hit.suffix !== "") return undefined;
+      if (text.slice(hit.start - lead.length, hit.start) !== lead) return undefined;
+      if (text.slice(hit.end, hit.end + trail.length) !== trail) return undefined;
+      return { ...hit, start: hit.start - lead.length, end: hit.end + trail.length };
+    };
 
   function termFinding(text: string, hit: Hit<Entry>, kind: TextKind): Finding | undefined {
     const entry = hit.value;
@@ -365,6 +415,8 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     // case-police's rule: a preset term written all lowercase or all caps passes, whatever its spelling.
     if (entry.skip.has("lower") && !/\p{Lu}/u.test(surface)) return undefined;
     if (entry.skip.has("upper") && !hasLower(surface)) return undefined;
+    // A fix never spans a line break, since it would join the lines.
+    const fixable = !/[\r\n]/.test(written);
     if (squash(surface) !== squash(entry.canonical)) {
       const base = exact ? entry.canonical : keepCapitals(entry.canonical, surface);
       const replace = withSuffix(base, hit.suffix, entry.mode === "abbr");
@@ -375,10 +427,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         written,
         entry.term,
         `"${written}" is spelled "${replace}".`,
-        {
-          kind: "autofix",
-          replace,
-        },
+        fixable ? { kind: "autofix", replace } : undefined,
       );
     }
     // Context casing applies to labels and sentences only, so comments and unknown text get exact casing alone.
@@ -392,7 +441,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       want = sentenceCase(entry.canonical, atSentenceStart(text, hit.start));
       where = " in sentences";
     }
-    if (want === undefined || surface === want) return undefined;
+    if (want === undefined || surface.replace(/\s+/g, " ") === want) return undefined;
     const replace = withSuffix(want, hit.suffix, entry.mode === "abbr");
     return makeFinding(
       "GLOSSLINT_CASE",
@@ -401,10 +450,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       written,
       entry.term,
       `"${written}" is written "${replace}"${where}.`,
-      {
-        kind: "autofix",
-        replace,
-      },
+      fixable ? { kind: "autofix", replace } : undefined,
     );
   }
 
@@ -442,9 +488,10 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
 
   function checkText(text: string, kind: TextKind): Finding[] {
     const tokens = tokenize(text, keep);
+    const accept = withSymbols(text);
     const findings: Finding[] = [];
     for (let index = 0; index < tokens.length;) {
-      const hit = longest(text, tokens, index, termLimit, textGap, findTerm);
+      const hit = longest(text, tokens, index, termLimit, textGap, findTerm, accept);
       if (!hit) {
         index++;
         continue;
@@ -476,9 +523,12 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     const words = identifierWords(text);
     const findings: Finding[] = [];
     const anyGap = () => true;
+    // An identifier holds no symbols, so a term such as `C++` never matches one.
     const spelled = (key: string) => {
       const found = lookup(terms, key);
-      return found && found.value.mode !== "exact" ? found : undefined;
+      return found && found.value.mode !== "exact" && !found.value.lead && !found.value.trail
+        ? found
+        : undefined;
     };
     for (let index = 0; index < words.length;) {
       const hit = longest(text, words, index, termLimit, anyGap, spelled);
@@ -496,7 +546,8 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         (isAllCaps(written) && !/[_-]/.test(written))
       )
         continue;
-      const replace = identifierStyle(hit.value.words, written, text) + hit.suffix;
+      const separator = separatorOf(written, text, hit.start, hit.end);
+      const replace = identifierStyle(hit.value.words, written, separator) + hit.suffix;
       findings.push(
         makeFinding(
           "GLOSSLINT_TERM",
@@ -521,7 +572,8 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       }
       index = hit.next;
       const written = text.slice(hit.start, hit.end);
-      const base = identifierStyle(hit.value.entry.words, written, text);
+      const separator = separatorOf(written, text, hit.start, hit.end);
+      const base = identifierStyle(hit.value.entry.words, written, separator);
       const replace = hit.suffix ? plural(base) : base;
       findings.push(
         makeFinding(
@@ -566,21 +618,23 @@ export function check(matcher: Matcher, text: string, kind?: TextKind): Finding[
   return matcher.check(text, kind);
 }
 
+const LABEL_WORD = /^(?:label|(?:sub)?title|button|tab|heading|column)s?$/;
+const SENTENCE_WORD =
+  /^(?:description|tooltip|text|message|intro|outro|hint|explanation|body|help)s?$/;
+
 /** Whether a string is a label or a sentence, from its key or attribute name and its text. */
 export function kindOf(name: string | undefined, text: string): TextKind {
   const trimmed = text.trim();
   const endsSentence = /[.!?]$/.test(trimmed);
-  const key = name ?? "";
+  // Whole words of the key, so `tableHint` is no tab and `rename` no name.
+  const words = splitWords(name ?? "").map((word) => word.toLowerCase());
+  const last = words.at(-1) ?? "";
   if (
-    /label|title|header(name)?$|button|tab|heading|column|name$/i.test(key) &&
+    (words.some((word) => LABEL_WORD.test(word)) || /^(?:header|(?:header)?name)$/.test(last)) &&
     !endsSentence &&
     splitWords(trimmed).length <= 7
   )
     return "label";
-  if (
-    /description|tooltip|text|message|intro|outro|hint|explanation|body|help/i.test(key) ||
-    endsSentence
-  )
-    return "sentence";
+  if (words.some((word) => SENTENCE_WORD.test(word)) || endsSentence) return "sentence";
   return "unknown";
 }

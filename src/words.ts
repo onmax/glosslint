@@ -25,6 +25,17 @@ export interface Token {
   end: number;
 }
 
+/**
+ * Starts a reason that opens a sentence with a capital, so "riders confuse it" reads "Riders confuse it". A
+ * first word with a capital of its own, such as `eBike`, stays as written.
+ */
+export function capitalise(text: string): string {
+  return text.replace(
+    /^(\s*)(\p{Ll})(?=[\p{Ll}\p{N}'’-]*(?![\p{L}\p{N}]))/u,
+    (_, space: string, letter: string) => space + letter.toUpperCase(),
+  );
+}
+
 /** Characters allowed between the words of one term: spaces, hyphens and underscores. */
 export const WORD_GAP = /^[\s\-‐‑_]+$/;
 

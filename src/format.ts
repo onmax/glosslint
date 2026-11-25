@@ -1,3 +1,4 @@
+import { capitalise } from "./words.ts";
 import type { CliFinding, CliReport, Finding, FindingCode, Term, TermSummary } from "./types.ts";
 
 /** Options for `formatFinding` and `formatFindings`. */
@@ -36,7 +37,7 @@ export function formatFinding(finding: Finding | CliFinding, options: FormatOpti
     : `offset ${finding.start}`;
   const headline = `${paint(color, "1;31", `[${finding.code}]`)} "${finding.text}" ${isCliFinding(finding) ? "in" : "at"} ${paint(color, "36", where)}`;
   const lines: Array<[string, string]> = [];
-  if (finding.why) lines.push(["why", finding.why.trim().replace(/\s+/g, " ")]);
+  if (finding.why) lines.push(["why", capitalise(finding.why.trim().replace(/\s+/g, " "))]);
   if (finding.fix) {
     const result = "result" in finding.fix ? `: "${String(finding.fix.result).trim()}"` : "";
     lines.push(["fix", `${FIX_VERBS[finding.fix.kind]} "${finding.fix.replace}"${result}`]);

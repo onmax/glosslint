@@ -122,6 +122,32 @@ describe("explain", () => {
   Always written "eBike".`);
     expect(explain(bike, "scooter")).toBe('No term in the corpus matches "scooter".');
   });
+
+  it("starts a reason written in lowercase with a capital, keeping a first word with capitals", () => {
+    const corpus = defineCorpus({
+      terms: [
+        { term: "Station", avoid: [{ word: "hub", why: "riders confuse it with the depot" }] },
+        { term: "Battery", avoid: [{ word: "cell", why: "eBike riders read it as a phone." }] },
+      ],
+    });
+    expect(explain(corpus, "hub").split("\n").slice(0, 2)).toEqual([
+      "Station",
+      '  "hub" is an avoid word for Station. Riders confuse it with the depot.',
+    ]);
+    expect(explain(corpus, "cell").split("\n")[1]).toBe(
+      '  "cell" is an avoid word for Battery. eBike riders read it as a phone.',
+    );
+  });
+
+  it("finds an avoid word or abbreviation under the term that wins the merge", () => {
+    const a = defineCorpus({ terms: [{ term: "Station", avoid: ["hub"], abbr: ["ST"] }] });
+    const corpus = defineCorpus({
+      extends: [a],
+      terms: [{ term: "Depot", avoid: ["hub"], abbr: ["ST"] }],
+    });
+    expect(explainMatches(corpus, "hub").map((match) => match.term.term)).toEqual(["Depot"]);
+    expect(explainMatches(corpus, "ST").map((match) => match.term.term)).toEqual(["Depot"]);
+  });
 });
 
 describe("toX18nGlossary", () => {
