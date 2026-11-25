@@ -196,13 +196,16 @@ function clean(text: string): string {
   return empty.test(out) ? "" : out;
 }
 
-/** `Day Pass (DP, D)` gives the name and its abbreviations; other parentheses go to `extra`. */
+/**
+ * `Day Pass (DP, D)` gives the name and its abbreviations, each one word with a capital. Other
+ * parentheses, such as `(kiosk)`, are a note that goes to `extra` and from there to `nuance`.
+ */
 function parseName(part: string): { name: string; abbr: string[]; extra: string } {
   const match = /^(.*?)\s*\(([^()]*)\)$/.exec(part);
   if (!match) return { name: part, abbr: [], extra: "" };
   const name = clean(match[1] ?? "");
   const inner = splitTopLevel(match[2] ?? "");
-  if (inner.length && inner.every((item) => /^\S+$/.test(item))) {
+  if (inner.length && inner.every((item) => /^\S+$/.test(item) && /\p{Lu}/u.test(item))) {
     return { name, abbr: inner, extra: "" };
   }
   return { name, abbr: [], extra: sentence(clean(match[2] ?? "")) };

@@ -121,6 +121,24 @@ describe("fromGlossaryTable", () => {
     ]);
   });
 
+  it("reads a one-word parenthetical as an abbreviation only when it has a capital", () => {
+    const path = write(
+      "notes.md",
+      [
+        "| Use | Avoid |",
+        "| --- | --- |",
+        "| Recharge point (kiosk) | charger |",
+        "| Day Pass (DP, dP) | |",
+        "| Dock | rack (racks are unpowered) |",
+      ].join("\n"),
+    );
+    expect(fromGlossaryTable(path).terms).toEqual([
+      { term: "Recharge point", nuance: "kiosk.", avoid: ["charger"] },
+      { term: "Day Pass", abbr: ["DP", "dP"] },
+      { term: "Dock", avoid: [{ word: "rack", why: "racks are unpowered." }] },
+    ]);
+  });
+
   it("throws a config error when no table has a term column", () => {
     const path = write("none.md", "| Name | Notes |\n| --- | --- |\n| Dock | x |\n");
     expect(() => fromGlossaryTable(path)).toThrow(GlosslintConfigError);
