@@ -273,7 +273,6 @@ export function maskComark(
         text: inline.line.slice(start, end),
       });
     }
-    if (!opener) continue;
     depth++;
     // A YAML props block opens on the very next line and closes before the component does.
     if (!RULE.test(lines[index + 1] ?? "")) continue;
