@@ -1,2 +1,14 @@
+packages:
+  - .
+  - docs
+
 minimumReleaseAgeExclude:
   - "@types/node@26.6.10"
+  # The docs site (docs/) runs on ViteHub 0.5.1, released on 2026-11-25.
+  - "vite-hub"
+  - "@vite-hub/*"
+
+allowBuilds:
+  esbuild: true
+  vue-demi: true
+  workerd: true

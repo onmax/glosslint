@@ -1,0 +1,39 @@
+{
+  "name": "glosslint-docs",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "nuxt dev --port 4817",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@comark/html": "^0.9.2",
+    "@comark/vue": "^0.9.2",
+    "@iconify-json/lucide": "^1.2.149",
+    "@iconify-json/simple-icons": "^1.2.100",
+    "@iconify-json/vscode-icons": "^1.2.30",
+    "@nuxt/ui": "^4.13.1",
+    "@vite-hub/cms": "^0.5.1",
+    "@vite-hub/content": "^0.5.1",
+    "@vite-hub/database": "^0.5.1",
+    "@vite-hub/docs": "^0.5.1",
+    "@vite-hub/kv": "^0.5.1",
+    "comark": "^0.9.2",
+    "comark-ui": "^0.12.2",
+    "drizzle-orm": "1.0.0-rc.6",
+    "nitro": "3.0.261103-rc",
+    "nuxt": "^4.7.0",
+    "tailwindcss": "^4.1.0",
+    "vite-hub": "^0.5.1",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "drizzle-kit": "1.0.0-rc.6",
+    "wrangler": "^4.50.0"
+  }
+}

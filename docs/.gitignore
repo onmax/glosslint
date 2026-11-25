@@ -1,0 +1,9 @@
+.output
+.nuxt
+.vitehub
+.wrangler
+.data
+.generated
+dist
+.env*
+app/.vitehub
