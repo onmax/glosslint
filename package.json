@@ -1,0 +1,130 @@
+{
+  "name": "glosslint",
+  "version": "0.0.0",
+  "description": "Lint product terms against a corpus of words to use and avoid, with what each one means, in ESLint, x18n and a CLI",
+  "keywords": [
+    "case-police",
+    "eslint",
+    "eslint-plugin",
+    "eslintplugin",
+    "glossary",
+    "lint",
+    "terminology",
+    "vocabulary",
+    "writing",
+    "x18n"
+  ],
+  "homepage": "https://github.com/onmax/glosslint#readme",
+  "bugs": "https://github.com/onmax/glosslint/issues",
+  "license": "MIT",
+  "author": "onmax",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onmax/glosslint.git"
+  },
+  "bin": {
+    "glosslint": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "NOTICE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "typesVersions": {
+    "*": {
+      "package.json": [
+        "./package.json"
+      ],
+      "eslint": [
+        "./dist/eslint.d.mts"
+      ],
+      "x18n": [
+        "./dist/x18n.d.mts"
+      ],
+      "presets/tech": [
+        "./dist/presets/tech.d.mts"
+      ],
+      "presets/inclusive": [
+        "./dist/presets/inclusive.d.mts"
+      ],
+      "*": [
+        "./dist/index.d.mts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./eslint": {
+      "types": "./dist/eslint.d.mts",
+      "default": "./dist/eslint.mjs"
+    },
+    "./x18n": {
+      "types": "./dist/x18n.d.mts",
+      "default": "./dist/x18n.mjs"
+    },
+    "./presets/tech": {
+      "types": "./dist/presets/tech.d.mts",
+      "default": "./dist/presets/tech.mjs"
+    },
+    "./presets/inclusive": {
+      "types": "./dist/presets/inclusive.d.mts",
+      "default": "./dist/presets/inclusive.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "vp pack",
+    "lint": "vp lint",
+    "fmt": "vp fmt",
+    "typecheck": "tsrs --noEmit",
+    "test": "vp test",
+    "test:dist": "vp test run --config test/dist.config.ts",
+    "check": "vp check && pnpm typecheck",
+    "ready": "vp fmt && pnpm build && pnpm check && pnpm test",
+    "prepare": "vp config"
+  },
+  "dependencies": {
+    "cac": "^7.1.1",
+    "scule": "^1.3.0",
+    "tinyglobby": "^0.2.17"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.10",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "@x18n/core": "^0.1.14",
+    "case-police": "2.2.1",
+    "eslint": "^10.15.0",
+    "eslint-vitest-rule-tester": "^3.2.0",
+    "publint": "^0.3.25",
+    "tsrs": "7.1.0-beta.tsrs5",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.74.0",
+    "vite-plus": "^1.8.0",
+    "vue-eslint-parser": "^10.4.2",
+    "yaml-eslint-parser": "^2.1.0"
+  },
+  "peerDependencies": {
+    "@x18n/core": ">=0.1.14",
+    "eslint": ">=9.15.0"
+  },
+  "peerDependenciesMeta": {
+    "@x18n/core": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@12.16.1"
+}

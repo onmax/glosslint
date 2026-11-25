@@ -1,0 +1,86 @@
+// What npm users get: every entry imported by the package name, the CLI, and
+// the files `npm pack` would publish. Run with `pnpm test:dist`.
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vite-plus/test";
+
+const root = fileURLToPath(new URL("..", import.meta.url));
+const pkg = JSON.parse(readFileSync(`${root}package.json`, "utf8"));
+
+// Node resolves `glosslint/...` from inside the package through its own exports.
+function exportsOf(specifier: string): string[] {
+  const attributes = specifier.endsWith(".json") ? ', { with: { type: "json" } }' : "";
+  const script = `const m = await import(${JSON.stringify(specifier)}${attributes}); console.log(JSON.stringify(Object.keys(m).sort()))`;
+  const out = execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  return JSON.parse(out);
+}
+
+describe("dist", () => {
+  it("exports every entry by the package name", () => {
+    expect(exportsOf("glosslint")).toEqual([
+      "GlosslintConfigError",
+      "check",
+      "createMatcher",
+      "defineCorpus",
+      "explain",
+      "formatFinding",
+      "formatFindings",
+      "fromGlossaryTable",
+      "kindOf",
+      "printCorpus",
+      "testCorpus",
+      "toJson",
+      "toX18nGlossary",
+    ]);
+    for (const entry of ["glosslint/eslint", "glosslint/x18n"])
+      expect(exportsOf(entry)).toEqual(["default"]);
+    for (const entry of ["glosslint/presets/tech", "glosslint/presets/inclusive"])
+      expect(exportsOf(entry)).toEqual(["default"]);
+    expect(exportsOf("glosslint/package.json")).toEqual(["default"]);
+  });
+
+  it("lists every subpath in exports", () => {
+    expect(Object.keys(pkg.exports)).toEqual([
+      ".",
+      "./eslint",
+      "./x18n",
+      "./presets/tech",
+      "./presets/inclusive",
+      "./package.json",
+    ]);
+  });
+
+  it("runs the CLI from its bin", () => {
+    const help = execFileSync(process.execPath, [`${root}${pkg.bin.glosslint}`, "--help"], {
+      encoding: "utf8",
+    });
+    expect(help).toContain("glosslint");
+    for (const command of ["test", "print", "explain <query>"]) expect(help).toContain(command);
+    expect(readFileSync(`${root}${pkg.bin.glosslint}`, "utf8")).toMatch(
+      /^#!\/usr\/bin\/env node\n/,
+    );
+  });
+
+  it("packs only dist, the README, the licence and the notice", () => {
+    const [packed] = JSON.parse(
+      execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], {
+        cwd: root,
+        encoding: "utf8",
+      }),
+    );
+    const files: string[] = packed.files.map((file: { path: string }) => file.path);
+    const outside = files.filter(
+      (file) =>
+        !file.startsWith("dist/") &&
+        !["README.md", "LICENSE", "NOTICE", "package.json"].includes(file),
+    );
+    expect(outside).toEqual([]);
+    expect(files).toContain("NOTICE");
+    expect(files).toContain("dist/cli.mjs");
+    expect(files).toContain("dist/presets/tech.d.mts");
+  });
+});
