@@ -1,0 +1,156 @@
+import { describe, expect, it } from "vite-plus/test";
+import { defineCorpus } from "../src/corpus.ts";
+import { explain, explainMatches, printCorpus, testCorpus, toX18nGlossary } from "../src/tools.ts";
+import { bike, bikeTerms } from "./core/bike.ts";
+
+describe("testCorpus", () => {
+  it("passes when bad examples are reported and good ones are not", () => {
+    expect(testCorpus(bike)).toEqual([]);
+  });
+
+  it("fails a bad example that is not reported, or is reported only for another term", () => {
+    const corpus = defineCorpus({
+      terms: [
+        ...bikeTerms,
+        { term: "Ride", avoid: ["trip"], examples: { bad: ["Start a journey", "Find a hub"] } },
+      ],
+    });
+    const failures = testCorpus(corpus);
+    expect(
+      failures.map((failure) => [failure.term.term, failure.example, failure.expected]),
+    ).toEqual([
+      ["Ride", "Start a journey", "finding"],
+      ["Ride", "Find a hub", "finding"],
+    ]);
+    expect(failures[1]!.findings.map((finding) => finding.term.term)).toEqual(["Station"]);
+  });
+
+  it("fails a good example that is reported for its own term, but not for another term", () => {
+    const corpus = defineCorpus({
+      terms: [
+        ...bikeTerms,
+        { term: "Ride", avoid: ["trip"], examples: { good: ["Your trip ended", "Find a hub"] } },
+      ],
+    });
+    const failures = testCorpus(corpus);
+    expect(failures.map((failure) => [failure.example, failure.expected])).toEqual([
+      ["Your trip ended", "none"],
+    ]);
+    expect(failures[0]!.findings[0]).toMatchObject({ code: "GLOSSLINT_AVOID", text: "trip" });
+  });
+
+  it("reads each example as a label or a sentence, as kindOf does", () => {
+    const corpus = defineCorpus({
+      terms: [
+        {
+          term: "Day Pass",
+          case: "context",
+          examples: { good: ["Buy Day Pass", "Buy a day pass."], bad: ["Buy a Day Pass."] },
+        },
+      ],
+    });
+    expect(testCorpus(corpus)).toEqual([]);
+  });
+});
+
+describe("printCorpus", () => {
+  it("gives each described term a section and lists bare spellings on one line", () => {
+    const md = printCorpus(bike, "md");
+    expect(md).toContain(`## Dock
+A powered stand where one bike is locked.
+- A station is a group of docks.
+- Don't write: rack (racks are unpowered), bay.
+- Good: "Return the bike to any dock". Bad: "Return the bike to any rack".
+- See: [Docks](https://example.com/docs/docks), [Stations](https://example.com/docs/stations).
+`);
+    expect(md).toContain("## Station Manager\n- Don't write: SM (nobody outside ops knows it).\n");
+    expect(md).toContain(
+      "## Day Pass\nUnlimited rides for one calendar day.\n- Abbreviation: DP.\n",
+    );
+    expect(md.trimEnd().split("\n").at(-1)).toBe("Write these as shown: BikeShare.");
+    expect(md).not.toContain("## BikeShare");
+  });
+
+  it("prints the flattened corpus as JSON", () => {
+    expect(JSON.parse(printCorpus(bike, "json"))).toEqual({
+      terms: JSON.parse(JSON.stringify(bike.terms)),
+      allow: ["check out our", "roof rack"],
+    });
+  });
+});
+
+describe("explain", () => {
+  it("finds a term by its name, a plural or another spelling", () => {
+    expect(explainMatches(bike, "dock")).toEqual([{ term: bike.terms[0] }]);
+    expect(explainMatches(bike, "Docks").map((match) => match.term.term)).toEqual(["Dock"]);
+    expect(explainMatches(bike, "re-order point")).toEqual([
+      { term: bike.terms[5], note: '"re-order point" is spelled "Reorder point".' },
+    ]);
+  });
+
+  it("finds a term by an abbreviation, a form or an avoid word", () => {
+    expect(explainMatches(bike, "DP")[0]!.note).toBe('"DP" abbreviates Day Pass.');
+    expect(explainMatches(bike, "racks")[0]!.note).toBe(
+      '"rack" is an avoid word for Dock. Racks are unpowered.',
+    );
+    const corpus = defineCorpus({
+      terms: [{ term: "Dock", forms: { de: ["Docks", "Dockingstation"] } }],
+    });
+    expect(explainMatches(corpus, "Dockingstation")[0]!.note).toBe(
+      '"Dockingstation" is a form of Dock.',
+    );
+  });
+
+  it("falls back to the terms a phrase misspells or mentions", () => {
+    expect(explainMatches(bike, "put it in the crate")[0]).toMatchObject({
+      term: { term: "Box" },
+      note: '"crate" is an avoid word for Box.',
+    });
+    expect(explainMatches(bike, "every station").map((match) => match.term.term)).toEqual([
+      "Station",
+    ]);
+    expect(explainMatches(bike, "scooter")).toEqual([]);
+  });
+
+  it("prints the meaning, nuance, avoid words, examples, links and related terms", () => {
+    expect(explain(bike, "station")).toBe(`Station
+  A group of docks at one address.
+  Avoid: hub.
+  Related: Dock, Station Manager`);
+    expect(explain(bike, "eBike")).toBe(`eBike
+  A bike with an electric motor.
+  Always written "eBike".`);
+    expect(explain(bike, "scooter")).toBe('No term in the corpus matches "scooter".');
+  });
+});
+
+describe("toX18nGlossary", () => {
+  it("passes translations and forms, writes a note, and keeps exact terms untranslated", () => {
+    const corpus = defineCorpus({
+      terms: [
+        {
+          term: "Dock",
+          description: "A powered stand where one bike is locked",
+          nuance: "A station is a group of docks.",
+          translations: { de: "Dock" },
+          forms: { de: ["Docks"] },
+          avoid: ["rack"],
+        },
+        { term: "eBike", case: "exact" },
+        { term: "BikeShare", case: "exact", translations: { de: "Radverleih" } },
+        { term: "Checkout" },
+      ],
+    });
+    expect(toX18nGlossary(corpus)).toEqual([
+      {
+        term: "Dock",
+        translations: { de: "Dock" },
+        forms: { de: ["Docks"] },
+        note: "A powered stand where one bike is locked. A station is a group of docks.",
+      },
+      { term: "eBike", doNotTranslate: true },
+      { term: "BikeShare", translations: { de: "Radverleih" } },
+      { term: "Checkout" },
+    ]);
+  });
+});
