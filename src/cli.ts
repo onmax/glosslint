@@ -174,7 +174,8 @@ function blank(text: string): string {
 }
 
 const FRONTMATTER = /^(?:---|\+\+\+)\r?\n[\s\S]*?\r?\n(?:---|\+\+\+|\.\.\.)[ \t]*(?:\r?\n|$)/;
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+// A fence may sit in a list item or a blockquote: `- ```ts`, `> ~~~`.
+const FENCE = /^[ \t]*(?:>[ \t]?)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})([^\n]*)$/;
 const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 // A code span never crosses a blank line, written with LF or CRLF.
 const INLINE_CODE = /(?<!`)(`+)(?!`)(?:(?!\r?\n[ \t]*\r?\n)[\s\S])*?[^`]\1(?!`)/g;
@@ -199,13 +200,14 @@ export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): str
   const lines = out.split("\n");
   let fence: string | undefined;
   for (const [index, line] of lines.entries()) {
-    const marker = FENCE.exec(line)?.[1];
+    const match = FENCE.exec(line);
+    const marker = match?.[1];
     if (fence !== undefined) {
       if (
         marker &&
         marker[0] === fence[0] &&
         marker.length >= fence.length &&
-        line.trim() === marker
+        match![2]!.trim() === ""
       )
         fence = undefined;
       lines[index] = blank(line);

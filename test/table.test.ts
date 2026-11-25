@@ -141,6 +141,14 @@ describe("fromGlossaryTable", () => {
     ]);
   });
 
+  it("reads an all-caps name with a digit as exact", () => {
+    const path = write(
+      "caps.md",
+      "| Term | Description |\n| --- | --- |\n| 3D | The tilted map view. |",
+    );
+    expect(fromGlossaryTable(path).terms[0]?.case).toBe("exact");
+  });
+
   it("throws a config error when no table has a term column", () => {
     const path = write("none.md", "| Name | Notes |\n| --- | --- |\n| Dock | x |\n");
     expect(() => fromGlossaryTable(path)).toThrow(GlosslintConfigError);

@@ -210,6 +210,7 @@ function identifierRule(corpus: Corpus, settings: RuleSettings): Rule.RuleModule
           seen.add(id);
           const name = id.name as string;
           const start = sourceCode.text.indexOf(name, id.range[0]);
+          if (start === -1) continue;
           // A one-word term says nothing about how a name splits: `allowList` is fine for "allowlist".
           const findings = matcher
             .check(name, "identifier")

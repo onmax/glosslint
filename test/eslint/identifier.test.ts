@@ -27,6 +27,10 @@ describe("identifier", () => {
     expect(message?.fix).toBeUndefined();
   });
 
+  it("skips a name written with escapes instead of crashing", async () => {
+    await valid(`const re\\u0043hargePoint = 1;`);
+  });
+
   it("checks variables, functions, params, classes and properties", async () => {
     await invalid(`function reChargePoint() {}`, { errors: 1 });
     await invalid(`const f = function (re_charge_point) {};`, { errors: 1 });

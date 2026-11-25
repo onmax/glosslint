@@ -193,6 +193,10 @@ describe("Markdown masking", () => {
     expect(check(text)).toEqual([]);
   });
 
+  it("masks fences in list items and blockquotes", () => {
+    expect(check("- ```\n  rack\n  ```\n\n> ~~~\n> rack\n> ~~~\n")).toEqual([]);
+  });
+
   it("still reports the prose around masked parts, at the right line and column", () => {
     const findings = check("```\nrack\n```\n\nNo `rack` here, but a rack there.\n");
     expect(findings.map((finding) => [finding.line, finding.column, finding.text])).toEqual([

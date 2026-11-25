@@ -131,6 +131,11 @@ describe("CASE", () => {
     expect(hits("Day passes", "label")).toEqual(["CASE Day passes -> Day Passes"]);
   });
 
+  it("context: a spelling fix takes the label or sentence casing", () => {
+    expect(hits("Buy a daypass", "label")).toEqual(["TERM daypass -> Day Pass"]);
+    expect(hits("Buy a Daypass today.", "sentence")).toEqual(["TERM Daypass -> day pass"]);
+  });
+
   it("context: lowercase in sentences, capitalised at a sentence start", () => {
     expect(hits("Buy a Day Pass today.", "sentence")).toEqual(["CASE Day Pass -> day pass"]);
     expect(hits("Buy a day pass today.", "sentence")).toEqual([]);
@@ -174,6 +179,13 @@ describe("AVOID", () => {
   it("matches avoid words with two capitals in a row only as written", () => {
     expect(hits("Ask your SM")).toEqual(["AVOID SM -> Station Manager"]);
     expect(hits("Ask your sm or Sm")).toEqual([]);
+  });
+
+  it("falls back to a shorter avoid word when a longer one doesn't apply", () => {
+    const m = createMatcher(
+      defineCorpus({ terms: [{ term: "Dock", avoid: ["rack", "Rack API"] }] }),
+    );
+    expect(hits("Use the rack api now", undefined, m)).toEqual(["AVOID rack -> dock"]);
   });
 
   it("uses the label casing of a context term in labels", () => {
@@ -264,6 +276,10 @@ describe("masks (decision 8)", () => {
       "AVOID rack -> dock",
       "AVOID racks -> docks",
     ]);
+  });
+
+  it("skips an argument nested in an ICU branch", () => {
+    expect(hits("{n, plural, other {Pick {daypass} or a rack}}")).toEqual(["AVOID rack -> dock"]);
   });
 });
 

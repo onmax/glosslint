@@ -133,7 +133,10 @@ export function attributeName(attribute: Node): string | undefined {
 export function isSkippedString(node: Node, ignoreCallees: readonly string[]): boolean {
   let child = node;
   let parent = node.parent;
-  while (parent && WRAPPERS.has(parent.type)) {
+  while (
+    parent &&
+    (WRAPPERS.has(parent.type) || (parent.type === "BinaryExpression" && parent.operator === "+"))
+  ) {
     child = parent;
     parent = parent.parent;
   }
@@ -243,6 +246,8 @@ export function esSites(
     if (isCodeShape(text)) return [];
     const raw = (node.raw as string).slice(1, -1);
     const quote = (node.raw as string)[0]!;
+    // A quoted text key is reported, but renaming it would break every reader of that key.
+    const isKey = node.parent?.type === "Property" && node.parent.key === node;
     return [
       {
         text,
@@ -250,7 +255,7 @@ export function esSites(
         base: node.range[0] + 1,
         map: jsMap(raw, text),
         within: node.range,
-        safe: noneOf(quote, "\\", ...NEWLINES),
+        safe: isKey ? () => false : noneOf(quote, "\\", ...NEWLINES),
       },
     ];
   }
@@ -317,7 +322,9 @@ export function attributeSite(attribute: Node, source: string): Site | undefined
     base,
     map: identityMap(raw, text),
     within: value.range,
-    safe: noneOf("&", '"', "'", "<", ...NEWLINES),
+    safe: quote
+      ? noneOf("&", '"', "'", "<", ...NEWLINES)
+      : noneOf("&", '"', "'", "<", ">", "=", "`", " ", "\t", ...NEWLINES),
   };
 }
 

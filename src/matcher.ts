@@ -420,8 +420,15 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     if (entry.skip.has("upper") && !hasLower(surface)) return undefined;
     // A fix never spans a line break, since it would join the lines.
     const fixable = !/[\r\n]/.test(written);
+    // Context casing applies to labels and sentences only, so comments and unknown text get exact casing alone.
+    let contextWant: string | undefined;
+    if (entry.mode === "context" && kind === "label") contextWant = titleCase(entry.canonical);
+    else if (entry.mode === "context" && kind === "sentence")
+      contextWant = sentenceCase(entry.canonical, atSentenceStart(text, hit.start));
     if (squash(surface) !== squash(entry.canonical)) {
-      const base = exact ? entry.canonical : keepCapitals(entry.canonical, surface);
+      const base = exact
+        ? entry.canonical
+        : (contextWant ?? keepCapitals(entry.canonical, surface));
       const replace = withSuffix(base, hit.suffix, entry.mode === "abbr");
       return makeFinding(
         "GLOSSLINT_TERM",
@@ -433,17 +440,8 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         fixable ? { kind: "autofix", replace } : undefined,
       );
     }
-    // Context casing applies to labels and sentences only, so comments and unknown text get exact casing alone.
-    let want: string | undefined;
-    let where = "";
-    if (exact) want = entry.canonical;
-    else if (entry.mode === "context" && kind === "label") {
-      want = titleCase(entry.canonical);
-      where = " in labels";
-    } else if (entry.mode === "context" && kind === "sentence") {
-      want = sentenceCase(entry.canonical, atSentenceStart(text, hit.start));
-      where = " in sentences";
-    }
+    const want = exact ? entry.canonical : contextWant;
+    const where = exact || contextWant === undefined ? "" : ` in ${kind}s`;
     if (want === undefined || surface.replace(/\s+/g, " ") === want) return undefined;
     const replace = withSuffix(want, hit.suffix, entry.mode === "abbr");
     return makeFinding(
@@ -504,12 +502,14 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       index = hit.next;
     }
     const findAvoid = (key: string) => lookup(avoids, key);
+    // A longer avoid entry that doesn't apply here must not hide a shorter one that does.
+    const acceptAvoid = (hit: Hit<AvoidEntry>) => (avoidFinding(text, hit, kind) ? hit : undefined);
     for (let index = 0; index < tokens.length;) {
       // An avoid word may hold a period between words ("Min. qty"); if that reading fails, try without it.
-      let hit = longest(text, tokens, index, avoidLimit, avoidGap, findAvoid);
+      let hit = longest(text, tokens, index, avoidLimit, avoidGap, findAvoid, acceptAvoid);
       let finding = hit && avoidFinding(text, hit, kind);
       if (!finding) {
-        hit = longest(text, tokens, index, avoidLimit, textGap, findAvoid);
+        hit = longest(text, tokens, index, avoidLimit, textGap, findAvoid, acceptAvoid);
         finding = hit && avoidFinding(text, hit, kind);
       }
       if (!hit || !finding) {

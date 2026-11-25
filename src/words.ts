@@ -62,6 +62,23 @@ function blankAll(text: string, pattern: RegExp): string {
   return text.replace(pattern, (match) => " ".repeat(match.length));
 }
 
+/**
+ * Blanks an ICU message's syntax and keeps the words of its branches, such as `docks` in
+ * `{n, plural, other {# docks}}`. Odd brace depth is an argument, even depth is branch text.
+ * Returns undefined when the braces don't balance.
+ */
+function maskIcu(text: string): string | undefined {
+  let depth = 0;
+  let out = "";
+  for (const char of text) {
+    if (char === "{") depth++;
+    else if (char === "}" && --depth < 0) return undefined;
+    const keep = char !== "{" && char !== "}" && (depth === 0 || (depth % 2 === 0 && char !== "#"));
+    out += keep ? char : " ".repeat(char.length);
+  }
+  return depth === 0 ? out : undefined;
+}
+
 /** Whether a token with this key is spared from masking because it names an exact term, singular or plural. */
 function isKept(key: string, keep: ReadonlySet<string>): boolean {
   return (
@@ -80,9 +97,12 @@ export function mask(text: string, keep: ReadonlySet<string> = new Set()): strin
   out = blankAll(out, URL);
   out = blankAll(out, PATH);
   if (out.search(ICU_HEAD) !== -1) {
-    // Keep the words of each ICU branch, such as `# docks` in `{n, plural, other {# docks}}`.
-    out = blankAll(out, ICU_HEAD);
-    out = blankAll(out, ICU_BRANCH);
+    const icu = maskIcu(out);
+    if (icu !== undefined) out = icu;
+    else {
+      out = blankAll(out, ICU_HEAD);
+      out = blankAll(out, ICU_BRANCH);
+    }
   }
   out = blankAll(out, PLACEHOLDER);
   for (const match of out.matchAll(CHUNK)) {

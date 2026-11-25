@@ -226,7 +226,9 @@ function sentence(text: string): string {
 
 /** A capital right after a letter: an inner capital, like `eBike`, or all capitals, like `SOS`. */
 function isExactName(name: string): boolean {
-  return /\p{L}\p{Lu}/u.test(name);
+  return (
+    /\p{L}\p{Lu}/u.test(name) || (name.length > 1 && /\p{Lu}/u.test(name) && !/\p{Ll}/u.test(name))
+  );
 }
 
 function termKey(name: string): string {

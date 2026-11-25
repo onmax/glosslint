@@ -89,11 +89,13 @@ describe("term in TS", () => {
     await valid(`"use strict";`);
   });
 
-  it("checks a quoted key with a space, as a column header", async () => {
-    await invalid(`const row = { "Re-charge point": level };`, {
-      output: `const row = { "Recharge point": level };`,
-      errors: 1,
-    });
+  it("reports a quoted key with a space, as a column header, without fixing it", async () => {
+    await invalid(`const row = { "Re-charge point": level };`, { output: null, errors: 1 });
+  });
+
+  it("skips a concatenated key of t and a concatenated comparison", async () => {
+    await valid(`t("Re-charge point " + n)`);
+    await valid(`if (state === "Check-out" + suffix) go();`);
   });
 
   it("skips the first argument of t, $t, te, tm and the ignored callees", async () => {
@@ -164,6 +166,13 @@ describe("term in Vue", () => {
     await invalid("<template><p>{{ ok ? `Re-charge point` : 'Check-out' }}</p></template>", {
       output: "<template><p>{{ ok ? `Recharge point` : 'Checkout' }}</p></template>",
       errors: 2,
+    });
+  });
+
+  it("does not fix an unquoted attribute when the fix adds a space", async () => {
+    await invalid(`<template><UButton title=Rechargepoint /></template>`, {
+      output: null,
+      errors: 1,
     });
   });
 
