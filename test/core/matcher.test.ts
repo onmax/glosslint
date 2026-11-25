@@ -29,10 +29,10 @@ describe("createMatcher", () => {
 
 describe("TERM: spelling variants", () => {
   it("reports a different word split and keeps the writer's capitals", () => {
-    expect(hits("Re-order point")).toEqual(["TERM Re-order point -> Reorder point"]);
-    expect(hits("the re order point")).toEqual(["TERM re order point -> reorder point"]);
-    expect(hits("Re-Order Point")).toEqual(["TERM Re-Order Point -> Reorder Point"]);
-    expect(hits("RE-ORDER POINT")).toEqual(["TERM RE-ORDER POINT -> REORDER POINT"]);
+    expect(hits("Re-charge point")).toEqual(["TERM Re-charge point -> Recharge point"]);
+    expect(hits("the re charge point")).toEqual(["TERM re charge point -> recharge point"]);
+    expect(hits("Re-Charge Point")).toEqual(["TERM Re-Charge Point -> Recharge Point"]);
+    expect(hits("RE-CHARGE POINT")).toEqual(["TERM RE-CHARGE POINT -> RECHARGE POINT"]);
     expect(hits("Check-out")).toEqual(["TERM Check-out -> Checkout"]);
     expect(hits("CHECK-OUT")).toEqual(["TERM CHECK-OUT -> CHECKOUT"]);
     expect(hits("check out")).toEqual(["TERM check out -> checkout"]);
@@ -55,9 +55,9 @@ describe("TERM: spelling variants", () => {
   });
 
   it("matches plurals ending in s and es, keeping the ending", () => {
-    expect(hits("Re-order points")).toEqual(["TERM Re-order points -> Reorder points"]);
+    expect(hits("Re-charge points")).toEqual(["TERM Re-charge points -> Recharge points"]);
     expect(hits("two check-outs")).toEqual(["TERM check-outs -> checkouts"]);
-    expect(hits("RE-ORDER POINTS")).toEqual(["TERM RE-ORDER POINTS -> REORDER POINTS"]);
+    expect(hits("RE-CHARGE POINTS")).toEqual(["TERM RE-CHARGE POINTS -> RECHARGE POINTS"]);
   });
 
   it("prefers the longest term", () => {
@@ -79,16 +79,16 @@ describe("TERM: spelling variants", () => {
   });
 
   it("carries the offsets, message, why, term and first link", () => {
-    const [finding] = matcher.check("A re-order point.");
+    const [finding] = matcher.check("A re-charge point.");
     expect(finding).toEqual({
       code: "GLOSSLINT_TERM",
       start: 2,
-      end: 16,
-      text: "re-order point",
+      end: 17,
+      text: "re-charge point",
       message:
-        '"re-order point" is spelled "reorder point". Reorder point: The battery level at which a bike is sent to charge.',
-      fix: { kind: "autofix", replace: "reorder point" },
-      term: bike.terms.find((term) => term.term === "Reorder point")!,
+        '"re-charge point" is spelled "recharge point". Recharge point: The battery level at which a bike is sent to charge.',
+      fix: { kind: "autofix", replace: "recharge point" },
+      term: bike.terms.find((term) => term.term === "Recharge point")!,
     } satisfies Finding);
   });
 });
@@ -119,7 +119,7 @@ describe("CASE", () => {
 
   it("spelling (default): never reports casing", () => {
     for (const kind of ["label", "sentence", "unknown", "comment"] as const) {
-      expect(hits("REORDER POINT and Reorder Point and reorder point", kind)).toEqual([]);
+      expect(hits("RECHARGE POINT and Recharge Point and recharge point", kind)).toEqual([]);
       expect(hits("DOCK and dock and Dock", kind)).toEqual([]);
     }
   });
@@ -235,7 +235,7 @@ describe("possessives", () => {
   it("does not report the 's of a possessive or treat it as a plural", () => {
     expect(hits("The eBike's motor")).toEqual([]);
     expect(hits("The Day Pass's price", "label")).toEqual([]);
-    expect(hits("The re-order point's value")).toEqual(["TERM re-order point -> reorder point"]);
+    expect(hits("The re-charge point's value")).toEqual(["TERM re-charge point -> recharge point"]);
   });
 
   it("still reports an avoid word before a possessive", () => {
@@ -251,7 +251,7 @@ describe("masks (decision 8)", () => {
   });
 
   it("skips camel, snake and slug tokens", () => {
-    expect(hits("rackId, rack_id, RACK_ID, /racks/rack-list and re-order-point-x")).toEqual([]);
+    expect(hits("rackId, rack_id, RACK_ID, /racks/rack-list and re-charge-point-x")).toEqual([]);
   });
 
   it("keeps a camel token whose key is an exact term", () => {
@@ -309,10 +309,10 @@ describe("terms with symbols", () => {
 
 describe("kind comment", () => {
   it("reports TERM, AVOID and exact casing, but no context casing", () => {
-    expect(hits("// Move the ebike to a rack, then re-order point, Day pass", "comment")).toEqual([
+    expect(hits("// Move the ebike to a rack, then re-charge point, Day pass", "comment")).toEqual([
       "CASE ebike -> eBike",
       "AVOID rack -> dock",
-      "TERM re-order point -> reorder point",
+      "TERM re-charge point -> recharge point",
     ]);
   });
 });
@@ -320,32 +320,36 @@ describe("kind comment", () => {
 describe("kind identifier", () => {
   it("passes an identifier whose words split as the term's do", () => {
     expect(hits("dayPassId", "identifier")).toEqual([]);
-    expect(hits("reorderPoint", "identifier")).toEqual([]);
-    expect(hits("REORDER_POINT", "identifier")).toEqual([]);
+    expect(hits("rechargePoint", "identifier")).toEqual([]);
+    expect(hits("RECHARGE_POINT", "identifier")).toEqual([]);
     expect(hits("checkout", "identifier")).toEqual([]);
   });
 
   it("suggests a rename in the identifier's casing style", () => {
-    expect(hits("reOrderPoint", "identifier")).toEqual(["TERM reOrderPoint -> reorderPoint"]);
-    expect(hits("getReOrderPoint", "identifier")).toEqual(["TERM ReOrderPoint -> ReorderPoint"]);
-    expect(hits("re_order_point", "identifier")).toEqual(["TERM re_order_point -> reorder_point"]);
-    expect(hits("RE_ORDER_POINTS", "identifier")).toEqual([
-      "TERM RE_ORDER_POINTS -> REORDER_POINTS",
+    expect(hits("reChargePoint", "identifier")).toEqual(["TERM reChargePoint -> rechargePoint"]);
+    expect(hits("getReChargePoint", "identifier")).toEqual(["TERM ReChargePoint -> RechargePoint"]);
+    expect(hits("re_charge_point", "identifier")).toEqual([
+      "TERM re_charge_point -> recharge_point",
     ]);
-    expect(hits("re-order-point", "identifier")).toEqual(["TERM re-order-point -> reorder-point"]);
+    expect(hits("RE_CHARGE_POINTS", "identifier")).toEqual([
+      "TERM RE_CHARGE_POINTS -> RECHARGE_POINTS",
+    ]);
+    expect(hits("re-charge-point", "identifier")).toEqual([
+      "TERM re-charge-point -> recharge-point",
+    ]);
     expect(hits("daypassId", "identifier")).toEqual(["TERM daypass -> dayPass"]);
     expect(hits("isCheckOut", "identifier")).toEqual(["TERM CheckOut -> Checkout"]);
   });
 
   it("gives the rename fix kind and a rename headline", () => {
-    expect(matcher.check("reOrderPoint", "identifier")[0]).toMatchObject({
+    expect(matcher.check("reChargePoint", "identifier")[0]).toMatchObject({
       code: "GLOSSLINT_TERM",
       start: 0,
-      end: 12,
-      fix: { kind: "rename", replace: "reorderPoint" },
+      end: 13,
+      fix: { kind: "rename", replace: "rechargePoint" },
     });
-    expect(matcher.check("reOrderPoint", "identifier")[0]?.message).toMatch(
-      /^Rename "reOrderPoint" to "reorderPoint": the term is "Reorder point"\./,
+    expect(matcher.check("reChargePoint", "identifier")[0]?.message).toMatch(
+      /^Rename "reChargePoint" to "rechargePoint": the term is "Recharge point"\./,
     );
   });
 

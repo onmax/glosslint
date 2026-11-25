@@ -105,6 +105,32 @@ function squash(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ");
 }
 
+/** Words joined by single spaces, without periods, so `Min. qty` and `Min-qty` compare equal. */
+function spaced(text: string): string {
+  return text
+    .replace(/\./g, "")
+    .replace(/[\s\-‐‑_]+/g, " ")
+    .trim();
+}
+
+/** Whether `written` is `word` with some of its periods left out, ignoring case and word gaps. */
+function periodsFit(written: string, word: string): boolean {
+  // A period inside a word, as in `Node.js`, is part of that word, not a gap.
+  const flat = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/(?<=[\p{L}\p{N}])\.(?=[\p{L}\p{N}])/gu, "")
+      .replace(/[\s\-‐‑_]+/g, "");
+  const w = flat(written);
+  const a = flat(word);
+  let j = 0;
+  for (const char of a) {
+    if (char === w[j]) j++;
+    else if (char !== ".") return false;
+  }
+  return j === w.length;
+}
+
 function stripSymbols(text: string): string {
   return text.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
 }
@@ -268,7 +294,7 @@ function allowPattern(phrase: string): RegExp {
     .trim()
     .split(/\s+/)
     .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("\\s+");
+    .join("[\\s\\-‐‑_]+");
   return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?:e?s)?(?![\\p{L}\\p{N}])`, "giu");
 }
 
@@ -326,6 +352,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
   const termLimit = maxWords + 1;
   const avoidLimit = maxAvoidWords + 1;
   const textGap = (between: string): boolean => WORD_GAP.test(between);
+  const avoidGap = (between: string): boolean => WORD_GAP.test(between.replace(/^\./, ""));
   const findTerm = (key: string) => lookup(terms, key) ?? lookup(abbrs, key);
 
   function termFinding(text: string, hit: Hit<Entry>, kind: TextKind): Finding | undefined {
@@ -383,13 +410,15 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
 
   function avoidFinding(text: string, hit: Hit<AvoidEntry>, kind: TextKind): Finding | undefined {
     const avoid = hit.value;
-    const written = text.slice(hit.start, hit.end);
-    const surface = written.slice(0, written.length - hit.suffix.length);
-    if (
-      avoid.caseSensitive &&
-      surface.replace(/[\s\-_]+/g, " ") !== avoid.word.replace(/[\s\-_]+/g, " ")
-    )
-      return undefined;
+    // An abbreviation such as "Qty." keeps its period inside the finding.
+    const end =
+      hit.suffix === "" && avoid.word.endsWith(".") && text[hit.end] === "."
+        ? hit.end + 1
+        : hit.end;
+    const written = text.slice(hit.start, end);
+    const surface = hit.suffix ? written.slice(0, -hit.suffix.length) : written;
+    if (!periodsFit(surface, avoid.word)) return undefined;
+    if (avoid.caseSensitive && spaced(surface) !== spaced(avoid.word)) return undefined;
     const { entry } = avoid;
     let base: string;
     // An acronym written in capitals, such as "SM", says nothing about the casing around it.
@@ -402,7 +431,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     return makeFinding(
       "GLOSSLINT_AVOID",
       hit.start,
-      hit.end,
+      end,
       written,
       avoid.term,
       `Use "${replace}" instead of "${written}".`,
@@ -424,9 +453,15 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       if (finding) findings.push(finding);
       index = hit.next;
     }
+    const findAvoid = (key: string) => lookup(avoids, key);
     for (let index = 0; index < tokens.length;) {
-      const hit = longest(text, tokens, index, avoidLimit, textGap, (key) => lookup(avoids, key));
-      const finding = hit && avoidFinding(text, hit, kind);
+      // An avoid word may hold a period between words ("Min. qty"); if that reading fails, try without it.
+      let hit = longest(text, tokens, index, avoidLimit, avoidGap, findAvoid);
+      let finding = hit && avoidFinding(text, hit, kind);
+      if (!finding) {
+        hit = longest(text, tokens, index, avoidLimit, textGap, findAvoid);
+        finding = hit && avoidFinding(text, hit, kind);
+      }
       if (!hit || !finding) {
         index++;
         continue;

@@ -62,11 +62,11 @@ describe("formatFinding", () => {
   });
 
   it("prints a matcher finding with its offset, and the rename verb", () => {
-    const [finding] = matcher.check("reOrderPoint", "identifier");
+    const [finding] = matcher.check("reChargePoint", "identifier");
     expect(formatFinding(finding!)).toMatchInlineSnapshot(`
-      "[GLOSSLINT_TERM] "reOrderPoint" at offset 0
-      ├▶ fix: Rename to "reorderPoint"
-      ╰▶ term: Reorder point, the battery level at which a bike is sent to charge."
+      "[GLOSSLINT_TERM] "reChargePoint" at offset 0
+      ├▶ fix: Rename to "rechargePoint"
+      ╰▶ term: Recharge point, the battery level at which a bike is sent to charge."
     `);
   });
 

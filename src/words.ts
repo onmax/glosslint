@@ -7,7 +7,7 @@ export function splitWords(text: string): string[] {
   return splitByCase(text.trim(), SEPARATORS).filter((word) => word.length > 0);
 }
 
-/** A term's key: its words joined and lowercased, letters and digits only, so `Re-order point` and `reorder point` share one. */
+/** A term's key: its words joined and lowercased, letters and digits only, so `Re-charge point` and `recharge point` share one. */
 export function termKey(text: string): string {
   return splitWords(text)
     .join("")

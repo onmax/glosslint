@@ -64,16 +64,16 @@ describe("defineCorpus", () => {
     it("matches keys across spellings", () => {
       const corpus = defineCorpus({
         extends: [first],
-        terms: [{ term: "Re-order point" }, { term: "Day-Pass" }],
+        terms: [{ term: "Re-charge point" }, { term: "Day-Pass" }],
       });
       const other = defineCorpus({
         extends: [corpus],
-        terms: [{ term: "Reorder Point" }, { term: "day pass" }],
+        terms: [{ term: "Recharge Point" }, { term: "day pass" }],
       });
       expect(other.terms.map((term) => term.term)).toEqual([
         "Dock",
         "Station",
-        "Reorder Point",
+        "Recharge Point",
         "day pass",
       ]);
     });

@@ -25,9 +25,9 @@ describe("splitWords", () => {
 
 describe("termKey", () => {
   it("joins the words and lowercases them, so spellings of one term share a key", () => {
-    expect(termKey("Reorder point")).toBe("reorderpoint");
-    expect(termKey("Re-order Point")).toBe("reorderpoint");
-    expect(termKey("re_order_point")).toBe("reorderpoint");
+    expect(termKey("Recharge point")).toBe("rechargepoint");
+    expect(termKey("Re-charge Point")).toBe("rechargepoint");
+    expect(termKey("re_charge_point")).toBe("rechargepoint");
     expect(termKey("eBike")).toBe("ebike");
     expect(termKey("Node.js")).toBe("nodejs");
   });
@@ -96,8 +96,8 @@ describe("mask", () => {
   });
 
   it("keeps a two-part hyphenated word in prose, since that is how spelling variants are written", () => {
-    expect(words("the re-order point and check-out")).toEqual(
-      ["the", "re-order", "point", "and", "check-out"].flatMap((w) => w.split("-")),
+    expect(words("the re-charge point and check-out")).toEqual(
+      ["the", "re-charge", "point", "and", "check-out"].flatMap((w) => w.split("-")),
     );
   });
 

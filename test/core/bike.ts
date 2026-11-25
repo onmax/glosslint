@@ -27,7 +27,7 @@ export const bikeTerms: Term[] = [
     case: "context",
     description: "Unlimited rides for one calendar day.",
   },
-  { term: "Reorder point", description: "The battery level at which a bike is sent to charge." },
+  { term: "Recharge point", description: "The battery level at which a bike is sent to charge." },
   { term: "BikeShare", case: "exact", skip: ["lower", "upper"] },
   { term: "Box", avoid: ["crate"] },
   { term: "Station Manager", avoid: [{ word: "SM", why: "Nobody outside ops knows it." }] },
