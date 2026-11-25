@@ -30,7 +30,8 @@ function isBare(term: Term): boolean {
     !term.examples?.good?.length &&
     !term.examples?.bad?.length &&
     !term.links?.length &&
-    term.case !== "context"
+    term.case !== "context" &&
+    !term.casing
   );
 }
 
@@ -77,7 +78,18 @@ function writingLines(term: Term): string[] {
   if (term.abbr?.length)
     lines.push(`Abbreviation${term.abbr.length > 1 ? "s" : ""}: ${term.abbr.join(", ")}.`);
   if (term.case === "exact") lines.push(`Always written "${term.term}".`);
-  if (term.case === "context") lines.push("Title Case in labels, lowercase in sentences.");
+  if (term.casing && term.case !== "exact" && term.case !== "spelling") {
+    const names = {
+      title: "Title Case",
+      sentence: "sentence case",
+      lower: "lowercase",
+      upper: "ALL CAPS",
+    };
+    const styles = Object.entries(term.casing).map(
+      ([kind, style]) => `${style === "as-written" ? `"${term.term}"` : names[style]} in ${kind}s`,
+    );
+    lines.push(`Written ${styles.join(", ")}.`);
+  } else if (term.case === "context") lines.push("Title Case in labels, lowercase in sentences.");
   return lines;
 }
 

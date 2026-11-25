@@ -240,6 +240,8 @@ export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): str
     .join("\n");
 }
 
+const TABLE_DELIMITER = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*\r?$/;
+
 interface Block {
   start: number;
   end: number;
@@ -255,7 +257,8 @@ function blocks(original: string, masked: string, markdown: boolean): Block[] {
     current = undefined;
   };
   let start = 0;
-  for (const line of masked.split("\n")) {
+  const lines = masked.split("\n");
+  for (const [index, line] of lines.entries()) {
     const end = start + line.length;
     const source = original.slice(start, end);
     if (line.trim() === "") flush();
@@ -264,13 +267,15 @@ function blocks(original: string, masked: string, markdown: boolean): Block[] {
       found.push({ start, end, kind: "label" });
     } else if (markdown && source.trimStart().startsWith("|")) {
       flush();
+      // A row right above the `| --- |` delimiter row is the table's header.
+      const header = TABLE_DELIMITER.test(lines[index + 1] ?? "");
       let cellStart = start;
       for (const cell of line.split("|")) {
         if (cell.trim() !== "")
           found.push({
             start: cellStart,
             end: cellStart + cell.length,
-            kind: kindOf(undefined, cell),
+            kind: header ? "header" : kindOf(undefined, cell),
           });
         cellStart += cell.length + 1;
       }

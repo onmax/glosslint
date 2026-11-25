@@ -5,7 +5,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { checkFileText, maskMarkdown } from "../../src/cli.ts";
 import { createMatcher } from "../../src/matcher.ts";
 import type { CliReport } from "../../src/types.ts";
-import { bike } from "../core/bike.ts";
+import { defineCorpus } from "../../src/corpus.ts";
+import { bike, bikeTerms } from "../core/bike.ts";
 import { bikeDir, run } from "./run.ts";
 
 describe("glosslint check", () => {
@@ -262,6 +263,15 @@ describe("Markdown masking", () => {
       [8, 17, "rack"],
       [8, 29, "ebike"],
       [10, 17, "hub"],
+    ]);
+  });
+
+  it("reads a table's first row as headers", () => {
+    const shout = createMatcher(defineCorpus({ terms: bikeTerms, casing: { header: "upper" } }));
+    const text = "| Day Pass | Price |\n| --- | :-: |\n| Day Pass | 5 |\n";
+    const findings = checkFileText(shout, text, "doc.md", { markdown: true });
+    expect(findings.map((finding) => [finding.line, finding.fix?.replace])).toEqual([
+      [1, "DAY PASS"],
     ]);
   });
 

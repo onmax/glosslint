@@ -17,6 +17,18 @@ export interface Link {
 /** How a term's capitals are checked. */
 export type CaseMode = "exact" | "spelling" | "context";
 
+/**
+ * How a `context` term is written in one kind of text: `title` (Title Case), `sentence` (lowercase, with a capital at
+ * the start of a sentence), `lower`, `upper` (ALL CAPS) or `as-written` (the term exactly as the corpus writes it).
+ */
+export type CaseStyle = "title" | "sentence" | "lower" | "upper" | "as-written";
+
+/** The kinds of text whose casing a corpus or a term can set. */
+export type CasingKind = "label" | "header" | "sentence";
+
+/** The case style per kind of text. A header takes the label's style unless it sets its own. */
+export type Casing = Partial<Record<CasingKind, CaseStyle>>;
+
 /** One term of the corpus: the words to use, what they mean, and the words to avoid. */
 export interface Term {
   /** The term as it should be written, such as `Dock` or `eBike`. */
@@ -35,6 +47,8 @@ export interface Term {
   links?: Link[];
   /** `exact`: one form everywhere. `spelling` (default): word splits and hyphens only, in any case. `context`: Title Case in labels, lowercase in sentences. */
   case?: CaseMode;
+  /** This term's case style per kind of text, over the corpus's `casing`. Setting it makes the term `context` unless `case` says otherwise. */
+  casing?: Casing;
   /** Whole-word casings that always pass, as case-police skips `github` and `GITHUB`. */
   skip?: ("lower" | "upper")[];
   /** Other forms per locale, such as inflections, passed to x18n's glossary as they are. */
@@ -51,6 +65,8 @@ export interface CorpusInput {
   terms?: Term[];
   /** Phrases that are never reported, such as `roof rack`. A finding inside one is dropped. */
   allow?: string[];
+  /** The case style of `context` terms per kind of text. Default: `title` in labels and headers, `sentence` in sentences. */
+  casing?: Casing;
 }
 
 /** A validated, flattened corpus, as `defineCorpus` returns it. */
@@ -61,10 +77,12 @@ export interface Corpus {
   readonly terms: readonly Term[];
   /** Every allowed phrase, from `extends` first. */
   readonly allow: readonly string[];
+  /** The case style per kind of text, from `extends` first, then the corpus's own. */
+  readonly casing?: Readonly<Casing>;
 }
 
 /** What a string is, which decides how `context` terms are cased and which checks run. */
-export type TextKind = "label" | "sentence" | "comment" | "identifier" | "unknown";
+export type TextKind = "label" | "header" | "sentence" | "comment" | "identifier" | "unknown";
 
 /** What a finding may do: `autofix` applies alone, `suggestion` needs a person to pick it, `rename` touches every caller. */
 export type FixKind = "autofix" | "suggestion" | "rename";
