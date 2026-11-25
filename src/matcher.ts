@@ -1,16 +1,550 @@
-import type { Corpus, Finding, Matcher, TextKind } from "./types.ts";
+import type {
+  CaseMode,
+  Corpus,
+  Finding,
+  FindingCode,
+  FixKind,
+  Matcher,
+  Term,
+  TextKind,
+} from "./types.ts";
+import { splitWords, termKey, tokenize, WORD_GAP } from "./words.ts";
+
+/** Options for `createMatcher`. */
+export interface MatcherOptions {
+  /** Report avoid words inside identifiers too. Off by default, since renaming touches every caller. */
+  identifierAvoid?: boolean;
+}
+
+interface Entry {
+  term: Term;
+  /** The form to write, without leading or trailing symbols such as the `++` of `Notepad++`. */
+  canonical: string;
+  mode: CaseMode | "abbr";
+  skip: ReadonlySet<string>;
+  /** The canonical form's words, lowercased. */
+  words: string[];
+}
+
+interface AvoidEntry {
+  term: Term;
+  entry: Entry;
+  word: string;
+  why?: string;
+  caseSensitive: boolean;
+}
+
+interface Hit<T> {
+  value: T;
+  start: number;
+  end: number;
+  /** Index of the first word past the hit. */
+  next: number;
+  /** The plural ending as written, such as `s` or `ES`, or "". */
+  suffix: string;
+}
+
+interface Word {
+  key: string;
+  start: number;
+  end: number;
+}
+
+const SMALL_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "by",
+  "for",
+  "from",
+  "in",
+  "of",
+  "on",
+  "or",
+  "per",
+  "the",
+  "to",
+  "via",
+  "vs",
+  "with",
+]);
+
+const ALNUM = /[\p{L}\p{N}]/u;
+const WORD = /\p{L}[\p{L}\p{N}.'’]*/gu;
+
+const isUpper = (char: string): boolean =>
+  char !== char.toLowerCase() && char === char.toUpperCase();
+const hasLower = (text: string): boolean => /\p{Ll}/u.test(text);
+const isAllCaps = (text: string): boolean => /\p{Lu}.*\p{Lu}/u.test(text) && !hasLower(text);
+const upperFirst = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** Keeps a word's capitals when it has one past its first letter, such as `DP` or `eBike`. */
+const keepsCapitals = (word: string): boolean => /^.+\p{Lu}/u.test(word);
+
+function titleCase(text: string): string {
+  let index = 0;
+  return text.replace(WORD, (word) => {
+    const first = index++ === 0;
+    if (!first && SMALL_WORDS.has(word.toLowerCase())) return word.toLowerCase();
+    return word === word.toLowerCase() ? upperFirst(word) : word;
+  });
+}
+
+function lowerCase(text: string): string {
+  return text.replace(WORD, (word) => (keepsCapitals(word) ? word : word.toLowerCase()));
+}
+
+function sentenceCase(text: string, atStart: boolean): string {
+  const lower = lowerCase(text);
+  return atStart ? upperFirst(lower) : lower;
+}
+
+function squash(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ");
+}
+
+function stripSymbols(text: string): string {
+  return text.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+}
+
+/** Writes `canonical` with the writer's capitals: each word starts as the writer's letter at that place does. */
+function keepCapitals(canonical: string, surface: string): string {
+  if (isAllCaps(surface)) return canonical.toUpperCase();
+  const letters = Array.from(surface).filter((char) => ALNUM.test(char));
+  const chars = Array.from(canonical);
+  let index = 0;
+  let out = "";
+  for (const [position, char] of chars.entries()) {
+    if (!ALNUM.test(char)) {
+      out += char;
+      continue;
+    }
+    const wordStart = position === 0 || !ALNUM.test(chars[position - 1]!);
+    const written = letters[index++];
+    out +=
+      wordStart && written !== undefined
+        ? isUpper(written)
+          ? char.toUpperCase()
+          : char.toLowerCase()
+        : char;
+  }
+  return index === letters.length ? out : canonical;
+}
+
+function plural(word: string): string {
+  const ending = /(?:s|x|z|ch|sh)$/i.test(word) ? "es" : "s";
+  return word + (isAllCaps(word) ? ending.toUpperCase() : ending);
+}
+
+function withSuffix(replace: string, suffix: string, abbr: boolean): string {
+  if (suffix === "") return replace;
+  if (hasLower(replace) || abbr) return replace + suffix.toLowerCase();
+  return replace + suffix;
+}
+
+function atSentenceStart(text: string, start: number): boolean {
+  const before = text.slice(0, start);
+  return (
+    /^[\s\p{Ps}\p{Pi}"'*_•-]*$/u.test(before) ||
+    /[.!?:]["'\p{Pf}\p{Pe}]*\s+[\p{Ps}\p{Pi}"'*_]*$/u.test(before)
+  );
+}
+
+function endSentence(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  return /[.!?:]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+function makeFinding(
+  code: FindingCode,
+  start: number,
+  end: number,
+  text: string,
+  term: Term,
+  headline: string,
+  fix: { kind: FixKind; replace: string },
+  reason?: string,
+): Finding {
+  const see = term.links?.[0]?.url;
+  const why = reason ?? term.nuance;
+  const parts = [
+    headline,
+    reason && endSentence(reason),
+    term.description && `${term.term}: ${endSentence(term.description)}`,
+    term.nuance && term.nuance !== reason ? endSentence(term.nuance) : undefined,
+    see && `See ${see}`,
+  ];
+  return {
+    code,
+    start,
+    end,
+    text,
+    message: parts.filter(Boolean).join(" "),
+    ...(why ? { why } : {}),
+    fix,
+    term,
+    ...(see ? { see } : {}),
+  };
+}
+
+/** Finds a key in `map`, as written or as a plural ending in `s` or `es`. */
+function lookup<T>(
+  map: ReadonlyMap<string, T>,
+  key: string,
+): { value: T; suffix: number } | undefined {
+  const exact = map.get(key);
+  if (exact) return { value: exact, suffix: 0 };
+  if (key.length > 2 && key.endsWith("s")) {
+    const single = map.get(key.slice(0, -1));
+    if (single) return { value: single, suffix: 1 };
+    const es = key.endsWith("es") ? map.get(key.slice(0, -2)) : undefined;
+    if (es) return { value: es, suffix: 2 };
+  }
+  return undefined;
+}
+
+/** The longest run of words from `index` whose joined key `find` knows, up to `max` words. */
+function longest<T>(
+  text: string,
+  words: readonly Word[],
+  index: number,
+  max: number,
+  gap: (between: string) => boolean,
+  find: (key: string) => { value: T; suffix: number } | undefined,
+): Hit<T> | undefined {
+  let count = 1;
+  while (
+    count < max &&
+    index + count < words.length &&
+    gap(text.slice(words[index + count - 1]!.end, words[index + count]!.start))
+  )
+    count++;
+  for (let n = count; n >= 1; n--) {
+    const run = words.slice(index, index + n);
+    const found = find(run.map((word) => word.key).join(""));
+    if (!found) continue;
+    const start = run[0]!.start;
+    const end = run.at(-1)!.end;
+    return {
+      value: found.value,
+      start,
+      end,
+      next: index + n,
+      suffix: text.slice(end - found.suffix, end),
+    };
+  }
+  return undefined;
+}
+
+function identifierWords(text: string): Word[] {
+  const words: Word[] = [];
+  let cursor = 0;
+  for (const word of splitWords(text)) {
+    const start = text.indexOf(word, cursor);
+    if (start === -1) continue;
+    cursor = start + word.length;
+    const key = word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    if (key) words.push({ key, start, end: cursor });
+  }
+  return words;
+}
+
+/** Writes words in the casing style of `identifier`: snake, kebab or camel, starting as `part` does. */
+function identifierStyle(words: readonly string[], part: string, identifier: string): string {
+  const upper = isAllCaps(part);
+  const separator = identifier.includes("_") ? "_" : identifier.includes("-") ? "-" : "";
+  if (separator) {
+    const joined = words.join(separator);
+    return upper ? joined.toUpperCase() : joined;
+  }
+  const camel = words.map((word, index) => (index === 0 ? word : upperFirst(word))).join("");
+  return isUpper(part.charAt(0)) ? upperFirst(camel) : camel;
+}
+
+function allowPattern(phrase: string): RegExp {
+  const body = phrase
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("\\s+");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?:e?s)?(?![\\p{L}\\p{N}])`, "giu");
+}
 
 /** Compiles a corpus for matching. Build it once and reuse it. */
-export function createMatcher(_corpus: Corpus): Matcher {
-  throw new Error("not implemented");
+export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Matcher {
+  const terms = new Map<string, Entry>();
+  const abbrs = new Map<string, Entry>();
+  const keep = new Set<string>();
+  let maxWords = 1;
+  for (const term of corpus.terms) {
+    const key = termKey(term.term);
+    const canonical = stripSymbols(term.term) || term.term;
+    const entry: Entry = {
+      term,
+      canonical,
+      mode: term.case ?? "spelling",
+      skip: new Set(term.skip),
+      words: splitWords(canonical).map((word) => word.toLowerCase()),
+    };
+    terms.set(key, entry);
+    if (entry.mode === "exact") keep.add(key);
+    maxWords = Math.max(maxWords, entry.words.length);
+    for (const abbr of term.abbr ?? []) {
+      const abbrKey = termKey(abbr);
+      if (abbrs.has(abbrKey)) continue;
+      abbrs.set(abbrKey, {
+        ...entry,
+        canonical: abbr,
+        mode: "abbr",
+        words: splitWords(abbr).map((w) => w.toLowerCase()),
+      });
+      keep.add(abbrKey);
+      maxWords = Math.max(maxWords, splitWords(abbr).length);
+    }
+  }
+  const avoids = new Map<string, AvoidEntry>();
+  let maxAvoidWords = 1;
+  for (const entry of terms.values()) {
+    for (const avoid of entry.term.avoid ?? []) {
+      const { word, why } = typeof avoid === "string" ? { word: avoid, why: undefined } : avoid;
+      const key = termKey(word);
+      // An avoid word with a term's key is a spelling of that term, which the TERM pass reports.
+      if (terms.has(key) || avoids.has(key)) continue;
+      avoids.set(key, {
+        term: entry.term,
+        entry,
+        word,
+        ...(why ? { why } : {}),
+        caseSensitive: /\p{Lu}{2}/u.test(word),
+      });
+      maxAvoidWords = Math.max(maxAvoidWords, splitWords(word).length);
+    }
+  }
+  const allow = corpus.allow.map(allowPattern);
+  const termLimit = maxWords + 1;
+  const avoidLimit = maxAvoidWords + 1;
+  const textGap = (between: string): boolean => WORD_GAP.test(between);
+  const findTerm = (key: string) => lookup(terms, key) ?? lookup(abbrs, key);
+
+  function termFinding(text: string, hit: Hit<Entry>, kind: TextKind): Finding | undefined {
+    const entry = hit.value;
+    const written = text.slice(hit.start, hit.end);
+    const surface = written.slice(0, written.length - hit.suffix.length);
+    const exact = entry.mode === "exact" || entry.mode === "abbr";
+    // An abbreviation in lowercase prose is usually another word or a unit: leave it.
+    if (entry.mode === "abbr" && !/\p{Lu}/u.test(surface)) return undefined;
+    if (squash(surface) !== squash(entry.canonical)) {
+      const base = exact ? entry.canonical : keepCapitals(entry.canonical, surface);
+      const replace = withSuffix(base, hit.suffix, entry.mode === "abbr");
+      return makeFinding(
+        "GLOSSLINT_TERM",
+        hit.start,
+        hit.end,
+        written,
+        entry.term,
+        `"${written}" is spelled "${replace}".`,
+        {
+          kind: "autofix",
+          replace,
+        },
+      );
+    }
+    if (entry.skip.has("lower") && !/\p{Lu}/u.test(surface)) return undefined;
+    if (entry.skip.has("upper") && !hasLower(surface)) return undefined;
+    // Context casing applies to labels and sentences only, so comments and unknown text get exact casing alone.
+    let want: string | undefined;
+    let where = "";
+    if (exact) want = entry.canonical;
+    else if (entry.mode === "context" && kind === "label") {
+      want = titleCase(entry.canonical);
+      where = " in labels";
+    } else if (entry.mode === "context" && kind === "sentence") {
+      want = sentenceCase(entry.canonical, atSentenceStart(text, hit.start));
+      where = " in sentences";
+    }
+    if (want === undefined || surface === want) return undefined;
+    const replace = withSuffix(want, hit.suffix, entry.mode === "abbr");
+    return makeFinding(
+      "GLOSSLINT_CASE",
+      hit.start,
+      hit.end,
+      written,
+      entry.term,
+      `"${written}" is written "${replace}"${where}.`,
+      {
+        kind: "autofix",
+        replace,
+      },
+    );
+  }
+
+  function avoidFinding(text: string, hit: Hit<AvoidEntry>, kind: TextKind): Finding | undefined {
+    const avoid = hit.value;
+    const written = text.slice(hit.start, hit.end);
+    const surface = written.slice(0, written.length - hit.suffix.length);
+    if (
+      avoid.caseSensitive &&
+      surface.replace(/[\s\-_]+/g, " ") !== avoid.word.replace(/[\s\-_]+/g, " ")
+    )
+      return undefined;
+    const { entry } = avoid;
+    let base: string;
+    // An acronym written in capitals, such as "SM", says nothing about the casing around it.
+    if (entry.mode === "exact" || avoid.caseSensitive) base = entry.canonical;
+    else if (entry.mode === "context" && kind === "label") base = titleCase(entry.canonical);
+    else if (isAllCaps(surface)) base = entry.canonical.toUpperCase();
+    else if (isUpper(surface.charAt(0))) base = upperFirst(entry.canonical);
+    else base = lowerCase(entry.canonical);
+    const replace = hit.suffix ? plural(base) : base;
+    return makeFinding(
+      "GLOSSLINT_AVOID",
+      hit.start,
+      hit.end,
+      written,
+      avoid.term,
+      `Use "${replace}" instead of "${written}".`,
+      { kind: "suggestion", replace },
+      avoid.why,
+    );
+  }
+
+  function checkText(text: string, kind: TextKind): Finding[] {
+    const tokens = tokenize(text, keep);
+    const findings: Finding[] = [];
+    for (let index = 0; index < tokens.length;) {
+      const hit = longest(text, tokens, index, termLimit, textGap, findTerm);
+      if (!hit) {
+        index++;
+        continue;
+      }
+      const finding = termFinding(text, hit, kind);
+      if (finding) findings.push(finding);
+      index = hit.next;
+    }
+    for (let index = 0; index < tokens.length;) {
+      const hit = longest(text, tokens, index, avoidLimit, textGap, (key) => lookup(avoids, key));
+      const finding = hit && avoidFinding(text, hit, kind);
+      if (!hit || !finding) {
+        index++;
+        continue;
+      }
+      findings.push(finding);
+      index = hit.next;
+    }
+    return findings;
+  }
+
+  function checkIdentifier(text: string): Finding[] {
+    const words = identifierWords(text);
+    const findings: Finding[] = [];
+    const anyGap = () => true;
+    const spelled = (key: string) => {
+      const found = lookup(terms, key);
+      return found && found.value.mode !== "exact" ? found : undefined;
+    };
+    for (let index = 0; index < words.length;) {
+      const hit = longest(text, words, index, termLimit, anyGap, spelled);
+      if (!hit) {
+        index++;
+        continue;
+      }
+      index = hit.next;
+      const written = text.slice(hit.start, hit.end);
+      const keys = splitWords(written.slice(0, written.length - hit.suffix.length)).map((word) =>
+        word.toLowerCase(),
+      );
+      if (
+        keys.join(" ") === hit.value.words.join(" ") ||
+        (isAllCaps(written) && !/[_-]/.test(written))
+      )
+        continue;
+      const replace = identifierStyle(hit.value.words, written, text) + hit.suffix;
+      findings.push(
+        makeFinding(
+          "GLOSSLINT_TERM",
+          hit.start,
+          hit.end,
+          written,
+          hit.value.term,
+          `Rename "${written}" to "${replace}": the term is "${hit.value.term.term}".`,
+          {
+            kind: "rename",
+            replace,
+          },
+        ),
+      );
+    }
+    if (!options.identifierAvoid) return findings;
+    for (let index = 0; index < words.length;) {
+      const hit = longest(text, words, index, avoidLimit, anyGap, (key) => lookup(avoids, key));
+      if (!hit) {
+        index++;
+        continue;
+      }
+      index = hit.next;
+      const written = text.slice(hit.start, hit.end);
+      const base = identifierStyle(hit.value.entry.words, written, text);
+      const replace = hit.suffix ? plural(base) : base;
+      findings.push(
+        makeFinding(
+          "GLOSSLINT_AVOID",
+          hit.start,
+          hit.end,
+          written,
+          hit.value.term,
+          `Rename "${written}" to "${replace}".`,
+          { kind: "rename", replace },
+          hit.value.why,
+        ),
+      );
+    }
+    return findings;
+  }
+
+  function allowed(text: string): Array<[number, number]> {
+    const ranges: Array<[number, number]> = [];
+    for (const pattern of allow)
+      for (const match of text.matchAll(pattern))
+        ranges.push([match.index, match.index + match[0].length]);
+    return ranges;
+  }
+
+  return {
+    corpus,
+    check(text: string, kind: TextKind = "unknown"): Finding[] {
+      const findings = kind === "identifier" ? checkIdentifier(text) : checkText(text, kind);
+      const ranges = findings.length > 0 ? allowed(text) : [];
+      return findings
+        .filter(
+          (finding) => !ranges.some(([start, end]) => finding.start >= start && finding.end <= end),
+        )
+        .sort((a, b) => a.start - b.start || a.code.localeCompare(b.code));
+    },
+  };
 }
 
 /** Finds every problem in `text`, read as `kind` (default `unknown`). */
-export function check(_matcher: Matcher, _text: string, _kind?: TextKind): Finding[] {
-  throw new Error("not implemented");
+export function check(matcher: Matcher, text: string, kind?: TextKind): Finding[] {
+  return matcher.check(text, kind);
 }
 
 /** Whether a string is a label or a sentence, from its key or attribute name and its text. */
-export function kindOf(_name: string | undefined, _text: string): TextKind {
-  throw new Error("not implemented");
+export function kindOf(name: string | undefined, text: string): TextKind {
+  const trimmed = text.trim();
+  const endsSentence = /[.!?]$/.test(trimmed);
+  const key = name ?? "";
+  if (
+    /label|title|header(name)?$|button|tab|heading|column|name$/i.test(key) &&
+    !endsSentence &&
+    splitWords(trimmed).length <= 7
+  )
+    return "label";
+  if (
+    /description|tooltip|text|message|intro|outro|hint|explanation|body|help/i.test(key) ||
+    endsSentence
+  )
+    return "sentence";
+  return "unknown";
 }
