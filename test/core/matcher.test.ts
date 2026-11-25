@@ -610,6 +610,10 @@ describe("casing", () => {
       "CASE Day Pass price -> DAY PASS PRICE",
     ]);
     expect(hits("Buy a Day Pass", "label", title)).toEqual([]);
+    expect(hits("{count} day pass | {count} day passes", "label", title)).toEqual([
+      "CASE day pass -> Day Pass",
+      "CASE day passes -> Day Passes",
+    ]);
     expect(hits("Return the bike to a dock", "label", title)).toEqual([]);
   });
 

@@ -624,7 +624,8 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     const lead = /^\s*/.exec(fixed)![0].length;
     const body = fixed.trim();
     const want = applyStyle(styled.style, body, true);
-    if (want === body || /[\r\n]/.test(body)) return undefined;
+    // Text across lines, or with `{count}` placeholders or `|` plural forms, is a template, not one label.
+    if (want === body || /[\r\n{}|]/.test(body)) return undefined;
     const start = /^\s*/.exec(text)![0].length;
     const end = text.trimEnd().length;
     const where = styled.style === "upper" ? "ALL CAPS" : "Title Case";
