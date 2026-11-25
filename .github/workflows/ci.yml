@@ -70,7 +70,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # Only the library: the docs site (docs/) needs Node 24, and its tests read docs/content without installing it.
+      - run: pnpm install --frozen-lockfile --filter glosslint
       - run: pnpm test
 
   # Every entry imported by the package name from the built dist/, the CLI

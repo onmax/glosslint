@@ -2,6 +2,9 @@
   "name": "glosslint-docs",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "nuxt dev --port 4817",
     "build": "nuxt build",
