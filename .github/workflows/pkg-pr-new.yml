@@ -6,6 +6,8 @@ on:
     branches:
       # Release PRs created with GITHUB_TOKEN may not trigger pull_request workflows.
       - "release/v*"
+  # Publishes a preview of any branch, such as main after a squash merge.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
@@ -20,7 +22,7 @@ jobs:
 
   publish:
     # Do not give fork pull requests a write-capable token while executing their package scripts.
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     needs: check
     runs-on: ubuntu-latest
     permissions:
