@@ -292,3 +292,88 @@ describe("Markdown masking", () => {
     expect(findings.map((finding) => finding.text)).toEqual(["rack"]);
   });
 });
+
+describe("Comark components", () => {
+  const matcher = createMatcher(bike);
+  const where = (text: string, file = "doc.md") =>
+    checkFileText(matcher, text, file, { markdown: true, mdx: file.endsWith(".mdx") }).map(
+      (finding) => [finding.line, finding.column, finding.text, finding.fix?.replace],
+    );
+
+  it("never reads component names, config props, slots or YAML props as words", () => {
+    const text = [
+      '::hub{to="/docs/rack" color="bay" .crate #rack}',
+      "#bay",
+      ":::hub{icon=i-lucide-rack}",
+      "---",
+      "icon: rack",
+      "color: bay",
+      "---",
+      ':hub{to="/rack"}',
+      ":hub",
+      ":::",
+      "::",
+    ].join("\n");
+    expect(where(text)).toEqual([]);
+  });
+
+  it("checks text props and the body, at their place in the source", () => {
+    const text = [
+      '::card{title="Rack guide" icon="i-lucide-rack"}',
+      "Every rack is a dock.",
+      "::",
+      "",
+      ':read-more{title="Find a hub" to="/hub"}',
+      "",
+      "::card",
+      "---",
+      'title: "The rack"',
+      "description: Racks are gone",
+      "---",
+      "#title",
+      "A hub.",
+      "::",
+      "",
+      ':badge[A rack]{color="hub"}',
+    ].join("\n");
+    expect(where(text)).toEqual([
+      [1, 15, "Rack", "Dock"],
+      [2, 7, "rack", "dock"],
+      [5, 26, "hub", "station"],
+      [9, 13, "rack", "dock"],
+      [10, 14, "Racks", "Docks"],
+      [13, 3, "hub", "station"],
+      [16, 10, "rack", "dock"],
+    ]);
+  });
+
+  it("starts a sentence at the component's first line, also after YAML props", () => {
+    const sentence = "Day Pass rides are cheaper.";
+    const plain = where(`${sentence}\n`);
+    expect(where(`::note\n${sentence}\n::\n`)).toEqual(plain.map(([, ...rest]) => [2, ...rest]));
+    expect(where(`::card\n---\nicon: x\n---\n${sentence}\n::\n`)).toEqual(
+      plain.map(([, ...rest]) => [5, ...rest]),
+    );
+  });
+
+  it("reads a title prop as a label", () => {
+    expect(where('::card{title="Buy a day pass"}\n::\n')).toEqual([
+      [1, 21, "day pass", "Day Pass"],
+    ]);
+  });
+
+  it("leaves code fences, MDX and ordinary colons alone", () => {
+    expect(where("::hub\n```md\n::\n```\nA rack.\n::\n")).toEqual([[5, 3, "rack", "dock"]]);
+    expect(where("::hub\n", "doc.mdx")).toEqual([[1, 3, "hub", "station"]]);
+    expect(where("Note: the rack opens at 10:30.\n").map(([, column]) => column)).toEqual([11]);
+    expect(where('::hub{to="x\n').map(([, , text]) => text)).toEqual(["hub"]);
+  });
+
+  it("keeps offsets in CRLF files", () => {
+    const lf = '::card{title="Rack guide"}\n---\ntitle: A hub\n---\nA rack.\n::\n';
+    const crlf = lf.replace(/\n/g, "\r\n");
+    expect(maskMarkdown(lf)).toHaveLength(lf.length);
+    expect(maskMarkdown(crlf)).toBe(maskMarkdown(lf).replace(/\n/g, "\r\n"));
+    expect(where(crlf)).toEqual(where(lf));
+  });
+});

@@ -7,6 +7,7 @@ import { cac } from "cac";
 import { escapePath, glob, isDynamicPattern } from "tinyglobby";
 import pkg from "../package.json" with { type: "json" };
 import { formatFindings, toJson } from "./format.ts";
+import { type ComarkProp, maskComark } from "./comark.ts";
 import { DEFAULT_GLOSSARY, GLOSSARY_PROBLEMS, readGlossary } from "./glossary.ts";
 import type { GlossaryProblem } from "./glossary.ts";
 import { kindOf } from "./kind.ts";
@@ -280,9 +281,17 @@ const LIST_ITEM = /^ {0,3}(?:>[ \t]?)*(?:[-*+]|\d{1,9}[.)])[ \t]/;
 /**
  * Blanks what is not prose in Markdown, keeping every offset: frontmatter, fenced code, HTML
  * comments and tags, inline code, link targets and references, and the markers of headings, lists
- * and quotes. In MDX, `import` and `export` lines too.
+ * and quotes. In MDX, `import` and `export` lines too; in other Markdown, Comark component markup.
  */
 export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): string {
+  return maskMarkdownParts(text, options).masked;
+}
+
+/** {@link maskMarkdown}, plus the Comark text props it blanked, which are checked on their own. */
+function maskMarkdownParts(
+  text: string,
+  options: { mdx?: boolean },
+): { masked: string; props: ComarkProp[] } {
   let out = text.replace(FRONTMATTER, blank);
   const lines = out.split("\n");
   // The open fence's marker and blockquote depth; it closes only at the same depth, never on a list item.
@@ -309,15 +318,21 @@ export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): str
       lines[index] = blank(line);
     }
   }
-  out = lines.join("\n");
-  out = out.replace(HTML_COMMENT, blank);
+  out = lines.join("\n").replace(HTML_COMMENT, blank);
+  // MDX reads `{...}` as code and has no Comark syntax.
+  let props: ComarkProp[] = [];
+  if (!options.mdx) {
+    const comark = maskComark(out.split("\n"), blank);
+    out = comark.lines.join("\n");
+    props = comark.props;
+  }
   out = out.replace(INLINE_CODE, blank);
   out = out.replace(REFERENCE_DEFINITION, blank);
   out = out.replace(LINK_TARGET, blank);
   out = out.replace(LINK_REFERENCE, blank);
   out = out.replace(AUTOLINK, blank);
   out = out.replace(TAG, blank);
-  return out
+  const masked = out
     .split("\n")
     .map((line) => {
       let masked = line.replace(LINE_PREFIX, blank);
@@ -325,6 +340,7 @@ export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): str
       return masked;
     })
     .join("\n");
+  return { masked, props };
 }
 
 const TABLE_DELIMITER = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*\r?$/;
@@ -333,6 +349,8 @@ interface Block {
   start: number;
   end: number;
   kind: TextKind;
+  /** Read from the source rather than the masked text, as a Comark prop value is. */
+  source?: boolean;
 }
 
 /** Splits text into the pieces checked one at a time: headings, table cells, list items and paragraphs. */
@@ -393,7 +411,9 @@ export function checkFileText(
   options: { markdown?: boolean; mdx?: boolean } = {},
 ): CliFinding[] {
   const markdown = options.markdown ?? false;
-  const masked = markdown ? maskMarkdown(text, { mdx: options.mdx ?? false }) : text;
+  const { masked, props } = markdown
+    ? maskMarkdownParts(text, { mdx: options.mdx ?? false })
+    : { masked: text, props: [] };
   const lineStarts = [0];
   for (let index = text.indexOf("\n"); index !== -1; index = text.indexOf("\n", index + 1))
     lineStarts.push(index + 1);
@@ -409,8 +429,18 @@ export function checkFileText(
   };
   const lineEnd = (line: number): number => (lineStarts[line + 1] ?? text.length + 1) - 1;
   const findings: CliFinding[] = [];
-  for (const block of blocks(text, masked, markdown)) {
-    for (const finding of matcher.check(masked.slice(block.start, block.end), block.kind)) {
+  const all: Block[] = [
+    ...blocks(text, masked, markdown),
+    ...props.map((prop) => ({
+      start: prop.start,
+      end: prop.end,
+      kind: kindOf({ text: text.slice(prop.start, prop.end), name: prop.name, shown: true }),
+      source: true,
+    })),
+  ].sort((a, b) => a.start - b.start);
+  for (const block of all) {
+    const read = block.source ? text : masked;
+    for (const finding of matcher.check(read.slice(block.start, block.end), block.kind)) {
       const start = block.start + finding.start;
       const end = block.start + finding.end;
       const line = lineOf(start);
