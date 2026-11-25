@@ -1,5 +1,5 @@
 import type { Rule } from "eslint";
-import { kindOf } from "../matcher.ts";
+import { isTitled, kindOf } from "../matcher.ts";
 import type { Finding, TextKind } from "../types.ts";
 import { identityMap, jsMap, yamlDoubleMap, yamlSingleMap } from "./offsets.ts";
 
@@ -263,6 +263,8 @@ export function esSites(
   const cookedOf = (quasi: Node) => (quasi.value as { cooked: string | null }).cooked;
   // A template is code when its text, read without the expressions, is: `item-${id}`.
   if (isCodeShape(quasis.map((quasi) => cookedOf(quasi) ?? "").join(""))) return [];
+  // Every part of a template is the same kind of text: the kind of the whole, with each expression as a word.
+  const kind = kindOf(name, quasis.map((quasi) => cookedOf(quasi) ?? "").join("x"));
   const sites: Site[] = [];
   for (const quasi of quasis) {
     const cooked = cookedOf(quasi);
@@ -272,7 +274,7 @@ export function esSites(
     const exact = source.slice(base, base + raw.length) === raw;
     sites.push({
       text: cooked,
-      kind: kindOf(name, cooked),
+      kind,
       base,
       map: exact ? jsMap(raw, cooked) : undefined,
       within: quasi.range,
@@ -287,6 +289,42 @@ function attributeNameOf(node: Node): string | undefined {
   return attribute ? attributeName(attribute) : undefined;
 }
 
+/** The name a Vue text node's element gives it: the slot of a `<template #header>`, `heading` for `<h2>`, or the tag. */
+function elementName(node: Node): string | undefined {
+  const element = node.parent;
+  if (element?.type !== "VElement") return undefined;
+  const tag = String(element.rawName ?? element.name ?? "");
+  if (/^h[1-6]$/i.test(tag)) return "heading";
+  if (tag !== "template") return tag;
+  const attributes = ((element.startTag as Node | undefined)?.attributes ?? []) as Node[];
+  for (const attribute of attributes) {
+    const key = attribute.key as Node | undefined;
+    if (!attribute.directive || (key?.name as Node | undefined)?.name !== "slot") continue;
+    const argument = key?.argument as Node | null | undefined;
+    if (argument?.type === "VIdentifier") return String(argument.rawName ?? argument.name);
+  }
+  return undefined;
+}
+
+/** First words that open a sentence rather than a label, as in "There are no rides". */
+const SENTENCE_OPENER =
+  /^(?:there|this|that|these|those|it|you|we|they|i|is|are|was|were|do|does|did|can|could|will|would|should|has|have)$/i;
+
+/**
+ * The kind of text a person reads, such as template text or a locale string: from its name, else
+ * a label when it is a few words without a final stop and doesn't open like a sentence, or when it
+ * is written in Title Case, else a sentence.
+ */
+function shownKind(name: string | undefined, text: string): TextKind {
+  const kind = kindOf(name, text);
+  if (kind !== "unknown") return kind;
+  const trimmed = text.trim().replace(/:$/, "");
+  const words = trimmed.split(/\s+/);
+  if (/[.!?]$/.test(trimmed)) return "sentence";
+  const short = words.length <= 4 && !SENTENCE_OPENER.test(words[0]!);
+  return short || isTitled(trimmed.replace(/\([^)]*\)/g, "")) ? "label" : "sentence";
+}
+
 /** Builds the site of a Vue template text node. */
 export function textSite(node: Node, source: string): Site | undefined {
   const text = node.value as string;
@@ -294,7 +332,7 @@ export function textSite(node: Node, source: string): Site | undefined {
   const raw = source.slice(node.range[0], node.range[1]);
   return {
     text,
-    kind: kindOf("text", text),
+    kind: shownKind(elementName(node), text),
     base: node.range[0],
     map: identityMap(raw, text),
     within: node.range,
@@ -346,7 +384,7 @@ export function yamlSite(node: Node): Site | undefined {
   const text = node.value;
   const name = yamlKeyName(node);
   const raw = typeof node.raw === "string" ? node.raw : "";
-  const site = { text, kind: kindOf(name, text), within: node.range };
+  const site = { text, kind: shownKind(name, text), within: node.range };
   switch (node.style) {
     case "plain":
       return {

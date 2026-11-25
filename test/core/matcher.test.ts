@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../../src/corpus.ts";
 import { check, createMatcher, kindOf } from "../../src/matcher.ts";
-import type { Finding, TextKind } from "../../src/types.ts";
-import { bike } from "./bike.ts";
+import type { Casing, Finding, Term, TextKind } from "../../src/types.ts";
+import { bike, bikeTerms } from "./bike.ts";
 
 const matcher = createMatcher(bike);
 
@@ -469,7 +469,14 @@ describe("kindOf", () => {
   it("reads labels from the key and short text", () => {
     expect(kindOf("buttonLabel", "Buy a day pass")).toBe("label");
     expect(kindOf("pageTitle", "Docks near you")).toBe("label");
-    expect(kindOf("columnHeader", "Day pass")).toBe("label");
+  });
+
+  it("reads table headers from the key and short text", () => {
+    expect(kindOf("columnHeader", "Day pass")).toBe("header");
+    expect(kindOf("headerName", "Day pass")).toBe("header");
+    expect(kindOf("columns.dock", "Day pass")).toBe("header");
+    expect(kindOf("th", "Day pass")).toBe("header");
+    expect(kindOf("headerName", "Return the bike to any dock.")).toBe("sentence");
   });
 
   it("reads sentences from the key or a final stop", () => {
@@ -505,5 +512,158 @@ describe("kindOf", () => {
   it("returns unknown without a hint", () => {
     expect(kindOf(undefined, "Docks near you")).toBe("unknown");
     expect(kindOf("value", "Docks near you")).toBe("unknown");
+  });
+});
+
+describe("casing", () => {
+  const terms = bikeTerms.filter((term) => term.term !== "Day Pass");
+  const withCasing = (casing: Casing, dayPass: Partial<Term> = {}) =>
+    createMatcher(
+      defineCorpus({
+        terms: [
+          ...terms,
+          { term: "Day Pass", abbr: ["DP"], case: "context", avoid: ["ticket"], ...dayPass },
+        ],
+        casing,
+      }),
+    );
+
+  it("headers take the label style by default", () => {
+    expect(hits("Day pass", "header")).toEqual(["CASE Day pass -> Day Pass"]);
+    expect(hits("Day passes", "header", withCasing({ label: "sentence" }))).toEqual([]);
+  });
+
+  it("upper: headers in ALL CAPS, with the headline naming headers", () => {
+    const m = withCasing({ header: "upper" });
+    expect(hits("Day Pass", "header", m)).toEqual(["CASE Day Pass -> DAY PASS"]);
+    expect(hits("DAY PASSES", "header", m)).toEqual([]);
+    expect(hits("Day Pass", "label", m)).toEqual([]);
+    expect(m.check("Day Pass", "header")[0]?.message).toMatch(
+      /^"Day Pass" is written "DAY PASS" in headers\./,
+    );
+  });
+
+  it("upper: abbreviations, exact terms and spelling fixes fit the capitals", () => {
+    const m = withCasing({ header: "upper" });
+    expect(hits("DP PRICE", "header", m)).toEqual([]);
+    expect(hits("EBIKE", "header", m)).toEqual([]);
+    expect(hits("Ebike", "header", m)).toEqual(["CASE Ebike -> eBike"]);
+    expect(hits("DAYPASS", "header", m)).toEqual(["TERM DAYPASS -> DAY PASS"]);
+    expect(hits("TICKET", "header", m)).toEqual(["AVOID TICKET -> DAY PASS"]);
+    expect(hits("Ticket", "header", m)).toEqual(["AVOID Ticket -> DAY PASS"]);
+    expect(hits("RACK", "header", m)).toEqual(["AVOID RACK -> DOCK"]);
+  });
+
+  it("sentence: labels with one capital at the start", () => {
+    const m = withCasing({ label: "sentence" });
+    expect(hits("Buy a Day Pass", "label", m)).toEqual(["CASE Day Pass -> day pass"]);
+    expect(hits("Day Pass", "label", m)).toEqual(["CASE Day Pass -> Day pass"]);
+    expect(hits("Buy a ticket", "label", m)).toEqual(["AVOID ticket -> day pass"]);
+  });
+
+  it("lower and as-written in sentences", () => {
+    expect(
+      hits("Day pass holders ride free.", "sentence", withCasing({ sentence: "lower" })),
+    ).toEqual(["CASE Day pass -> day pass"]);
+    const asWritten = withCasing({ sentence: "as-written" });
+    expect(hits("Buy a day pass today.", "sentence", asWritten)).toEqual([
+      "CASE day pass -> Day Pass",
+    ]);
+    expect(hits("Buy a ticket today.", "sentence", asWritten)).toEqual([
+      "AVOID ticket -> Day Pass",
+    ]);
+  });
+
+  it("a term's casing wins over the corpus's, and its label style reaches headers", () => {
+    const m = withCasing(
+      { header: "upper" },
+      { term: "Day pass", casing: { label: "as-written" } },
+    );
+    expect(hits("Day Pass", "label", m)).toEqual(["CASE Day Pass -> Day pass"]);
+    expect(hits("Day pass", "header", m)).toEqual(["CASE Day pass -> DAY PASS"]);
+    const own = withCasing({}, { term: "Day pass", casing: { label: "as-written" } });
+    expect(hits("Day Pass", "header", own)).toEqual(["CASE Day Pass -> Day pass"]);
+  });
+
+  it("a term with casing and no case is a context term", () => {
+    const m = createMatcher(
+      defineCorpus({ terms: [{ term: "Lead Time", casing: { header: "upper" } }] }),
+    );
+    expect(hits("Lead time", "header", m)).toEqual(["CASE Lead time -> LEAD TIME"]);
+    expect(hits("Lead time", "label", m)).toEqual(["CASE Lead time -> Lead Time"]);
+    expect(hits("Set the Lead Time.", "sentence", m)).toEqual(["CASE Lead Time -> lead time"]);
+  });
+
+  it("a label or header with a set style follows it as a whole, holding the term fixes", () => {
+    expect(hits("Buy a day pass", "label")).toEqual(["CASE day pass -> Day Pass"]);
+    const title = withCasing({ label: "title" });
+    expect(hits("Buy a day pass", "label", title)).toEqual(["CASE day pass -> Day Pass"]);
+    expect(hits("Day pass price", "label", title)).toEqual([
+      "CASE Day pass -> undefined",
+      "CASE Day pass price -> Day Pass Price",
+    ]);
+    expect(title.check("Day pass price", "label")[1]?.message).toBe(
+      '"Day Pass price" is written "Day Pass Price": labels are in Title Case.',
+    );
+    expect(hits("Day Pass price", "header", withCasing({ header: "upper" }))).toEqual([
+      "CASE Day Pass -> undefined",
+      "CASE Day Pass price -> DAY PASS PRICE",
+    ]);
+    expect(hits("Buy a Day Pass", "label", title)).toEqual([]);
+    expect(hits("{count} day pass | {count} day passes", "label", title)).toEqual([
+      "CASE day pass -> Day Pass",
+      "CASE day passes -> Day Passes",
+    ]);
+    expect(hits("Return the bike to a dock", "label", title)).toEqual([]);
+    expect(hits("Rentals - at another dock day pass (from app)", "label", title)).toEqual([
+      "CASE Rentals - at another dock day pass (from app) -> Rentals - At Another Dock Day Pass (from app)",
+      "CASE day pass -> undefined",
+    ]);
+  });
+
+  it("leaves comments and unknown text alone", () => {
+    const m = withCasing({ label: "upper", header: "upper", sentence: "upper" });
+    expect(hits("Buy a day pass", undefined, m)).toEqual([]);
+    expect(hits("Buy a day pass", "comment", m)).toEqual([]);
+  });
+});
+
+describe("sentence starts and replacements", () => {
+  it("a word after e.g., a term's own period or a lowercase colon starts no sentence", () => {
+    expect(hits("Ride often, e.g. day pass holders.", "sentence")).toEqual([]);
+    expect(hits("Ride often, e.g. Day Pass holders.", "sentence")).toEqual([
+      "CASE Day Pass -> day pass",
+    ]);
+    expect(hits("Included: day pass", "sentence")).toEqual([]);
+    expect(hits("Included: Day Pass", "sentence")).toEqual(["CASE Day Pass -> Day pass"]);
+    const pcs = createMatcher(
+      defineCorpus({ terms: [...bikeTerms, { term: "pcs.", case: "exact", avoid: ["pieces"] }] }),
+    );
+    expect(hits("Sold in 5 pcs. day pass bundles.", "sentence", pcs)).toEqual([]);
+  });
+
+  it("each plural form after | starts a sentence", () => {
+    expect(hits("Day pass for {count} day | Day pass for {count} days", "sentence")).toEqual([]);
+    expect(hits("{count} day | day pass for {count} days", "sentence")).toEqual([
+      "CASE day pass -> Day pass",
+    ]);
+  });
+
+  it("a replacement ending in a period takes the sentence's own period", () => {
+    const pcs = createMatcher(
+      defineCorpus({ terms: [{ term: "pcs.", case: "exact", avoid: ["pieces"] }] }),
+    );
+    expect(hits("Shown in pieces.", "sentence", pcs)).toEqual(["AVOID pieces. -> pcs."]);
+    expect(hits("Shown in pieces here.", "sentence", pcs)).toEqual(["AVOID pieces -> pcs."]);
+  });
+
+  it("an avoid word in capitals asks for capitals unless the avoid word is an acronym", () => {
+    expect(hits("RETURN TO THE RACK")).toEqual(["AVOID RACK -> DOCK"]);
+    expect(hits("Ask the SM")).toEqual(["AVOID SM -> Station Manager"]);
+  });
+
+  it("offers no replacement that would repeat the word beside it", () => {
+    expect(hits("a box crate")).toEqual([]);
+    expect(hits("a wooden crate")).toEqual(["AVOID crate -> box"]);
   });
 });

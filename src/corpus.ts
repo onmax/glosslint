@@ -1,8 +1,8 @@
 import { GlosslintConfigError } from "./errors.ts";
-import type { Corpus, CorpusInput, Term } from "./types.ts";
+import type { Casing, Corpus, CorpusInput, Term } from "./types.ts";
 import { termKey } from "./words.ts";
 
-const INPUT_FIELDS = ["extends", "terms", "allow"] as const;
+const INPUT_FIELDS = ["extends", "terms", "allow", "casing"] as const;
 const TERM_FIELDS = [
   "term",
   "description",
@@ -12,6 +12,7 @@ const TERM_FIELDS = [
   "examples",
   "links",
   "case",
+  "casing",
   "skip",
   "forms",
   "translations",
@@ -21,6 +22,8 @@ const LINK_FIELDS = ["title", "url"] as const;
 const EXAMPLE_FIELDS = ["good", "bad"] as const;
 const CASE_MODES = ["exact", "spelling", "context"] as const;
 const SKIPS = ["lower", "upper"] as const;
+const CASING_KINDS = ["label", "header", "sentence"] as const;
+const CASE_STYLES = ["title", "sentence", "lower", "upper", "as-written"] as const;
 
 /** Stable codes of `GlosslintConfigError`. */
 export const CONFIG_ERRORS = {
@@ -32,6 +35,7 @@ export const CONFIG_ERRORS = {
   badSkip: "GLOSSLINT_C006",
   badType: "GLOSSLINT_C007",
   notCorpus: "GLOSSLINT_C008",
+  badCasing: "GLOSSLINT_C011",
 } as const;
 
 type Fail = (code: string, why: string, fix: string) => never;
@@ -164,6 +168,7 @@ function checkTerm(input: unknown, index: number): Term {
       `"case" is ${JSON.stringify(term.case)}.`,
       `Use ${quoteList(CASE_MODES)}.`,
     );
+  checkCasing(term.casing, `term "${name}"`, fail);
   if (term.skip !== undefined) {
     const bad = Array.isArray(term.skip)
       ? term.skip.find((item) => !SKIPS.includes(item as never))
@@ -250,6 +255,30 @@ function checkTerm(input: unknown, index: number): Term {
   return term as unknown as Term;
 }
 
+function checkCasing(value: unknown, where: string, fail: Fail): void {
+  if (value === undefined) return;
+  if (!isRecord(value))
+    fail(
+      CONFIG_ERRORS.badCasing,
+      `"casing" of ${where} must be an object.`,
+      `Write it as { label: "title", header: "upper", sentence: "sentence" }.`,
+    );
+  for (const [kind, style] of Object.entries(value as Record<string, unknown>)) {
+    if (!CASING_KINDS.includes(kind as never))
+      fail(
+        CONFIG_ERRORS.badCasing,
+        `"casing" of ${where} has the kind "${kind}".`,
+        `Use ${quoteList(CASING_KINDS)}.`,
+      );
+    if (!CASE_STYLES.includes(style as never))
+      fail(
+        CONFIG_ERRORS.badCasing,
+        `"casing.${kind}" of ${where} is ${JSON.stringify(style)}.`,
+        `Use ${quoteList(CASE_STYLES)}.`,
+      );
+  }
+}
+
 function isCorpus(value: unknown): value is Corpus {
   return (
     isRecord(value) &&
@@ -286,9 +315,11 @@ export function defineCorpus(input: CorpusInput): Corpus {
   if (input.terms !== undefined && !Array.isArray(input.terms))
     fail(CONFIG_ERRORS.badType, `"terms" must be a list.`, `Write it as [{ term: "…" }].`);
   checkStringList(input.allow, "allow", fail);
+  checkCasing(input.casing, "the corpus", fail);
 
   const merged = new Map<string, Term>();
   const allow: string[] = [];
+  const casing: Casing = {};
   for (const [index, corpus] of (input.extends ?? []).entries()) {
     if (!isCorpus(corpus))
       fail(
@@ -298,6 +329,7 @@ export function defineCorpus(input: CorpusInput): Corpus {
       );
     for (const term of corpus.terms) setLast(merged, termKey(term.term), term);
     allow.push(...corpus.allow);
+    Object.assign(casing, corpus.casing);
   }
 
   const own = new Map<string, Term>();
@@ -316,10 +348,12 @@ export function defineCorpus(input: CorpusInput): Corpus {
   }
   for (const [key, term] of own) setLast(merged, key, term);
   allow.push(...(input.allow ?? []));
+  Object.assign(casing, input.casing);
 
   return Object.freeze({
     kind: "glosslint.corpus",
     terms: Object.freeze([...merged.values()]),
     allow: Object.freeze(allow),
+    ...(Object.keys(casing).length > 0 ? { casing: Object.freeze(casing) } : {}),
   });
 }

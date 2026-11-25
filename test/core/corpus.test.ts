@@ -256,6 +256,18 @@ describe("defineCorpus", () => {
         expect(configError(input).code, JSON.stringify(input)).toBe("GLOSSLINT_C007");
     });
 
+    it("C011: a casing with an unknown kind or style", () => {
+      expect(configError({ casing: { table: "upper" } })).toMatchObject({
+        code: "GLOSSLINT_C011",
+        why: '"casing" of the corpus has the kind "table".',
+      });
+      expect(configError({ terms: [{ term: "Dock", casing: { header: "caps" } }] })).toMatchObject({
+        code: "GLOSSLINT_C011",
+        why: '"casing.header" of term "Dock" is "caps".',
+      });
+      expect(configError({ casing: "upper" }).code).toBe("GLOSSLINT_C011");
+    });
+
     it("C008: an extends entry that is not a corpus", () => {
       expect(configError({ extends: [{ terms: [{ term: "Dock" }] }] })).toMatchObject({
         code: "GLOSSLINT_C008",

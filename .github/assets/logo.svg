@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="glosslint logo">
+  <title>glosslint</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#070a12"/>
+      <stop offset="100%" stop-color="#0d1322"/>
+    </linearGradient>
+
+    <radialGradient id="pool" cx="128" cy="128" r="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22e8ff" stop-opacity="0.25"/>
+      <stop offset="56%" stop-color="#2ef5a3" stop-opacity="0.09"/>
+      <stop offset="100%" stop-color="#2ef5a3" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="tube-grad" x1="76" y1="50" x2="180" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#24e8ff"/>
+      <stop offset="52%" stop-color="#26f0d8"/>
+      <stop offset="100%" stop-color="#34f5a3"/>
+    </linearGradient>
+
+    <linearGradient id="core-grad" x1="76" y1="50" x2="180" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ecfeff"/>
+      <stop offset="100%" stop-color="#eefff7"/>
+    </linearGradient>
+
+    <linearGradient id="frame-grad" x1="18" y1="18" x2="238" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22e8ff" stop-opacity="0.52"/>
+      <stop offset="50%" stop-color="#283954" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#34f5a3" stop-opacity="0.54"/>
+    </linearGradient>
+
+    <filter id="glow-wide" filterUnits="userSpaceOnUse" x="-40" y="-40" width="336" height="336">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow-tube" filterUnits="userSpaceOnUse" x="-40" y="-40" width="336" height="336">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="wall-shadow" filterUnits="userSpaceOnUse" x="-40" y="-40" width="336" height="336">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5"/>
+    </filter>
+
+    <!-- Centered bent neon tube lowercase "g" mark (x: 82..174, y: 54..204) -->
+    <g id="mark-g" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 174 102 A 46 48 0 1 0 82 102 A 46 48 0 1 0 174 102"/>
+      <path d="M 174 56 L 174 156 C 174 198, 140 210, 94 194"/>
+    </g>
+  </defs>
+
+  <!-- Rounded dark sign plaque filling the square cleanly for crisp 32px and 256px edges -->
+  <rect x="1" y="1" width="254" height="254" rx="56" fill="url(#bg)" stroke="#1b263c" stroke-width="2"/>
+  <rect x="1" y="1" width="254" height="254" rx="56" fill="url(#pool)"/>
+  <rect x="18" y="18" width="220" height="220" rx="42" fill="none" stroke="url(#frame-grad)" stroke-width="2"/>
+
+  <!-- Wall drop shadow -->
+  <g transform="translate(0, 8)" filter="url(#wall-shadow)" opacity="0.82">
+    <use href="#mark-g" stroke="#020409" stroke-width="24"/>
+  </g>
+
+  <!-- Unlit glass tube rim -->
+  <use href="#mark-g" stroke="#0c3442" stroke-width="24" opacity="0.5"/>
+
+  <!-- Wide neon halo -->
+  <g filter="url(#glow-wide)" opacity="0.82">
+    <use href="#mark-g" stroke="url(#tube-grad)" stroke-width="20"/>
+  </g>
+
+  <!-- Saturated glass tube -->
+  <g filter="url(#glow-tube)">
+    <use href="#mark-g" stroke="url(#tube-grad)" stroke-width="18"/>
+  </g>
+
+  <!-- Hot white-tinted gas core -->
+  <use href="#mark-g" stroke="url(#core-grad)" stroke-width="7.2" opacity="0.96"/>
+</svg>

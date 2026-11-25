@@ -10,6 +10,9 @@ export { explain, printCorpus, testCorpus, toX18nGlossary } from "./tools.ts";
 export type {
   Avoid,
   CaseMode,
+  CaseStyle,
+  Casing,
+  CasingKind,
   CliFinding,
   CliReport,
   Corpus,

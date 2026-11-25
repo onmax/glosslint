@@ -3,6 +3,7 @@ import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../../src/corpus.ts";
 import glosslint from "../../src/eslint.ts";
+import { bikeTerms } from "../core/bike.ts";
 import { covered, tester } from "./setup.ts";
 
 describe("term in TS", () => {
@@ -54,6 +55,13 @@ describe("term in TS", () => {
     await invalid("const intro = `Your re-charge point is ${level} and your check-out ${time}`;", {
       output: "const intro = `Your recharge point is ${level} and your checkout ${time}`;",
       errors: ["GLOSSLINT_TERM", "GLOSSLINT_TERM"],
+    });
+  });
+
+  it("reads a template literal's kind from its whole text", async () => {
+    await invalid("const intro = `Ride with a Day Pass for ${days} days.`;", {
+      output: "const intro = `Ride with a day pass for ${days} days.`;",
+      errors: ["GLOSSLINT_CASE"],
     });
   });
 
@@ -169,6 +177,21 @@ describe("term in Vue", () => {
     });
   });
 
+  it("reads template text as a label when it is a few words, else from its element or slot", async () => {
+    await invalid(`<template><p>Buy a day pass</p></template>`, {
+      output: `<template><p>Buy a Day Pass</p></template>`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+    await invalid(`<template><p>Riders who buy a Day Pass ride free all day.</p></template>`, {
+      output: `<template><p>Riders who buy a day pass ride free all day.</p></template>`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+    await invalid(`<template><UCard><template #header>day pass</template></UCard></template>`, {
+      output: `<template><UCard><template #header>Day Pass</template></UCard></template>`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+  });
+
   it("does not fix an unquoted attribute when the fix adds a space", async () => {
     await invalid(`<template><UButton title=Rechargepoint /></template>`, {
       output: null,
@@ -244,6 +267,30 @@ describe("term in YAML", () => {
 
   it("never skips a code-shaped value", async () => {
     await invalid(`a: check-out`, { output: `a: checkout`, errors: 1 });
+  });
+
+  it("reads a value under an unknown key as a label when it is a few words, else a sentence", async () => {
+    await invalid(`buy: Buy a day pass`, {
+      output: `buy: Buy a Day Pass`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+    await valid(`empty: There is no day pass`);
+    await valid(`plan: Rent With a Day Pass From Any Dock (weekends)`);
+    await invalid(`promo: Riders who buy a Day Pass ride free all day`, {
+      output: `promo: Riders who buy a day pass ride free all day`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+  });
+
+  it("rewrites a whole label in the label style when the corpus sets one", async () => {
+    const titled = tester("term", "yaml", {
+      corpus: defineCorpus({ terms: bikeTerms, casing: { label: "title" } }),
+    });
+    await titled.valid(`empty: There is no day pass price`);
+    await titled.invalid(`price: Day pass price`, {
+      output: `price: Day Pass Price`,
+      errors: ["GLOSSLINT_CASE", "GLOSSLINT_CASE"],
+    });
   });
 
   it("maps quoted scalars back to the source", async () => {

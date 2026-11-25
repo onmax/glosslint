@@ -1,5 +1,6 @@
 import type {
   CaseMode,
+  CaseStyle,
   Corpus,
   Finding,
   FindingCode,
@@ -87,10 +88,24 @@ const upperFirst = (text: string): string => text.charAt(0).toUpperCase() + text
 /** Keeps a word's capitals when it has one past its first letter, such as `DP` or `eBike`. */
 const keepsCapitals = (word: string): boolean => /^.+\p{Lu}/u.test(word);
 
+/** Whether every word but a small one past the first starts with a capital, as "Buy a Day Pass" does. */
+export function isTitled(text: string): boolean {
+  const words = text.match(WORD) ?? [];
+  return (
+    words.length > 1 &&
+    words.every((word, index) => isUpper(word.charAt(0)) || (index > 0 && SMALL_WORDS.has(word)))
+  );
+}
+
+/**
+ * Words in parentheses keep their case ("(from dock)"), and the first word after a dash or colon
+ * starts again, as in "Rentals - At Another Dock".
+ */
 function titleCase(text: string): string {
-  let index = 0;
-  return text.replace(WORD, (word) => {
-    const first = index++ === 0;
+  return text.replace(WORD, (word, offset: number) => {
+    const before = text.slice(0, offset);
+    if (before.split("(").length > before.split(")").length) return word;
+    const first = !/\p{L}/u.test(before) || /[-–—:]\s*$/.test(before);
     if (!first && SMALL_WORDS.has(word.toLowerCase())) return word.toLowerCase();
     return word === word.toLowerCase() ? upperFirst(word) : word;
   });
@@ -103,6 +118,14 @@ function lowerCase(text: string): string {
 function sentenceCase(text: string, atStart: boolean): string {
   const lower = lowerCase(text);
   return atStart ? upperFirst(lower) : lower;
+}
+
+function applyStyle(style: CaseStyle, text: string, atStart: boolean): string {
+  if (style === "title") return titleCase(text);
+  if (style === "sentence") return sentenceCase(text, atStart);
+  if (style === "lower") return lowerCase(text);
+  if (style === "upper") return text.toUpperCase();
+  return text;
 }
 
 function squash(text: string): string {
@@ -177,12 +200,22 @@ function withSuffix(replace: string, suffix: string, abbr: boolean): string {
   return replace + suffix;
 }
 
-function atSentenceStart(text: string, start: number): boolean {
+/** Words whose period ends the word, not the sentence, beside those the corpus writes with one, such as `pcs.`. */
+const DOTTED_WORDS = ["e.g.", "i.e.", "vs.", "approx.", "incl.", "excl.", "avg.", "no."];
+
+/**
+ * Whether a term at `start` begins a sentence. After a colon, either case is right, so the writer's
+ * first letter decides. A period after a word in `dotted`, such as `pcs.`, ends no sentence.
+ */
+function atSentenceStart(text: string, start: number, dotted: ReadonlySet<string>): boolean {
   const before = text.slice(0, start);
-  return (
-    /^[\s\p{Ps}\p{Pi}"'*_•-]*$/u.test(before) ||
-    /[.!?:]["'\p{Pf}\p{Pe}]*\s+[\p{Ps}\p{Pi}"'*_]*$/u.test(before)
-  );
+  if (/^[\s\p{Ps}\p{Pi}"'*_•-]*$/u.test(before)) return true;
+  // Each plural form after `|` ("{count} day | {count} days") starts again.
+  if (/\|\s*[\p{Ps}\p{Pi}"'*_]*$/u.test(before)) return true;
+  const end = /(\S*)([.!?:])["'\p{Pf}\p{Pe}]*\s+[\p{Ps}\p{Pi}"'*_]*$/u.exec(before);
+  if (!end) return false;
+  if (end[2] === ":") return isUpper(text.charAt(start));
+  return !(end[2] === "." && dotted.has(`${end[1]!.toLowerCase()}.`));
 }
 
 function endSentence(text: string): string {
@@ -345,7 +378,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     const entry: Entry = {
       term,
       canonical: term.term,
-      mode: term.case ?? "spelling",
+      mode: term.case ?? (term.casing ? "context" : "spelling"),
       skip: new Set(term.skip),
       words: splitWords(core || term.term).map((word) => word.toLowerCase()),
       lead,
@@ -390,6 +423,31 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     }
   }
   const allow = corpus.allow.map(allowPattern);
+  const dotted = new Set(DOTTED_WORDS);
+  for (const written of [
+    ...[...terms.values(), ...abbrs.values()].map((entry) => entry.canonical),
+    ...[...avoids.values()].map((avoid) => avoid.word),
+  ]) {
+    const last = written.split(/\s+/).at(-1)!;
+    if (last.endsWith(".")) dotted.add(last.toLowerCase());
+  }
+  const startsSentence = (text: string, start: number) => atSentenceStart(text, start, dotted);
+  const casing = corpus.casing ?? {};
+  /** The case style of `term` in `kind` of text, or undefined where casing isn't checked. */
+  const styleOf = (term: Term, kind: TextKind): CaseStyle | undefined => {
+    const own = term.casing ?? {};
+    if (kind === "header")
+      return own.header ?? casing.header ?? own.label ?? casing.label ?? "title";
+    if (kind === "label") return own.label ?? casing.label ?? "title";
+    if (kind === "sentence") return own.sentence ?? casing.sentence ?? "sentence";
+    return undefined;
+  };
+  /** The style a corpus or term sets for labels or headers itself, which the whole label then follows. */
+  const setStyleOf = (term: Term, kind: TextKind): CaseStyle | undefined => {
+    const own = term.casing ?? {};
+    if (kind === "header") return own.header ?? casing.header ?? own.label ?? casing.label;
+    return kind === "label" ? (own.label ?? casing.label) : undefined;
+  };
   const termLimit = maxWords + 1;
   const avoidLimit = maxAvoidWords + 1;
   const textGap = (between: string): boolean => WORD_GAP.test(between);
@@ -420,15 +478,20 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     if (entry.skip.has("upper") && !hasLower(surface)) return undefined;
     // A fix never spans a line break, since it would join the lines.
     const fixable = !/[\r\n]/.test(written);
-    // Context casing applies to labels and sentences only, so comments and unknown text get exact casing alone.
-    let contextWant: string | undefined;
-    if (entry.mode === "context" && kind === "label") contextWant = titleCase(entry.canonical);
-    else if (entry.mode === "context" && kind === "sentence")
-      contextWant = sentenceCase(entry.canonical, atSentenceStart(text, hit.start));
+    // Context casing applies to labels, headers and sentences only, so comments and unknown text get exact casing alone.
+    const style = styleOf(entry.term, kind);
+    const contextWant =
+      entry.mode === "context" && style
+        ? applyStyle(style, entry.canonical, startsSentence(text, hit.start))
+        : undefined;
+    // Where the style is ALL CAPS, any term written in capitals fits, abbreviations and exact terms too.
+    const shouted = style === "upper" && !hasLower(surface);
     if (squash(surface) !== squash(entry.canonical)) {
-      const base = exact
-        ? entry.canonical
-        : (contextWant ?? keepCapitals(entry.canonical, surface));
+      const base = shouted
+        ? entry.canonical.toUpperCase()
+        : exact
+          ? entry.canonical
+          : (contextWant ?? keepCapitals(entry.canonical, surface));
       const replace = withSuffix(base, hit.suffix, entry.mode === "abbr");
       return makeFinding(
         "GLOSSLINT_TERM",
@@ -440,6 +503,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         fixable ? { kind: "autofix", replace } : undefined,
       );
     }
+    if (shouted) return undefined;
     const want = exact ? entry.canonical : contextWant;
     const where = exact || contextWant === undefined ? "" : ` in ${kind}s`;
     if (want === undefined || surface.replace(/\s+/g, " ") === want) return undefined;
@@ -469,17 +533,31 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     const { entry } = avoid;
     let base: string;
     // An acronym written in capitals, such as "SM", says nothing about the casing around it.
-    if (entry.mode === "exact" || avoid.caseSensitive) base = entry.canonical;
-    else if (entry.mode === "context" && kind === "label") base = titleCase(entry.canonical);
-    else if (isAllCaps(surface)) base = entry.canonical.toUpperCase();
+    const style = styleOf(entry.term, kind);
+    if (style === "upper" && (entry.mode === "context" || !hasLower(surface)))
+      base = entry.canonical.toUpperCase();
+    else if (entry.mode === "exact" || avoid.caseSensitive) base = entry.canonical;
+    else if (entry.mode === "context" && style && kind !== "sentence")
+      base = applyStyle(style, entry.canonical, startsSentence(text, hit.start));
+    else if (entry.mode === "context" && style && style !== "sentence")
+      base = applyStyle(style, entry.canonical, false);
+    // An avoid word that is itself an acronym, such as `L6M`, is always in capitals, so they ask for none.
+    else if (isAllCaps(surface) && hasLower(avoid.word)) base = entry.canonical.toUpperCase();
     else if (isUpper(surface.charAt(0))) base = upperFirst(entry.canonical);
     else base = lowerCase(entry.canonical);
     const replace = hit.suffix ? plural(base) : base;
+    // "Purchase Order Value" holds the avoid word "Order Value", but "Purchase Purchase Value" is no fix.
+    const words = splitWords(replace).map((word) => word.toLowerCase());
+    const before = /([\p{L}\p{N}]+)\s+$/u.exec(text.slice(0, hit.start))?.[1]?.toLowerCase();
+    const after = /^\s+([\p{L}\p{N}]+)/u.exec(text.slice(end))?.[1]?.toLowerCase();
+    if (before === words[0] || after === words.at(-1)) return undefined;
+    // A replacement ending in a period, such as `pcs.`, takes the place of a sentence's own period.
+    const stop = replace.endsWith(".") && text[end] === "." ? end + 1 : end;
     return makeFinding(
       "GLOSSLINT_AVOID",
       hit.start,
-      end,
-      written,
+      stop,
+      text.slice(hit.start, stop),
       avoid.term,
       `Use "${replace}" instead of "${written}".`,
       { kind: "suggestion", replace },
@@ -515,7 +593,67 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       findings.push(finding);
       index = hit.next;
     }
-    return findings;
+    const label = labelFinding(text, kind, tokens, findings, accept);
+    if (!label?.fix) return label ? [...findings, label] : findings;
+    // The label's fix holds the autofixes inside it, so they report without one of their own.
+    const inner = findings.map((finding) => {
+      if (finding.fix?.kind !== "autofix") return finding;
+      const { fix: _fix, ...rest } = finding;
+      return rest;
+    });
+    return [...inner, label];
+  }
+
+  /**
+   * A label or header in Title Case or ALL CAPS holding a context term is written in that style as a
+   * whole, so fixing the term alone doesn't leave "Lead Time delays".
+   */
+  function labelFinding(
+    text: string,
+    kind: TextKind,
+    tokens: Word[],
+    findings: readonly Finding[],
+    accept: (hit: Hit<Entry>) => Hit<Entry> | undefined,
+  ): Finding | undefined {
+    if (kind !== "label" && kind !== "header") return undefined;
+    let styled: { term: Term; style: CaseStyle } | undefined;
+    for (let index = 0; index < tokens.length && !styled;) {
+      const hit = longest(text, tokens, index, termLimit, textGap, findTerm, accept);
+      if (!hit) {
+        index++;
+        continue;
+      }
+      const style = setStyleOf(hit.value.term, kind);
+      if (hit.value.mode === "context" && (style === "title" || style === "upper"))
+        styled = { term: hit.value.term, style };
+      index = hit.next;
+    }
+    if (!styled) return undefined;
+    // Read the label as it is once the autofixes are in; an avoid word waits for its suggestion.
+    let fixed = text;
+    let floor = Infinity;
+    for (const finding of [...findings].sort((a, b) => b.start - a.start)) {
+      if (finding.fix?.kind !== "autofix" || finding.end > floor) continue;
+      fixed = fixed.slice(0, finding.start) + finding.fix.replace + fixed.slice(finding.end);
+      floor = finding.start;
+    }
+    const lead = /^\s*/.exec(fixed)![0].length;
+    const body = fixed.trim();
+    const want = applyStyle(styled.style, body, true);
+    // Text across lines, or with `{count}` placeholders or `|` plural forms, is a template, not one label.
+    if (want === body || /[\r\n{}|]/.test(body)) return undefined;
+    const start = /^\s*/.exec(text)![0].length;
+    const end = text.trimEnd().length;
+    const where = styled.style === "upper" ? "ALL CAPS" : "Title Case";
+    return makeFinding(
+      "GLOSSLINT_CASE",
+      start,
+      end,
+      text.slice(start, end),
+      styled.term,
+      `"${body}" is written "${want}": ${kind}s are in ${where}.`,
+      lead === start ? { kind: "autofix", replace: want } : undefined,
+    );
   }
 
   function checkIdentifier(text: string): Finding[] {
@@ -617,23 +755,25 @@ export function check(matcher: Matcher, text: string, kind?: TextKind): Finding[
   return matcher.check(text, kind);
 }
 
-const LABEL_WORD = /^(?:label|(?:sub)?title|button|tab|(?:sub)?heading|column)s?$/;
+const LABEL_WORD = /^(?:label|(?:sub)?title|button|tab|(?:sub)?heading)s?$/;
+const HEADER_WORD = /^(?:header|column|col|th)s?$/;
 const SENTENCE_WORD =
   /^(?:description|tooltip|text|message|intro|outro|hint|explanation|body|help)s?$/;
 
-/** Whether a string is a label or a sentence, from its key or attribute name and its text. */
+/** Whether a string is a label, a table header or a sentence, from its key or attribute name and its text. */
 export function kindOf(name: string | undefined, text: string): TextKind {
   const trimmed = text.trim();
   const endsSentence = /[.!?]$/.test(trimmed);
   // Whole words of the key, so `tableHint` is no tab and `rename` no name; `title1` is a title.
   const words = splitWords(name ?? "").map((word) => word.toLowerCase().replace(/\d+$/, ""));
   const last = words.at(-1) ?? "";
+  const header = words.some((word) => HEADER_WORD.test(word));
   if (
-    (words.some((word) => LABEL_WORD.test(word)) || /^(?:header|(?:header)?name)$/.test(last)) &&
+    (header || words.some((word) => LABEL_WORD.test(word)) || last === "name") &&
     !endsSentence &&
     splitWords(trimmed).length <= 7
   )
-    return "label";
+    return header ? "header" : "label";
   if (words.some((word) => SENTENCE_WORD.test(word)) || endsSentence) return "sentence";
   return "unknown";
 }

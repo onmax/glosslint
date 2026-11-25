@@ -1,8 +1,38 @@
-# glosslint
+<h1><img src="./.github/assets/banner.svg" alt="glosslint" width="100%"></h1>
 
-glosslint checks that your product's words are spelled, cased and chosen the way your glossary says. You keep one corpus of terms, each with what it means and which words to avoid, and glosslint reports problems in code through ESLint, in translations through x18n, and in Markdown docs through its own CLI.
+<!-- automd:comark-badges packages=glosslint -->
+
+[![npm version](https://comark-ui.onmax.me/badge.svg?source=npm-version&package=glosslint&label=glosslint&icon=npm)](https://www.npmjs.com/package/glosslint)
+[![npm downloads](https://comark-ui.onmax.me/badge.svg?source=npm-downloads&package=glosslint&period=month&icon=npm)](https://www.npmjs.com/package/glosslint)
+[![CI](https://comark-ui.onmax.me/badge.svg?source=github-actions&repository=onmax%2Fglosslint&workflow=pkg-pr-new.yml&icon=github)](https://github.com/onmax/glosslint/actions/workflows/pkg-pr-new.yml)
+[![license: MIT](https://comark-ui.onmax.me/badge.svg?label=license&value=MIT)](./LICENSE)
+
+<!-- /automd -->
+
+glosslint checks that your product's words are spelled, cased and chosen the way your glossary says. You keep one corpus of terms, each with what it means and which words to avoid. glosslint reports problems in code through ESLint, in translations through x18n, and in Markdown docs through its CLI, with the reason and meaning on every finding so people and coding agents learn the vocabulary as they work.
+
+[Install](#install) · [The corpus](#the-corpus) · [ESLint](#eslint) · [x18n](#x18n) · [CLI](#cli) · [For agents](#for-agents)
+
+## How it works
+
+```mermaid
+flowchart LR
+  corpus["glosslint.config.ts<br/>glossary table + presets"] --> matcher["Matcher"]
+  matcher --> eslint["ESLint<br/>code, YAML locales,<br/>comments, identifiers"]
+  matcher --> x18n["x18n<br/>translations"]
+  matcher --> cli["CLI<br/>Markdown docs"]
+  eslint --> findings["Findings<br/>why, fix, meaning<br/>for people and agents"]
+  x18n --> findings
+  cli --> findings
+```
 
 Every example below uses an invented bike-share app. The full setup lives in [`examples/basic`](./examples/basic).
+
+```diff
+  # locales/en.yml
+- hint: Return your e-bike to any rack.
++ hint: Return your eBike to any dock.
+```
 
 ## Install
 
@@ -49,6 +79,7 @@ export default defineCorpus({
 | `extends` | Corpora to merge in first: presets, `fromGlossaryTable(…)` or another `defineCorpus(…)`. See [Merge order](#merge-order).                                                                       |
 | `terms`   | Your own terms.                                                                                                                                                                                 |
 | `allow`   | Phrases that are never reported. A finding that sits inside an allowed phrase is dropped. Words in a phrase match across spaces, hyphens and underscores, and a plural `s` or `es` matches too. |
+| `casing`  | The case style of `context` terms per kind of text: `{ label, header, sentence }`. See [Case styles](#case-styles).                                                                             |
 
 `allow` handles a word that has a second meaning. `rack` is an avoid word for Dock, but "roof rack" is a different thing, so `"roof rack"` goes in `allow`. The same goes for "check out our", which is a verb and not the noun Checkout. To switch off a preset term, allow its spellings.
 
@@ -63,6 +94,7 @@ export default defineCorpus({
 | `examples`     | `{ good, bad }`: strings that `glosslint test` expects to pass and to be reported. They are the term's tests.                                                                    |
 | `links`        | `[{ title, url }]`, pages that explain the term. The first `url` becomes the finding's `see`.                                                                                    |
 | `case`         | How capitals are checked: `exact`, `spelling` (the default) or `context`. See [Casing](#casing).                                                                                 |
+| `casing`       | This term's case style per kind of text, over the corpus's `casing`, such as `{ label: "as-written" }`. A term with `casing` and no `case` is a `context` term.                  |
 | `abbr`         | Abbreviations of the term, such as `DP` for Day Pass. They are always checked as exact.                                                                                          |
 | `skip`         | `["lower"]`, `["upper"]` or both: whole-word casings that always pass. The tech preset sets both, as case-police does, so `github` and `GITHUB` pass while `Github` is reported. |
 | `forms`        | Other forms per locale, such as `{ de: ["Dockingstation", "Dockingstationen"] }`. They go to x18n's glossary as they are, and `glosslint explain` finds a term by its forms.     |
@@ -80,7 +112,36 @@ Plurals ending in `s` or `es` match both terms and avoid words. glosslint report
 | `exact`    | One form everywhere. "E-bike" and "Ebike" are both reported, and the fix is always "eBike".                                                                                                                                         |
 | `context`  | Title Case in labels and lowercase in sentences, capitalised at the start of a sentence. A button "Buy a day pass" becomes "Buy a Day Pass", and the sentence "Buy a Day Pass at the kiosk." becomes "Buy a day pass at the kiosk." |
 
-`context` needs to know whether a string is a label or a sentence. glosslint guesses from the key or attribute name and the text. A string is a label when its name holds a word such as `label`, `title`, `button`, `tab`, `heading` or `column`, or ends in `header` or `name`, and the string has at most seven words and no closing period. It is a sentence when its name holds a word such as `description`, `tooltip`, `text`, `message`, `hint` or `help`, or when it ends in `.`, `!` or `?`. In anything else, comments included, `context` terms get no casing check. In Markdown, headings are labels and paragraphs and list items are sentences.
+`context` needs to know whether a string is a label, a table header or a sentence. glosslint guesses from the key or attribute name and the text. A string is a header when its name holds `header`, `column`, `col` or `th`, as AG Grid's `headerName` does, and a label when its name holds a word such as `label`, `title`, `button`, `tab` or `heading`, or ends in `name`. Both need at most seven words and no closing period. A string is a sentence when its name holds a word such as `description`, `tooltip`, `text`, `message`, `hint` or `help`, or when it ends in `.`, `!` or `?`. In anything else, comments included, `context` terms get no casing check. In a Vue template, text takes its kind from its element: a `<template #header>` slot is a header and `<h2>` a label. Template text and YAML values that their name doesn't place are labels at four words or fewer with no closing stop, unless they open like a sentence ("There is", "This", "Are you"). Longer ones are labels when they are already in Title Case, and sentences otherwise. In Markdown, headings are labels, a table's first row is headers, and paragraphs and list items are sentences.
+
+#### Case styles
+
+`casing` sets how `context` terms are written in labels, headers and sentences. Set it on the corpus for every `context` term, and on a term for that term alone.
+
+| Style        | Day Pass is written                                                             |
+| ------------ | ------------------------------------------------------------------------------- |
+| `title`      | `Day Pass`. The default in labels and headers.                                  |
+| `sentence`   | `day pass`, or `Day pass` at the start of a sentence. The default in sentences. |
+| `lower`      | `day pass`                                                                      |
+| `upper`      | `DAY PASS`                                                                      |
+| `as-written` | As the term is written in the corpus.                                           |
+
+A header takes the label style unless `casing.header` sets its own. Words with an inner capital, such as `eBike`, keep it in every style but `upper`.
+
+When the corpus or the term sets `title` or `upper` for labels or headers, a label or header that holds a `context` term follows that style as a whole: with `casing: { label: "title" }`, the label "Day pass price" becomes "Day Pass Price", in one fix that also holds the term's own fix. Small words such as "a" and "of" stay lowercase unless they start the label or follow a dash or colon, and text in parentheses keeps its case. Without `casing`, only the term is checked.
+
+```ts
+export default defineCorpus({
+  casing: { header: "upper" },
+  terms: [
+    { term: "Day Pass", abbr: ["DP"], case: "context" },
+    // "Ride history" in labels, "ride history" in sentences, "RIDE HISTORY" in headers.
+    { term: "Ride history", casing: { label: "as-written" } },
+  ],
+});
+```
+
+With this corpus, the AG Grid column `{ headerName: "Day pass" }` is reported with the fix `DAY PASS`, and a button "Buy a day pass" still becomes "Buy a Day Pass". In an `upper` header any term written all in capitals passes, abbreviations and `exact` terms too, so `DP` and `EBIKE` are not reported there.
 
 An abbreviation written all in lowercase is not reported, so "dp" in prose passes and "Dp" does not.
 
@@ -542,6 +603,7 @@ In code, the error is a `GlosslintConfigError` with `code`, `why`, `fix` and `te
 | `GLOSSLINT_C008`              | An `extends` entry is not a corpus, or the config's default export is not one.          |
 | `GLOSSLINT_C009`              | The CLI found no config, or `--config` names a file that does not exist.                |
 | `GLOSSLINT_C010`              | The config threw while loading, such as on a syntax error.                              |
+| `GLOSSLINT_C011`              | `casing` names a kind other than `label`, `header` or `sentence`, or an unknown style.  |
 | `GLOSSLINT_NO_GLOSSARY_TABLE` | `fromGlossaryTable` found no table with a term column.                                  |
 | `GLOSSLINT_DUPLICATE_TERM`    | `fromGlossaryTable` read the same term twice.                                           |
 | `GLOSSLINT_USAGE`             | The command line is wrong, such as an unknown `--format` or a path that does not exist. |
