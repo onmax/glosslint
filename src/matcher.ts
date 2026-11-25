@@ -475,6 +475,9 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       );
     }
     if (shouted) return undefined;
+    // A lowercase word against a slash, as in `nuxt/nuxt` or `nuxt/modules`, names a repository or path.
+    if (!/\p{Lu}/u.test(surface) && (text[hit.start - 1] === "/" || text[hit.end] === "/"))
+      return undefined;
     const want = exact ? entry.canonical : contextWant;
     const where = exact || contextWant === undefined ? "" : ` in ${kind}s`;
     if (want === undefined || surface.replace(/\s+/g, " ") === want) return undefined;

@@ -95,6 +95,35 @@ describe("mask", () => {
     expect(words("stats.dockCount went up")).toEqual(["stats", "went", "up"]);
   });
 
+  it("masks scoped packages, also escaped or as link text", () => {
+    expect(words("Use @nuxt/kit, \\@nuxt/kit or [@nuxt/kit](url) and **@dxup/nuxt**")).toEqual([
+      "Use",
+      "or",
+      "url",
+      "and",
+    ]);
+  });
+
+  it("masks repository issue refs and refs at a version", () => {
+    expect(words("See nuxt/nuxt#18395 and nuxt/nuxt@v3 or unjs/unctx#2.")).toEqual([
+      "See",
+      "and",
+      "or",
+    ]);
+  });
+
+  it("keeps words around a slash, which prose uses as well as repositories", () => {
+    expect(words("and/or, CI/CD and nuxt/modules")).toEqual([
+      "and",
+      "or",
+      "CI",
+      "CD",
+      "and",
+      "nuxt",
+      "modules",
+    ]);
+  });
+
   it("keeps a two-part hyphenated word in prose, since that is how spelling variants are written", () => {
     expect(words("the re-charge point and check-out")).toEqual(
       ["the", "re-charge", "point", "and", "check-out"].flatMap((w) => w.split("-")),
