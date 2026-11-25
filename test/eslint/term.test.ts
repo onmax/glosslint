@@ -268,6 +268,17 @@ describe("term in YAML", () => {
     await invalid(`a: check-out`, { output: `a: checkout`, errors: 1 });
   });
 
+  it("reads a value under an unknown key as a label when it is a few words, else a sentence", async () => {
+    await invalid(`buy: Buy a day pass`, {
+      output: `buy: Buy a Day Pass`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+    await invalid(`promo: Riders who buy a Day Pass ride free all day`, {
+      output: `promo: Riders who buy a day pass ride free all day`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+  });
+
   it("maps quoted scalars back to the source", async () => {
     await invalid(`a: 'It''s the re-charge point'`, {
       output: `a: 'It''s the recharge point'`,

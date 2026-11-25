@@ -306,9 +306,12 @@ function elementName(node: Node): string | undefined {
   return undefined;
 }
 
-/** The kind of a Vue text node: from its element, else a label when it is a few words without a final stop. */
-function textKind(node: Node, text: string) {
-  const kind = kindOf(elementName(node), text);
+/**
+ * The kind of text a person reads, such as template text or a locale string: from its name,
+ * else a label when it is a few words without a final stop, else a sentence.
+ */
+function shownKind(name: string | undefined, text: string): TextKind {
+  const kind = kindOf(name, text);
   if (kind !== "unknown") return kind;
   const short = text.trim().split(/\s+/).length <= 4 && !/[.!?:]$/.test(text.trim());
   return short ? "label" : "sentence";
@@ -321,7 +324,7 @@ export function textSite(node: Node, source: string): Site | undefined {
   const raw = source.slice(node.range[0], node.range[1]);
   return {
     text,
-    kind: textKind(node, text),
+    kind: shownKind(elementName(node), text),
     base: node.range[0],
     map: identityMap(raw, text),
     within: node.range,
@@ -373,7 +376,7 @@ export function yamlSite(node: Node): Site | undefined {
   const text = node.value;
   const name = yamlKeyName(node);
   const raw = typeof node.raw === "string" ? node.raw : "";
-  const site = { text, kind: kindOf(name, text), within: node.range };
+  const site = { text, kind: shownKind(name, text), within: node.range };
   switch (node.style) {
     case "plain":
       return {
