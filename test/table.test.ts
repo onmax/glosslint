@@ -128,12 +128,14 @@ describe("fromGlossaryTable", () => {
         "| Use | Avoid |",
         "| --- | --- |",
         "| Recharge point (kiosk) | charger |",
+        "| Station (Hub) | |",
         "| Day Pass (DP, dP) | |",
         "| Dock | rack (racks are unpowered) |",
       ].join("\n"),
     );
     expect(fromGlossaryTable(path).terms).toEqual([
       { term: "Recharge point", nuance: "kiosk.", avoid: ["charger"] },
+      { term: "Station", nuance: "Hub." },
       { term: "Day Pass", abbr: ["DP", "dP"] },
       { term: "Dock", avoid: [{ word: "rack", why: "racks are unpowered." }] },
     ]);

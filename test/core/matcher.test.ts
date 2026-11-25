@@ -413,6 +413,10 @@ describe("kind identifier", () => {
     ]);
     expect(hits("max_daypass", "identifier")).toEqual(["TERM daypass -> day_pass"]);
     expect(hits("_daypass", "identifier")).toEqual(["TERM daypass -> dayPass"]);
+    expect(hits("$reChargePoint", "identifier")).toEqual(["TERM reChargePoint -> rechargePoint"]);
+    expect(hits("re_charge_point$", "identifier")).toEqual([
+      "TERM re_charge_point -> recharge_point",
+    ]);
   });
 
   it("gives the rename fix kind and a rename headline", () => {
@@ -439,6 +443,8 @@ describe("kind identifier", () => {
     const strict = createMatcher(bike, { identifierAvoid: true });
     expect(hits("rackCount", "identifier", strict)).toEqual(["AVOID rack -> dock"]);
     expect(hits("RACKS_TOTAL", "identifier", strict)).toEqual(["AVOID RACKS -> DOCKS"]);
+    expect(hits("_RACK", "identifier", strict)).toEqual(["AVOID RACK -> DOCK"]);
+    expect(hits("rack$Count", "identifier", strict)).toEqual(["AVOID rack -> dock"]);
     expect(strict.check("rackCount", "identifier")[0]?.fix?.kind).toBe("rename");
   });
 });
@@ -472,6 +478,12 @@ describe("kindOf", () => {
     expect(kindOf("databaseHelp", "Docks near you")).toBe("sentence");
     expect(kindOf("rename", "Docks near you")).toBe("unknown");
     expect(kindOf("stable", "Docks near you")).toBe("unknown");
+  });
+
+  it("reads numbered keys and subheadings as labels", () => {
+    expect(kindOf("title1", "Docks near you")).toBe("label");
+    expect(kindOf("label2", "Day pass")).toBe("label");
+    expect(kindOf("subheading", "Docks near you")).toBe("label");
   });
 
   it("returns unknown without a hint", () => {

@@ -284,11 +284,16 @@ function identifierWords(text: string): Word[] {
   const words: Word[] = [];
   let cursor = 0;
   for (const word of splitWords(text)) {
-    const start = text.indexOf(word, cursor);
-    if (start === -1) continue;
-    cursor = start + word.length;
+    const found = text.indexOf(word, cursor);
+    if (found === -1) continue;
+    cursor = found + word.length;
+    // `splitWords` keeps a `$` inside a word, as in `$dockCount`: the rename leaves it in place.
+    const lead = /^[^\p{L}\p{N}]*/u.exec(word)?.[0].length ?? 0;
+    const trail = /[^\p{L}\p{N}]*$/u.exec(word)?.[0].length ?? 0;
+    const start = found + lead;
+    const end = Math.max(start, cursor - trail);
     const key = word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-    if (key) words.push({ key, start, end: cursor });
+    if (key) words.push({ key, start, end });
   }
   return words;
 }
@@ -312,10 +317,8 @@ function separatorOf(part: string, identifier: string, start: number, end: numbe
 /** Writes words in the casing style of `part`, the matched words of an identifier: snake, kebab or camel. */
 function identifierStyle(words: readonly string[], part: string, separator: string): string {
   const upper = isAllCaps(part);
-  if (separator) {
-    const joined = words.join(separator);
-    return upper ? joined.toUpperCase() : joined;
-  }
+  if (upper) return words.join(separator || "_").toUpperCase();
+  if (separator) return words.join(separator);
   const camel = words.map((word, index) => (index === 0 ? word : upperFirst(word))).join("");
   return isUpper(part.charAt(0)) ? upperFirst(camel) : camel;
 }
@@ -618,7 +621,7 @@ export function check(matcher: Matcher, text: string, kind?: TextKind): Finding[
   return matcher.check(text, kind);
 }
 
-const LABEL_WORD = /^(?:label|(?:sub)?title|button|tab|heading|column)s?$/;
+const LABEL_WORD = /^(?:label|(?:sub)?title|button|tab|(?:sub)?heading|column)s?$/;
 const SENTENCE_WORD =
   /^(?:description|tooltip|text|message|intro|outro|hint|explanation|body|help)s?$/;
 
@@ -626,8 +629,8 @@ const SENTENCE_WORD =
 export function kindOf(name: string | undefined, text: string): TextKind {
   const trimmed = text.trim();
   const endsSentence = /[.!?]$/.test(trimmed);
-  // Whole words of the key, so `tableHint` is no tab and `rename` no name.
-  const words = splitWords(name ?? "").map((word) => word.toLowerCase());
+  // Whole words of the key, so `tableHint` is no tab and `rename` no name; `title1` is a title.
+  const words = splitWords(name ?? "").map((word) => word.toLowerCase().replace(/\d+$/, ""));
   const last = words.at(-1) ?? "";
   if (
     (words.some((word) => LABEL_WORD.test(word)) || /^(?:header|(?:header)?name)$/.test(last)) &&
