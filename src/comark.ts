@@ -8,10 +8,12 @@ export interface ComarkProp {
   name: string;
   start: number;
   end: number;
+  /** The text to check, with any markup inside it blanked. */
+  text: string;
 }
 
 const OPENER = /^[ \t]*(:{2,})[A-Za-z][\w-]*/;
-const INLINE = /^[ \t]*:[A-Za-z][\w-]*(?=[{[]|[ \t]*\r?$)/;
+const BARE = /^[ \t]*:[A-Za-z][\w-]*[ \t]*\r?$/;
 const CLOSER = /^[ \t]*:{2,}[ \t]*\r?$/;
 const SLOT = /^[ \t]*#[A-Za-z][\w-]*[ \t]*\r?$/;
 const RULE = /^[ \t]*---[ \t]*\r?$/;
@@ -122,38 +124,69 @@ function readProps(line: string, at: number): { end: number; props: Span[] } | u
 
 // An inline component's colon follows no letter, digit, `_`, `:`, `\\` or `/`, and its name is followed
 // by `[` or `{`, so "Note: x", "10:30", `std::vector`, `https://` and `:smile:` stay prose.
-const INLINE_NAME = /(?<![\p{L}\p{N}_:\\/]):[A-Za-z][\w-]*(?=[[{])/gu;
+const INLINE_NAME = /(?<![\p{L}\p{N}_:\\/]):[A-Za-z][\w-]*(?=[[{])/uy;
+/** A link or image target after its `]`, with an optional title: `(/map "Map")`. */
+export const LINK_TARGET =
+  /(?<=\])\((?:[^()\s]|\([^()\s]*\))*(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?\s*\)/g;
+const LINK_TARGET_AT = new RegExp(LINK_TARGET.source, "y");
 
 /**
- * Blanks the inline components inside a line, `:badge[v4.4]{color="info"}`, keeping the `[text]`, and
- * `{attrs}` right after a link or image, `[map](/map){target="_blank"}`. Returns the line and its text props.
+ * Blanks inline markup in `line` between `from` and `to`, left to right: components such as
+ * `:badge[v4.4]{color="info"}`, whose `[text]` is kept and scanned in turn, and `{attrs}` right after a
+ * `]` or a link target, as in `[map](/map){target="_blank"}`. Link targets are skipped, as the CLI blanks
+ * them anyway. Returns the line and the text props it found.
  */
 function maskInline(
   line: string,
   blank: (text: string) => string,
+  from = 0,
+  to = line.length,
 ): { line: string; props: Span[] } {
   let out = line;
   const props: Span[] = [];
-  const cut = (start: number, end: number) =>
-    (out = out.slice(0, start) + blank(out.slice(start, end)) + out.slice(end));
-  for (const match of line.matchAll(INLINE_NAME)) {
-    const nameEnd = match.index + match[0].length;
-    if (out[match.index] !== ":") continue;
-    const read = readComponent(line, nameEnd);
-    if (!read) continue;
-    cut(match.index, read.end);
-    if (read.content)
-      out =
-        out.slice(0, read.content[0]) + line.slice(...read.content) + out.slice(read.content[1]);
-    props.push(...read.props);
-  }
-  for (let index = line.indexOf("{"); index !== -1; index = line.indexOf("{", index + 1)) {
-    if ((line[index - 1] !== "]" && line[index - 1] !== ")") || out[index] !== "{") continue;
-    const read = readProps(line, index);
-    if (!read) continue;
-    cut(index, read.end);
-    props.push(...read.props);
-  }
+  const scan = (start: number, end: number): void => {
+    let attrsAt = -1;
+    for (let index = start; index < end;) {
+      INLINE_NAME.lastIndex = index;
+      const name = INLINE_NAME.exec(line);
+      const component = name && readComponent(line, index + name[0].length);
+      if (component && component.end <= end) {
+        out =
+          out.slice(0, index) + blank(out.slice(index, component.end)) + out.slice(component.end);
+        props.push(...component.props);
+        if (component.content) {
+          const [open, close] = component.content;
+          out = out.slice(0, open) + line.slice(open, close) + out.slice(close);
+          scan(open, close);
+        }
+        index = component.end;
+        continue;
+      }
+      const char = line[index];
+      if (char === "{" && index === attrsAt) {
+        const attrs = readProps(line, index);
+        if (attrs && attrs.end <= end) {
+          out = out.slice(0, index) + blank(out.slice(index, attrs.end)) + out.slice(attrs.end);
+          props.push(...attrs.props);
+          index = attrs.end;
+          continue;
+        }
+      }
+      if (char === "(" && line[index - 1] === "]") {
+        LINK_TARGET_AT.lastIndex = index;
+        const target = LINK_TARGET_AT.exec(line);
+        if (target && index + target[0].length <= end) {
+          index += target[0].length;
+          attrsAt = index;
+          continue;
+        }
+      }
+      if (char === "\\") index++;
+      else if (char === "]") attrsAt = index + 1;
+      index++;
+    }
+  };
+  scan(from, to);
   return { line: out, props };
 }
 
@@ -170,12 +203,14 @@ function yamlProps(
   if (space.length !== indent.value || raw === "" || /^[|>[{&*!]/.test(raw)) return undefined;
   let start = line.indexOf(raw, space.length + name.length + 1);
   let value = raw;
-  if ((raw[0] === '"' || raw[0] === "'") && raw.at(-1) === raw[0] && raw.length >= 2) {
+  if (raw[0] === '"' || raw[0] === "'") {
+    const close = raw.indexOf(raw[0], 1);
+    if (close === -1 || raw.slice(close + 1).replace(/[ \t]+#.*$/, "") !== "") return undefined;
     start++;
-    value = raw.slice(1, -1);
+    value = raw.slice(1, close);
   } else value = raw.replace(/[ \t]+#.*$/, "");
   if (!isText(name, value)) return undefined;
-  return { name, start: offset + start, end: offset + start + value.length };
+  return { name, start: offset + start, end: offset + start + value.length, text: value };
 }
 
 /**
@@ -213,22 +248,30 @@ export function maskComark(
           name: span.name,
           start: offsets[index]! + span.start,
           end: offsets[index]! + span.end,
+          text: line.slice(span.start, span.end),
         })),
       );
     const opener = OPENER.exec(line);
-    const match = opener ?? INLINE.exec(line);
-    const read = match ? readComponent(line, match[0].length) : undefined;
-    if (!read || line.slice(read.end).trim() !== "") {
-      const inline = maskInline(line, blank);
+    const read = opener ? readComponent(line, opener[0].length) : undefined;
+    if (!opener || !read || line.slice(read.end).trim() !== "") {
+      const inline = BARE.test(line) ? { line: blank(line), props: [] } : maskInline(line, blank);
       out[index] = inline.line;
       at(inline.props);
       continue;
     }
     out[index] = blank(line);
     at(read.props);
+    // An opener's `[text]` is its own paragraph, so it is checked apart from the body below.
     if (read.content) {
       const [start, end] = read.content;
-      out[index] = blank(line.slice(0, start)) + line.slice(start, end) + blank(line.slice(end));
+      const inline = maskInline(line, blank, start, end);
+      at(inline.props);
+      props.push({
+        name: "",
+        start: offsets[index]! + start,
+        end: offsets[index]! + end,
+        text: inline.line.slice(start, end),
+      });
     }
     if (!opener) continue;
     depth++;

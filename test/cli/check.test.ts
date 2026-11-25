@@ -402,6 +402,35 @@ describe("Comark components", () => {
     ]);
   });
 
+  it("rescans a component's bracket text, also when the component fills the line", () => {
+    expect(where(':card[:hub[hub]{to="#rack"}]\n')).toEqual([[1, 12, "hub", "station"]]);
+    expect(where(':badge[:icon{color="hub"}]\n')).toEqual([]);
+    expect(where('::card[See :icon{color="hub"}]\n::\n')).toEqual([]);
+  });
+
+  it("checks an opener's bracket text apart from the body", () => {
+    const sentence = "Day Pass rides are cheaper.";
+    const plain = where(`${sentence}\n`);
+    expect(where(`::card[Intro]\n${sentence}\n::\n`)).toEqual(
+      plain.map(([, ...rest]) => [2, ...rest]),
+    );
+  });
+
+  it("reads `{attrs}` only after a `]` or a link, and skips link targets", () => {
+    expect(where("Adjust the (optional){rack guide}.\n")).toEqual([[1, 23, "rack", "dock"]]);
+    expect(where("Call map(){return the rack}.\n")).toEqual([[1, 23, "rack", "dock"]]);
+    expect(where("[map](/q?mode=:badge[hub]{color=red})\n")).toEqual([]);
+    expect(where(`[map](/map "Try :badge[hub]{title='Rack guide'}")\n`)).toEqual([]);
+    expect(where(`[Map](/map){title="Use :badge[Status]{title='Rack guide'} now"}\n`)).toHaveLength(
+      1,
+    );
+  });
+
+  it("reads a quoted YAML value without its comment, and skips `className`", () => {
+    expect(where('::card\n---\ntitle: "Buy a day pass." # annual\n---\n::\n')).toEqual([]);
+    expect(where('::div{className="Rack Box"}\n::\n')).toEqual([]);
+  });
+
   it("keeps offsets in CRLF files", () => {
     const lf =
       '::card{title="Rack guide"}\n---\ntitle: A hub\n---\nA rack :badge[hub]{title="Hub"}.\n::\n';
