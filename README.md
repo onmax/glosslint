@@ -128,7 +128,7 @@ Plurals ending in `s` or `es` match both terms and avoid words. glosslint report
 
 A header takes the label style unless `casing.header` sets its own. Words with an inner capital, such as `eBike`, keep it in every style but `upper`.
 
-When the corpus or the term sets `title` or `upper` for labels or headers, a label or header that holds a `context` term follows that style as a whole: with `casing: { label: "title" }`, the label "Day pass price" becomes "Day Pass Price", in one fix that also holds the term's own fix. Without `casing`, only the term is checked.
+When the corpus or the term sets `title` or `upper` for labels or headers, a label or header that holds a `context` term follows that style as a whole: with `casing: { label: "title" }`, the label "Day pass price" becomes "Day Pass Price", in one fix that also holds the term's own fix. Small words such as "a" and "of" stay lowercase unless they start the label or follow a dash or colon, and text in parentheses keeps its case. Without `casing`, only the term is checked.
 
 ```ts
 export default defineCorpus({
