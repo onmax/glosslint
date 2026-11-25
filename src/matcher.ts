@@ -505,13 +505,9 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     // A longer avoid entry that doesn't apply here must not hide a shorter one that does.
     const acceptAvoid = (hit: Hit<AvoidEntry>) => (avoidFinding(text, hit, kind) ? hit : undefined);
     for (let index = 0; index < tokens.length;) {
-      // An avoid word may hold a period between words ("Min. qty"); if that reading fails, try without it.
-      let hit = longest(text, tokens, index, avoidLimit, avoidGap, findAvoid, acceptAvoid);
-      let finding = hit && avoidFinding(text, hit, kind);
-      if (!finding) {
-        hit = longest(text, tokens, index, avoidLimit, textGap, findAvoid, acceptAvoid);
-        finding = hit && avoidFinding(text, hit, kind);
-      }
+      // An avoid word may hold a period between words ("Min. qty").
+      const hit = longest(text, tokens, index, avoidLimit, avoidGap, findAvoid, acceptAvoid);
+      const finding = hit && avoidFinding(text, hit, kind);
       if (!hit || !finding) {
         index++;
         continue;

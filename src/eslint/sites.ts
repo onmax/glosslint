@@ -353,7 +353,7 @@ export function yamlSite(node: Node): Site | undefined {
         ...site,
         base: node.range[0],
         map: /[\r\n]/.test(raw) ? undefined : identityMap(raw, text),
-        safe: noneOf("#", ":", ...NEWLINES),
+        safe: noneOf("#", ":", ",", "[", "]", "{", "}", ...NEWLINES),
       };
     case "single-quoted":
       return {

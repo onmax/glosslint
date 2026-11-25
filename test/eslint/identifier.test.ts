@@ -28,7 +28,7 @@ describe("identifier", () => {
   });
 
   it("skips a name written with escapes instead of crashing", async () => {
-    await valid(`const re\\u0043hargePoint = 1;`);
+    await valid(`const re\\u0043hargePoint = 1; use(reChargePoint);`);
   });
 
   it("checks variables, functions, params, classes and properties", async () => {

@@ -197,6 +197,11 @@ describe("Markdown masking", () => {
     expect(check("- ```\n  rack\n  ```\n\n> ~~~\n> rack\n> ~~~\n")).toEqual([]);
   });
 
+  it("does not close a fence on a list item inside it", () => {
+    const findings = check("```md\n- ```\nrack\n```\n\nA rack.\n");
+    expect(findings.map((finding) => [finding.line, finding.text])).toEqual([[6, "rack"]]);
+  });
+
   it("still reports the prose around masked parts, at the right line and column", () => {
     const findings = check("```\nrack\n```\n\nNo `rack` here, but a rack there.\n");
     expect(findings.map((finding) => [finding.line, finding.column, finding.text])).toEqual([

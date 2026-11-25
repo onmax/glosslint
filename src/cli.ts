@@ -175,7 +175,7 @@ function blank(text: string): string {
 
 const FRONTMATTER = /^(?:---|\+\+\+)\r?\n[\s\S]*?\r?\n(?:---|\+\+\+|\.\.\.)[ \t]*(?:\r?\n|$)/;
 // A fence may sit in a list item or a blockquote: `- ```ts`, `> ~~~`.
-const FENCE = /^[ \t]*(?:>[ \t]?)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})([^\n]*)$/;
+const FENCE = /^[ \t]*((?:>[ \t]?)*)[ \t]*((?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})([^\n]*)$/;
 const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 // A code span never crosses a blank line, written with LF or CRLF.
 const INLINE_CODE = /(?<!`)(`+)(?!`)(?:(?!\r?\n[ \t]*\r?\n)[\s\S])*?[^`]\1(?!`)/g;
@@ -198,21 +198,25 @@ const LIST_ITEM = /^ {0,3}(?:>[ \t]?)*(?:[-*+]|\d{1,9}[.)])[ \t]/;
 export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): string {
   let out = text.replace(FRONTMATTER, blank);
   const lines = out.split("\n");
-  let fence: string | undefined;
+  // The open fence's marker and blockquote depth; it closes only at the same depth, never on a list item.
+  let fence: { marker: string; depth: number } | undefined;
   for (const [index, line] of lines.entries()) {
     const match = FENCE.exec(line);
-    const marker = match?.[1];
+    const marker = match?.[3];
+    const depth = match?.[1]?.split(">").length ?? 0;
     if (fence !== undefined) {
       if (
         marker &&
-        marker[0] === fence[0] &&
-        marker.length >= fence.length &&
-        match![2]!.trim() === ""
+        !match![2] &&
+        depth === fence.depth &&
+        marker[0] === fence.marker[0] &&
+        marker.length >= fence.marker.length &&
+        match![4]!.trim() === ""
       )
         fence = undefined;
       lines[index] = blank(line);
     } else if (marker) {
-      fence = marker;
+      fence = { marker, depth };
       lines[index] = blank(line);
     } else if (options.mdx && /^(?:import|export)\s/.test(line)) {
       lines[index] = blank(line);

@@ -209,8 +209,9 @@ function identifierRule(corpus: Corpus, settings: RuleSettings): Rule.RuleModule
           if (seen.has(id)) continue;
           seen.add(id);
           const name = id.name as string;
-          const start = sourceCode.text.indexOf(name, id.range[0]);
-          if (start === -1) continue;
+          // A name written with escapes, such as `re\u0043hargePoint`, has no offsets to report at.
+          const start = id.range[0] + (id.type === "PrivateIdentifier" ? 1 : 0);
+          if (!sourceCode.text.startsWith(name, start)) continue;
           // A one-word term says nothing about how a name splits: `allowList` is fine for "allowlist".
           const findings = matcher
             .check(name, "identifier")
