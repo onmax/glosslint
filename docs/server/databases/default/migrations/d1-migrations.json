@@ -1,3 +1,4 @@
 {
-  "20261125165116_fuzzy_gambit": "0000_fuzzy_gambit.sql"
+  "20261125165116_fuzzy_gambit": "0000_fuzzy_gambit.sql",
+  "20261125173020_comments": "0001_comments.sql"
 }

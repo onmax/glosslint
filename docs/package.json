@@ -19,6 +19,7 @@
     "@iconify-json/vscode-icons": "^1.2.30",
     "@nuxt/ui": "^4.13.1",
     "@vite-hub/cms": "^0.5.1",
+    "@vite-hub/comments": "^0.5.1",
     "@vite-hub/content": "^0.5.1",
     "@vite-hub/database": "^0.5.1",
     "@vite-hub/docs": "^0.5.1",

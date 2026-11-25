@@ -239,6 +239,9 @@ importers:
       '@vite-hub/cms':
         specifier: ^0.5.1
         version: 0.5.1(16f07f5120658de99e1f8af52479b45e)
+      '@vite-hub/comments':
+        specifier: ^0.5.1
+        version: 0.5.1(07a4c453841933e04b82128523395fb7)
       '@vite-hub/content':
         specifier: ^0.5.1
         version: 0.5.1(83c8a23c84f72a857d38e6a6d6159d87)

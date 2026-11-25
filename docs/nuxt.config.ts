@@ -47,8 +47,6 @@ export default defineNuxtConfig({
       { label: 'glosslint on npm', icon: 'i-simple-icons-npm', to: 'https://npmx.dev/package/glosslint' },
     ],
     seoAudit: 'error',
-    // Off: readers who comment need to sign in, and the site has no Auth.
-    comments: false,
   },
   vitehub: {
     name: 'glosslint-docs',
