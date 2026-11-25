@@ -19,7 +19,8 @@ function exportsOf(specifier: string): string[] {
   return JSON.parse(out);
 }
 
-describe("dist", () => {
+// Each test spawns Node or npm, which is slow on a busy runner.
+describe("dist", { timeout: 60_000 }, () => {
   it("exports every entry by the package name", () => {
     expect(exportsOf("glosslint")).toEqual([
       "CONFIG_ERRORS",
