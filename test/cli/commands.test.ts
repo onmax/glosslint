@@ -57,7 +57,7 @@ Unlimited rides for one calendar day.
 - Title Case in labels, lowercase in sentences.
 
 ## Spelling
-Write these as shown: Reorder point.
+Write these as shown: Recharge point.
 `);
   });
 

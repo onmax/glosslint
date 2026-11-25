@@ -45,7 +45,7 @@ const en = resource("locales/en.json", "en", {
   "ride.start": "Unlock your ebike at the rack.",
   "pass.buy.label": "Buy a day pass",
   "pass.buy.description": "Buy a day pass today.",
-  "ride.charge": "Bikes below the re-order point go to charge with the ebike team.",
+  "ride.charge": "Bikes below the re-charge point go to charge with the ebike team.",
   "ride.quote": 'Say "hi" at the rack',
   "station.count": 3,
 });
@@ -153,7 +153,7 @@ describe("glosslint x18n plugin", () => {
   it("points at the reported words inside message values and hard strings", () => {
     const ranges = all.map((d) => slice(d.location!.path, d.location!.range));
     expect(ranges).toEqual([
-      "re-order point",
+      "re-charge point",
       "rack",
       // The escaped quotes make offsets differ, so the whole value is reported.
       String.raw`"Say \"hi\" at the rack"`,
@@ -194,7 +194,7 @@ describe("glosslint x18n plugin", () => {
 
   it("makes every safe fix of a message apply all its autofixes, since x18n keeps the first set of a key", () => {
     const charge = all.filter((d) => d.key === "ride.charge");
-    const fixed = "Bikes below the reorder point go to charge with the eBike team.";
+    const fixed = "Bikes below the recharge point go to charge with the eBike team.";
     expect(charge.map((d) => d.fixes?.[0])).toEqual([
       {
         title: 'Fix 2 terms in "ride.charge"',
@@ -211,13 +211,13 @@ describe("glosslint x18n plugin", () => {
       charge.map((d) => [d.fixes?.[1]?.title, d.fixes?.[1]?.level, d.fixes?.[1]?.ops[0]]),
     ).toEqual([
       [
-        'Change "re-order point" to "reorder point"',
+        'Change "re-charge point" to "recharge point"',
         undefined,
         {
           type: "set",
           key: "ride.charge",
           locale: "en",
-          value: "Bikes below the reorder point go to charge with the ebike team.",
+          value: "Bikes below the recharge point go to charge with the ebike team.",
         },
       ],
       [
@@ -227,7 +227,7 @@ describe("glosslint x18n plugin", () => {
           type: "set",
           key: "ride.charge",
           locale: "en",
-          value: "Bikes below the re-order point go to charge with the eBike team.",
+          value: "Bikes below the re-charge point go to charge with the eBike team.",
         },
       ],
     ]);

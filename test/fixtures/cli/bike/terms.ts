@@ -24,7 +24,7 @@ export const terms: Term[] = [
     case: "context",
     description: "Unlimited rides for one calendar day.",
   },
-  { term: "Reorder point" },
+  { term: "Recharge point" },
 ];
 
 export const allow = ["check out our", "roof rack"];

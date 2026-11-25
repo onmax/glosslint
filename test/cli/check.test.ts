@@ -10,9 +10,9 @@ describe("glosslint check", () => {
     const { code, stdout, stderr } = await run([]);
     expect(stderr).toBe("");
     expect(code).toBe(1);
-    expect(stdout).toBe(`[GLOSSLINT_TERM] "re-order point" in docs/notes.txt:2:24
-├▶ fix: Change to "reorder point": "Old receipts still say reorder point."
-╰▶ term: Reorder point
+    expect(stdout).toBe(`[GLOSSLINT_TERM] "re-charge point" in docs/notes.txt:2:24
+├▶ fix: Change to "recharge point": "Old receipts still say recharge point."
+╰▶ term: Recharge point
 
 [GLOSSLINT_AVOID] "rack" in docs/riding.md:7:51
 ├▶ why: Racks are unpowered.
@@ -92,7 +92,7 @@ describe("glosslint check", () => {
       see: "https://example.com/docs/docks",
     });
     expect(report.findings.map((finding) => [finding.file, finding.line, finding.text])).toEqual([
-      ["docs/notes.txt", 2, "re-order point"],
+      ["docs/notes.txt", 2, "re-charge point"],
       ["docs/riding.md", 7, "rack"],
       ["docs/riding.md", 8, "e-bike"],
       ["docs/riding.md", 19, "Day Pass"],

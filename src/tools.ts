@@ -165,7 +165,7 @@ export function explainMatches(corpus: Corpus, query: string): ExplainMatch[] {
   };
   const asTerm = byKey(terms, key);
   if (asTerm) {
-    // "re-order point" has the key of "Reorder point" but another spelling; "docks" is only its plural.
+    // "re-charge point" has the key of "Recharge point" but another spelling; "docks" is only its plural.
     const respelled = key === termKey(asTerm.term) && squash(query) !== squash(asTerm.term);
     add(asTerm, respelled ? `"${query.trim()}" is spelled "${asTerm.term}".` : undefined);
   }

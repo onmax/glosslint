@@ -83,8 +83,8 @@ describe("explain", () => {
   it("finds a term by its name, a plural or another spelling", () => {
     expect(explainMatches(bike, "dock")).toEqual([{ term: bike.terms[0] }]);
     expect(explainMatches(bike, "Docks").map((match) => match.term.term)).toEqual(["Dock"]);
-    expect(explainMatches(bike, "re-order point")).toEqual([
-      { term: bike.terms[5], note: '"re-order point" is spelled "Reorder point".' },
+    expect(explainMatches(bike, "re-charge point")).toEqual([
+      { term: bike.terms[5], note: '"re-charge point" is spelled "Recharge point".' },
     ]);
   });
 
