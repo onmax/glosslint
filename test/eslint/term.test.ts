@@ -57,6 +57,13 @@ describe("term in TS", () => {
     });
   });
 
+  it("reads a template literal's kind from its whole text", async () => {
+    await invalid("const intro = `Ride with a Day Pass for ${days} days.`;", {
+      output: "const intro = `Ride with a day pass for ${days} days.`;",
+      errors: ["GLOSSLINT_CASE"],
+    });
+  });
+
   it("maps offsets back through escapes", async () => {
     await invalid(`const a = 'Don\\'t pass the re-charge point';`, {
       output: `const a = 'Don\\'t pass the recharge point';`,
@@ -166,6 +173,21 @@ describe("term in Vue", () => {
     await invalid("<template><p>{{ ok ? `Re-charge point` : 'Check-out' }}</p></template>", {
       output: "<template><p>{{ ok ? `Recharge point` : 'Checkout' }}</p></template>",
       errors: 2,
+    });
+  });
+
+  it("reads template text as a label when it is a few words, else from its element or slot", async () => {
+    await invalid(`<template><p>Buy a day pass</p></template>`, {
+      output: `<template><p>Buy a Day Pass</p></template>`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+    await invalid(`<template><p>Riders who buy a Day Pass ride free all day.</p></template>`, {
+      output: `<template><p>Riders who buy a day pass ride free all day.</p></template>`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+    await invalid(`<template><UCard><template #header>day pass</template></UCard></template>`, {
+      output: `<template><UCard><template #header>Day Pass</template></UCard></template>`,
+      errors: ["GLOSSLINT_CASE"],
     });
   });
 

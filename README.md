@@ -112,7 +112,7 @@ Plurals ending in `s` or `es` match both terms and avoid words. glosslint report
 | `exact`    | One form everywhere. "E-bike" and "Ebike" are both reported, and the fix is always "eBike".                                                                                                                                         |
 | `context`  | Title Case in labels and lowercase in sentences, capitalised at the start of a sentence. A button "Buy a day pass" becomes "Buy a Day Pass", and the sentence "Buy a Day Pass at the kiosk." becomes "Buy a day pass at the kiosk." |
 
-`context` needs to know whether a string is a label, a table header or a sentence. glosslint guesses from the key or attribute name and the text. A string is a header when its name holds `header`, `column`, `col` or `th`, as AG Grid's `headerName` does, and a label when its name holds a word such as `label`, `title`, `button`, `tab` or `heading`, or ends in `name`. Both need at most seven words and no closing period. A string is a sentence when its name holds a word such as `description`, `tooltip`, `text`, `message`, `hint` or `help`, or when it ends in `.`, `!` or `?`. In anything else, comments included, `context` terms get no casing check. In Markdown, headings are labels, a table's first row is headers, and paragraphs and list items are sentences.
+`context` needs to know whether a string is a label, a table header or a sentence. glosslint guesses from the key or attribute name and the text. A string is a header when its name holds `header`, `column`, `col` or `th`, as AG Grid's `headerName` does, and a label when its name holds a word such as `label`, `title`, `button`, `tab` or `heading`, or ends in `name`. Both need at most seven words and no closing period. A string is a sentence when its name holds a word such as `description`, `tooltip`, `text`, `message`, `hint` or `help`, or when it ends in `.`, `!` or `?`. In anything else, comments included, `context` terms get no casing check. In a Vue template, text takes its kind from its element: a `<template #header>` slot is a header and `<h2>` a label. Other text is a label when it is four words or fewer with no closing stop, and a sentence otherwise. In Markdown, headings are labels, a table's first row is headers, and paragraphs and list items are sentences.
 
 #### Case styles
 
@@ -127,6 +127,8 @@ Plurals ending in `s` or `es` match both terms and avoid words. glosslint report
 | `as-written` | As the term is written in the corpus.                                           |
 
 A header takes the label style unless `casing.header` sets its own. Words with an inner capital, such as `eBike`, keep it in every style but `upper`.
+
+When the corpus or the term sets `title` or `upper` for labels or headers, a label or header that holds a `context` term follows that style as a whole: with `casing: { label: "title" }`, the label "Day pass price" becomes "Day Pass Price", in one fix that also holds the term's own fix. Without `casing`, only the term is checked.
 
 ```ts
 export default defineCorpus({

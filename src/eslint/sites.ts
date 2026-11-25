@@ -263,6 +263,8 @@ export function esSites(
   const cookedOf = (quasi: Node) => (quasi.value as { cooked: string | null }).cooked;
   // A template is code when its text, read without the expressions, is: `item-${id}`.
   if (isCodeShape(quasis.map((quasi) => cookedOf(quasi) ?? "").join(""))) return [];
+  // Every part of a template is the same kind of text: the kind of the whole, with each expression as a word.
+  const kind = kindOf(name, quasis.map((quasi) => cookedOf(quasi) ?? "").join("x"));
   const sites: Site[] = [];
   for (const quasi of quasis) {
     const cooked = cookedOf(quasi);
@@ -272,7 +274,7 @@ export function esSites(
     const exact = source.slice(base, base + raw.length) === raw;
     sites.push({
       text: cooked,
-      kind: kindOf(name, cooked),
+      kind,
       base,
       map: exact ? jsMap(raw, cooked) : undefined,
       within: quasi.range,
@@ -287,6 +289,31 @@ function attributeNameOf(node: Node): string | undefined {
   return attribute ? attributeName(attribute) : undefined;
 }
 
+/** The name a Vue text node's element gives it: the slot of a `<template #header>`, `heading` for `<h2>`, or the tag. */
+function elementName(node: Node): string | undefined {
+  const element = node.parent;
+  if (element?.type !== "VElement") return undefined;
+  const tag = String(element.rawName ?? element.name ?? "");
+  if (/^h[1-6]$/i.test(tag)) return "heading";
+  if (tag !== "template") return tag;
+  const attributes = ((element.startTag as Node | undefined)?.attributes ?? []) as Node[];
+  for (const attribute of attributes) {
+    const key = attribute.key as Node | undefined;
+    if (!attribute.directive || (key?.name as Node | undefined)?.name !== "slot") continue;
+    const argument = key?.argument as Node | null | undefined;
+    if (argument?.type === "VIdentifier") return String(argument.rawName ?? argument.name);
+  }
+  return undefined;
+}
+
+/** The kind of a Vue text node: from its element, else a label when it is a few words without a final stop. */
+function textKind(node: Node, text: string) {
+  const kind = kindOf(elementName(node), text);
+  if (kind !== "unknown") return kind;
+  const short = text.trim().split(/\s+/).length <= 4 && !/[.!?:]$/.test(text.trim());
+  return short ? "label" : "sentence";
+}
+
 /** Builds the site of a Vue template text node. */
 export function textSite(node: Node, source: string): Site | undefined {
   const text = node.value as string;
@@ -294,7 +321,7 @@ export function textSite(node: Node, source: string): Site | undefined {
   const raw = source.slice(node.range[0], node.range[1]);
   return {
     text,
-    kind: kindOf("text", text),
+    kind: textKind(node, text),
     base: node.range[0],
     map: identityMap(raw, text),
     within: node.range,

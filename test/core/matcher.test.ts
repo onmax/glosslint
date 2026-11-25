@@ -594,9 +594,61 @@ describe("casing", () => {
     expect(hits("Set the Lead Time.", "sentence", m)).toEqual(["CASE Lead Time -> lead time"]);
   });
 
+  it("a label or header with a set style follows it as a whole, holding the term fixes", () => {
+    expect(hits("Buy a day pass", "label")).toEqual(["CASE day pass -> Day Pass"]);
+    const title = withCasing({ label: "title" });
+    expect(hits("Buy a day pass", "label", title)).toEqual(["CASE day pass -> Day Pass"]);
+    expect(hits("Day pass price", "label", title)).toEqual([
+      "CASE Day pass -> undefined",
+      "CASE Day pass price -> Day Pass Price",
+    ]);
+    expect(title.check("Day pass price", "label")[1]?.message).toBe(
+      '"Day Pass price" is written "Day Pass Price": labels are in Title Case.',
+    );
+    expect(hits("Day Pass price", "header", withCasing({ header: "upper" }))).toEqual([
+      "CASE Day Pass -> undefined",
+      "CASE Day Pass price -> DAY PASS PRICE",
+    ]);
+    expect(hits("Buy a Day Pass", "label", title)).toEqual([]);
+    expect(hits("Return the bike to a dock", "label", title)).toEqual([]);
+  });
+
   it("leaves comments and unknown text alone", () => {
     const m = withCasing({ label: "upper", header: "upper", sentence: "upper" });
     expect(hits("Buy a day pass", undefined, m)).toEqual([]);
     expect(hits("Buy a day pass", "comment", m)).toEqual([]);
+  });
+});
+
+describe("sentence starts and replacements", () => {
+  it("a word after e.g., a term's own period or a lowercase colon starts no sentence", () => {
+    expect(hits("Ride often, e.g. day pass holders.", "sentence")).toEqual([]);
+    expect(hits("Ride often, e.g. Day Pass holders.", "sentence")).toEqual([
+      "CASE Day Pass -> day pass",
+    ]);
+    expect(hits("Included: day pass", "sentence")).toEqual([]);
+    expect(hits("Included: Day Pass", "sentence")).toEqual(["CASE Day Pass -> Day pass"]);
+    const pcs = createMatcher(
+      defineCorpus({ terms: [...bikeTerms, { term: "pcs.", case: "exact", avoid: ["pieces"] }] }),
+    );
+    expect(hits("Sold in 5 pcs. day pass bundles.", "sentence", pcs)).toEqual([]);
+  });
+
+  it("a replacement ending in a period takes the sentence's own period", () => {
+    const pcs = createMatcher(
+      defineCorpus({ terms: [{ term: "pcs.", case: "exact", avoid: ["pieces"] }] }),
+    );
+    expect(hits("Shown in pieces.", "sentence", pcs)).toEqual(["AVOID pieces. -> pcs."]);
+    expect(hits("Shown in pieces here.", "sentence", pcs)).toEqual(["AVOID pieces -> pcs."]);
+  });
+
+  it("an avoid word in capitals asks for capitals unless the avoid word is an acronym", () => {
+    expect(hits("RETURN TO THE RACK")).toEqual(["AVOID RACK -> DOCK"]);
+    expect(hits("Ask the SM")).toEqual(["AVOID SM -> Station Manager"]);
+  });
+
+  it("offers no replacement that would repeat the word beside it", () => {
+    expect(hits("a box crate")).toEqual([]);
+    expect(hits("a wooden crate")).toEqual(["AVOID crate -> box"]);
   });
 });
