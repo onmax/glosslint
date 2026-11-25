@@ -1,8 +1,38 @@
-# glosslint
+<h1><img src="./.github/assets/banner.svg" alt="glosslint" width="100%"></h1>
 
-glosslint checks that your product's words are spelled, cased and chosen the way your glossary says. You keep one corpus of terms, each with what it means and which words to avoid, and glosslint reports problems in code through ESLint, in translations through x18n, and in Markdown docs through its own CLI.
+<!-- automd:comark-badges packages=glosslint -->
+
+[![npm version](https://comark-ui.onmax.me/badge.svg?source=npm-version&package=glosslint&label=glosslint&icon=npm)](https://www.npmjs.com/package/glosslint)
+[![npm downloads](https://comark-ui.onmax.me/badge.svg?source=npm-downloads&package=glosslint&period=month&icon=npm)](https://www.npmjs.com/package/glosslint)
+[![CI](https://comark-ui.onmax.me/badge.svg?source=github-actions&repository=onmax%2Fglosslint&workflow=pkg-pr-new.yml&icon=github)](https://github.com/onmax/glosslint/actions/workflows/pkg-pr-new.yml)
+[![license: MIT](https://comark-ui.onmax.me/badge.svg?label=license&value=MIT)](./LICENSE)
+
+<!-- /automd -->
+
+glosslint checks that your product's words are spelled, cased and chosen the way your glossary says. You keep one corpus of terms, each with what it means and which words to avoid. glosslint reports problems in code through ESLint, in translations through x18n, and in Markdown docs through its CLI, with the reason and meaning on every finding so people and coding agents learn the vocabulary as they work.
+
+[Install](#install) · [The corpus](#the-corpus) · [ESLint](#eslint) · [x18n](#x18n) · [CLI](#cli) · [For agents](#for-agents)
+
+## How it works
+
+```mermaid
+flowchart LR
+  corpus["glosslint.config.ts<br/>glossary table + presets"] --> matcher["Matcher"]
+  matcher --> eslint["ESLint<br/>code, YAML locales,<br/>comments, identifiers"]
+  matcher --> x18n["x18n<br/>translations"]
+  matcher --> cli["CLI<br/>Markdown docs"]
+  eslint --> findings["Findings<br/>why, fix, meaning<br/>for people and agents"]
+  x18n --> findings
+  cli --> findings
+```
 
 Every example below uses an invented bike-share app. The full setup lives in [`examples/basic`](./examples/basic).
+
+```diff
+  # locales/en.yml
+- hint: Return your e-bike to any rack.
++ hint: Return your eBike to any dock.
+```
 
 ## Install
 
