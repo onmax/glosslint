@@ -1,0 +1,244 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-label="glosslint — neon sign reading glosslint above Re-order point corrected to Reorder Point">
+  <title>glosslint</title>
+  <defs>
+    <!-- Sign backing gradients -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#070911"/>
+      <stop offset="50%" stop-color="#0b101d"/>
+      <stop offset="100%" stop-color="#070a12"/>
+    </linearGradient>
+
+    <!-- Subtle architectural grid revealed inside the neon spill -->
+    <pattern id="wall-grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#9ec5ff" stroke-width="0.75"/>
+    </pattern>
+
+    <radialGradient id="grid-mask-grad" cx="640" cy="200" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.09"/>
+      <stop offset="58%" stop-color="#ffffff" stop-opacity="0.045"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="grid-mask">
+      <rect width="1280" height="400" fill="url(#grid-mask-grad)"/>
+    </mask>
+
+    <!-- Ambient neon light pools cast onto the dark sign backing -->
+    <radialGradient id="pool-cyan" cx="465" cy="158" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22e8ff" stop-opacity="0.21"/>
+      <stop offset="46%" stop-color="#0ea5e9" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="pool-mint" cx="835" cy="158" r="285" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2ef5a3" stop-opacity="0.19"/>
+      <stop offset="48%" stop-color="#10b981" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="pool-coral" cx="460" cy="322" r="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff4770" stop-opacity="0.14"/>
+      <stop offset="60%" stop-color="#ff4770" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ff4770" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="pool-fix" cx="820" cy="322" r="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38f9b8" stop-opacity="0.17"/>
+      <stop offset="60%" stop-color="#22e8ff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#22e8ff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Frame and pill border gradients -->
+    <linearGradient id="frame-grad" x1="18" y1="18" x2="1262" y2="382" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22e8ff" stop-opacity="0.34"/>
+      <stop offset="50%" stop-color="#283854" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#2ef5a3" stop-opacity="0.34"/>
+    </linearGradient>
+    <linearGradient id="tray-border" x1="312" y1="322" x2="968" y2="322" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff4770" stop-opacity="0.45"/>
+      <stop offset="45%" stop-color="#283650" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#283650" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#34f5a8" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="arrow-grad" x1="612" y1="322" x2="668" y2="322" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff6b8d"/>
+      <stop offset="48%" stop-color="#6eedff"/>
+      <stop offset="100%" stop-color="#45ffd0"/>
+    </linearGradient>
+
+    <!-- Generous user-space glow filters covering both local glyph space (y < 0) and root space -->
+    <filter id="glow-wide" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5.5" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow-tube" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow-soft" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6.5" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="wall-shadow" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4"/>
+    </filter>
+
+    <!-- Hand-crafted monoline neon tube glyphs for "gloss" -->
+    <g id="glyphs-gloss" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- g -->
+      <path d="M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42"/>
+      <path d="M 68 4 L 68 86 C 68 118, 42 126, 12 114"/>
+      <!-- l -->
+      <path d="M 92 -46 L 92 66 Q 92 82, 108 82"/>
+      <!-- o -->
+      <path d="M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42"/>
+      <!-- s -->
+      <path d="M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70"/>
+      <!-- s -->
+      <path d="M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70"/>
+    </g>
+
+    <!-- Hand-crafted monoline neon tube glyphs for "lint" -->
+    <g id="glyphs-lint" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- l -->
+      <path d="M 372 -46 L 372 66 Q 372 82, 388 82"/>
+      <!-- i -->
+      <path d="M 412 4 L 412 66 Q 412 82, 428 82"/>
+      <path d="M 412 -27 L 412 -25"/>
+      <!-- n -->
+      <path d="M 450 4 L 450 82"/>
+      <path d="M 450 32 C 450 -7, 506 -7, 506 32 L 506 82"/>
+      <!-- t -->
+      <path d="M 542 -32 L 542 64 Q 542 82, 562 82"/>
+      <path d="M 526 6 L 564 6"/>
+    </g>
+
+    <!-- Arrow path -->
+    <g id="arrow-glyph" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 616 322 L 662 322"/>
+      <path d="M 650 311 L 663 322 L 650 333"/>
+    </g>
+  </defs>
+
+  <style>
+    .mono {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+      font-size: 25px;
+      font-weight: 600;
+    }
+    .wrong-flicker {
+      animation: wrongFlicker 7s ease-in-out infinite;
+    }
+    .neon-hum {
+      animation: neonHum 5.5s ease-in-out infinite;
+    }
+    @keyframes wrongFlicker {
+      0%, 82%, 86%, 91%, 100% { opacity: 1; }
+      84% { opacity: 0.54; }
+      88% { opacity: 0.74; }
+    }
+    @keyframes neonHum {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.94; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .wrong-flicker, .neon-hum { animation: none; }
+    }
+  </style>
+
+  <!-- Dark sign housing -->
+  <rect width="1280" height="400" rx="20" fill="url(#bg)"/>
+  <rect width="1280" height="400" rx="20" fill="url(#wall-grid)" mask="url(#grid-mask)"/>
+
+  <!-- Ambient neon reflections on the backing wall -->
+  <rect width="1280" height="400" rx="20" fill="url(#pool-cyan)"/>
+  <rect width="1280" height="400" rx="20" fill="url(#pool-mint)"/>
+  <rect width="1280" height="400" rx="20" fill="url(#pool-coral)"/>
+  <rect width="1280" height="400" rx="20" fill="url(#pool-fix)"/>
+
+  <!-- Outer sign frame and corner mounting screws -->
+  <rect x="0.75" y="0.75" width="1278.5" height="398.5" rx="19.5" fill="none" stroke="#182236" stroke-width="1.5"/>
+  <rect x="18" y="18" width="1244" height="364" rx="13" fill="none" stroke="url(#frame-grad)" stroke-width="1.5"/>
+  <g fill="#1c273d" stroke="#2c3c5a" stroke-width="1">
+    <circle cx="40" cy="40" r="3.5"/>
+    <circle cx="1240" cy="40" r="3.5"/>
+    <circle cx="40" cy="360" r="3.5"/>
+    <circle cx="1240" cy="360" r="3.5"/>
+  </g>
+
+  <!-- WORDMARK: glosslint (centered at x=640, scale 1.18, width ~666px) -->
+  <g class="neon-hum" transform="translate(307, 114) scale(1.18)">
+    <!-- Physical drop shadows onto the sign backing -->
+    <g transform="translate(0, 7)" filter="url(#wall-shadow)" opacity="0.82">
+      <use href="#glyphs-gloss" stroke="#020408" stroke-width="15"/>
+      <use href="#glyphs-lint" stroke="#020408" stroke-width="15"/>
+    </g>
+
+    <!-- Subtle unlit glass outer casing -->
+    <use href="#glyphs-gloss" stroke="#0b2f3d" stroke-width="15.5" opacity="0.55"/>
+    <use href="#glyphs-lint" stroke="#0b3629" stroke-width="15.5" opacity="0.55"/>
+
+    <!-- Wide ambient neon halo -->
+    <g filter="url(#glow-wide)" opacity="0.78">
+      <use href="#glyphs-gloss" stroke="#15dcff" stroke-width="13"/>
+      <use href="#glyphs-lint" stroke="#1ff098" stroke-width="13"/>
+    </g>
+
+    <!-- Saturated glowing glass tube -->
+    <g filter="url(#glow-tube)">
+      <use href="#glyphs-gloss" stroke="#42f0ff" stroke-width="11"/>
+      <use href="#glyphs-lint" stroke="#45f9ad" stroke-width="11"/>
+    </g>
+
+    <!-- Hot white-tinted gas filament core -->
+    <use href="#glyphs-gloss" stroke="#ebfeff" stroke-width="4.2" opacity="0.96"/>
+    <use href="#glyphs-lint" stroke="#edfff6" stroke-width="4.2" opacity="0.96"/>
+  </g>
+
+  <!-- CORRECTION TRAY: x Re-order point (struck) -> Reorder Point ✓ -->
+  <g>
+    <!-- Recessed dark glass pill aligned with the wordmark width -->
+    <rect x="312" y="291" width="656" height="62" rx="31" fill="#060911" fill-opacity="0.82" stroke="url(#tray-border)" stroke-width="1.5"/>
+
+    <!-- Left: Wrong term, dimmed coral-rose neon + subtle angled neon strike + muted x -->
+    <g class="wrong-flicker">
+      <!-- Muted neon x mark balancing the checkmark on the right -->
+      <g opacity="0.72">
+        <path d="M 344 316 L 356 328 M 356 316 L 344 328" fill="none" stroke="#ff4770" stroke-width="3" stroke-linecap="round" filter="url(#glow-soft)"/>
+        <path d="M 344 316 L 356 328 M 356 316 L 344 328" fill="none" stroke="#ffb3c5" stroke-width="1.2" stroke-linecap="round"/>
+      </g>
+
+      <text x="484" y="330" text-anchor="middle" class="mono" fill="#ff4770" filter="url(#glow-soft)" opacity="0.46">Re-order point</text>
+      <text x="484" y="330" text-anchor="middle" class="mono" fill="#ffa0b6" opacity="0.84">Re-order point</text>
+      <!-- Gently angled neon coral strike so the hyphen in Re-order stays legible -->
+      <line x1="388" y1="327" x2="580" y2="316" stroke="#ff3562" stroke-width="2.8" stroke-linecap="round" filter="url(#glow-soft)" opacity="0.82"/>
+      <line x1="388" y1="327" x2="580" y2="316" stroke="#ff7a98" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
+    </g>
+
+    <!-- Center: Glowing neon arrow -->
+    <g>
+      <use href="#arrow-glyph" stroke="url(#arrow-grad)" stroke-width="4.2" filter="url(#glow-soft)" opacity="0.85"/>
+      <use href="#arrow-glyph" stroke="#e9fff8" stroke-width="1.8" opacity="0.95"/>
+    </g>
+
+    <!-- Right: Correct term, brightly glowing electric mint-cyan neon + glowing checkmark -->
+    <g>
+      <text x="796" y="330" text-anchor="middle" class="mono" fill="#20f0a0" filter="url(#glow-wide)" opacity="0.88">Reorder Point</text>
+      <text x="796" y="330" text-anchor="middle" class="mono" fill="#5bffc2" filter="url(#glow-tube)">Reorder Point</text>
+      <text x="796" y="330" text-anchor="middle" class="mono" fill="#f0fff9" opacity="0.96">Reorder Point</text>
+
+      <!-- Glowing mint checkmark balancing the x on the left -->
+      <path d="M 920 322 L 926 328 L 938 315" fill="none" stroke="#2ef5a3" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-soft)"/>
+      <path d="M 920 322 L 926 328 L 938 315" fill="none" stroke="#ecfff7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
