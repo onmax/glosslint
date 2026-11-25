@@ -1,6 +1,7 @@
 import type { Rule } from "eslint";
+import { caseModeOf } from "../kind.ts";
 import { createMatcher } from "../matcher.ts";
-import type { Corpus, Finding, FindingCode, Matcher } from "../types.ts";
+import type { Corpus, Finding, FindingCode, KindOf, Matcher } from "../types.ts";
 import { splitWords } from "../words.ts";
 import { type Node, type Site, place, stringListener } from "./sites.ts";
 
@@ -10,6 +11,8 @@ export interface RuleSettings {
   ignoreCallees: readonly string[];
   /** Whether `identifier` reports avoid words too. */
   identifierAvoid: boolean;
+  /** Decides a string's kind before glosslint's own `kindOf`. */
+  kindOf?: KindOf;
 }
 
 export type RuleName = "term" | "avoid" | "comment" | "identifier";
@@ -41,7 +44,10 @@ function docs(description: string): Rule.RuleMetaData["docs"] {
   return { description, url: "https://github.com/onmax/glosslint#eslint" };
 }
 
-/** Reports findings of a site, with an autofix for TERM and CASE and a suggestion for AVOID. */
+/**
+ * Reports findings of a site, with an autofix for TERM and CASE and a suggestion for AVOID. Where only the
+ * text's shape decided its kind, a `context` term's fix is a suggestion too, since the guess may be wrong.
+ */
 function report(
   context: Rule.RuleContext,
   site: Site,
@@ -64,7 +70,9 @@ function report(
         ? (fixer: Rule.RuleFixer) => fixer.replaceTextRange(range, replace)
         : undefined;
     const base = { loc, messageId: finding.code, data: { message: oneLine(finding.message) } };
-    if (finding.fix?.kind === "autofix") context.report({ ...base, fix: fix ?? null });
+    const auto =
+      finding.fix?.kind === "autofix" && !(site.guessed && caseModeOf(finding.term) === "context");
+    if (auto) context.report({ ...base, fix: fix ?? null });
     else
       context.report({
         ...base,
@@ -87,7 +95,7 @@ function stringRule(
     meta: { schema: [], messages, ...meta },
     create(context) {
       const matcher = matcherFor(corpus);
-      return stringListener(context, settings.ignoreCallees, (site) =>
+      return stringListener(context, settings.ignoreCallees, settings.kindOf, (site) =>
         report(context, site, matcher.check(site.text, site.kind), codes),
       );
     },
@@ -120,6 +128,7 @@ function commentRule(corpus: Corpus): Rule.RuleModule {
         const site: Site = {
           text,
           kind: "comment",
+          guessed: false,
           base,
           map: Array.from({ length: text.length + 1 }, (_, index) => index),
           within: comment.range,
@@ -256,6 +265,7 @@ export function createRules(
       type: "suggestion",
       docs: docs("Spell terms as the corpus does, with the casing it asks for."),
       fixable: "code",
+      hasSuggestions: true,
     }),
     avoid: stringRule(corpus, settings, AVOID_CODES, {
       type: "suggestion",

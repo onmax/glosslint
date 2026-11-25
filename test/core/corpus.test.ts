@@ -45,6 +45,13 @@ describe("defineCorpus", () => {
       allow: ["bike rack"],
     });
 
+    it("keeps wholeLabel from the last corpus that sets it", () => {
+      const on = defineCorpus({ wholeLabel: true });
+      expect(defineCorpus({ extends: [on] }).wholeLabel).toBe(true);
+      expect(defineCorpus({ extends: [on], wholeLabel: false }).wholeLabel).toBe(false);
+      expect(defineCorpus({ extends: [first] }).wholeLabel).toBeUndefined();
+    });
+
     it("lets later extends win per term key, and lists the winner after the terms it beats", () => {
       const corpus = defineCorpus({ extends: [first, second] });
       expect(corpus.terms.map((term) => [term.term, term.description])).toEqual([
@@ -251,6 +258,7 @@ describe("defineCorpus", () => {
         { terms: [{ term: "Dock", links: [{ title: "Docks" }] }] },
         { terms: [{ term: "Dock", forms: { de: "Dock" } }] },
         { terms: [{ term: "Dock", translations: { de: ["Dock"] } }] },
+        { wholeLabel: "yes" },
       ];
       for (const input of cases)
         expect(configError(input).code, JSON.stringify(input)).toBe("GLOSSLINT_C007");

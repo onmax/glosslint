@@ -1,4 +1,5 @@
-import { createMatcher, kindOf } from "./matcher.ts";
+import { kindOf } from "./kind.ts";
+import { createMatcher } from "./matcher.ts";
 import type { Corpus, CorpusTestFailure, Finding, Term, X18nGlossaryEntry } from "./types.ts";
 import { capitalise, splitWords, termKey } from "./words.ts";
 
@@ -10,11 +11,11 @@ export function testCorpus(corpus: Corpus): CorpusTestFailure[] {
     const key = termKey(term.term);
     const about = (finding: Finding) => termKey(finding.term.term) === key;
     for (const example of term.examples?.good ?? []) {
-      const findings = matcher.check(example, kindOf(undefined, example));
+      const findings = matcher.check(example, kindOf({ text: example, shown: true }));
       if (findings.some(about)) failures.push({ term, example, expected: "none", findings });
     }
     for (const example of term.examples?.bad ?? []) {
-      const findings = matcher.check(example, kindOf(undefined, example));
+      const findings = matcher.check(example, kindOf({ text: example, shown: true }));
       if (!findings.some(about)) failures.push({ term, example, expected: "finding", findings });
     }
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../../src/corpus.ts";
-import { check, createMatcher, kindOf } from "../../src/matcher.ts";
+import { classify, kindOf } from "../../src/kind.ts";
+import { check, createMatcher } from "../../src/matcher.ts";
 import type { Casing, Finding, Term, TextKind } from "../../src/types.ts";
 import { bike, bikeTerms } from "./bike.ts";
 
@@ -467,57 +468,87 @@ describe("kind identifier", () => {
 
 describe("kindOf", () => {
   it("reads labels from the key and short text", () => {
-    expect(kindOf("buttonLabel", "Buy a day pass")).toBe("label");
-    expect(kindOf("pageTitle", "Docks near you")).toBe("label");
+    expect(kindOf({ name: "buttonLabel", text: "Buy a day pass" })).toBe("label");
+    expect(kindOf({ name: "pageTitle", text: "Docks near you" })).toBe("label");
   });
 
   it("reads table headers from the key and short text", () => {
-    expect(kindOf("columnHeader", "Day pass")).toBe("header");
-    expect(kindOf("headerName", "Day pass")).toBe("header");
-    expect(kindOf("columns.dock", "Day pass")).toBe("header");
-    expect(kindOf("th", "Day pass")).toBe("header");
-    expect(kindOf("headerName", "Return the bike to any dock.")).toBe("sentence");
+    expect(kindOf({ name: "columnHeader", text: "Day pass" })).toBe("header");
+    expect(kindOf({ name: "headerName", text: "Day pass" })).toBe("header");
+    expect(kindOf({ name: "columns.dock", text: "Day pass" })).toBe("header");
+    expect(kindOf({ name: "th", text: "Day pass" })).toBe("header");
+    expect(kindOf({ name: "headerName", text: "Return the bike to any dock." })).toBe("sentence");
   });
 
   it("reads sentences from the key or a final stop", () => {
-    expect(kindOf("description", "Docks near you")).toBe("sentence");
-    expect(kindOf("tooltip", "Docks near you")).toBe("sentence");
-    expect(kindOf(undefined, "Return the bike to any dock.")).toBe("sentence");
-    expect(kindOf("buttonLabel", "Return the bike to any dock.")).toBe("sentence");
+    expect(kindOf({ name: "description", text: "Docks near you" })).toBe("sentence");
+    expect(kindOf({ name: "tooltip", text: "Docks near you" })).toBe("sentence");
+    expect(kindOf({ text: "Return the bike to any dock." })).toBe("sentence");
+    expect(kindOf({ name: "buttonLabel", text: "Return the bike to any dock." })).toBe("sentence");
   });
 
   it("does not call a long text a label", () => {
-    expect(kindOf("label", "Return the bike to any dock within the next ten minutes")).toBe(
-      "unknown",
-    );
+    expect(
+      kindOf({ name: "label", text: "Return the bike to any dock within the next ten minutes" }),
+    ).toBe("unknown");
   });
 
   it("matches whole words of the key only", () => {
-    expect(kindOf("tabLabel", "Buy a day pass")).toBe("label");
-    expect(kindOf("settings.tabs.rides", "Ride history")).toBe("label");
-    expect(kindOf("displayName", "Day pass")).toBe("label");
-    expect(kindOf("tableDescription", "Buy a day pass today")).toBe("sentence");
-    expect(kindOf("stableHint", "Docks near you")).toBe("sentence");
-    expect(kindOf("databaseHelp", "Docks near you")).toBe("sentence");
-    expect(kindOf("rename", "Docks near you")).toBe("unknown");
-    expect(kindOf("stable", "Docks near you")).toBe("unknown");
+    expect(kindOf({ name: "tabLabel", text: "Buy a day pass" })).toBe("label");
+    expect(kindOf({ name: "settings.tabs.rides", text: "Ride history" })).toBe("label");
+    expect(kindOf({ name: "displayName", text: "Day pass" })).toBe("label");
+    expect(kindOf({ name: "tableDescription", text: "Buy a day pass today" })).toBe("sentence");
+    expect(kindOf({ name: "stableHint", text: "Docks near you" })).toBe("sentence");
+    expect(kindOf({ name: "databaseHelp", text: "Docks near you" })).toBe("sentence");
+    expect(kindOf({ name: "rename", text: "Docks near you" })).toBe("unknown");
+    expect(kindOf({ name: "stable", text: "Docks near you" })).toBe("unknown");
   });
 
   it("reads numbered keys and subheadings as labels", () => {
-    expect(kindOf("title1", "Docks near you")).toBe("label");
-    expect(kindOf("label2", "Day pass")).toBe("label");
-    expect(kindOf("subheading", "Docks near you")).toBe("label");
+    expect(kindOf({ name: "title1", text: "Docks near you" })).toBe("label");
+    expect(kindOf({ name: "label2", text: "Day pass" })).toBe("label");
+    expect(kindOf({ name: "subheading", text: "Docks near you" })).toBe("label");
   });
 
   it("returns unknown without a hint", () => {
-    expect(kindOf(undefined, "Docks near you")).toBe("unknown");
-    expect(kindOf("value", "Docks near you")).toBe("unknown");
+    expect(kindOf({ text: "Docks near you" })).toBe("unknown");
+    expect(kindOf({ name: "value", text: "Docks near you" })).toBe("unknown");
+  });
+
+  it("reads a heading tag as a label", () => {
+    expect(kindOf({ name: "h2", text: "Docks near you" })).toBe("label");
+  });
+
+  it("places shown text with no telling name by its length and capitals", () => {
+    expect(kindOf({ text: "Docks near you", shown: true })).toBe("label");
+    expect(kindOf({ text: "There are no docks", shown: true })).toBe("sentence");
+    expect(kindOf({ text: "Return the bike to any dock today", shown: true })).toBe("sentence");
+    expect(kindOf({ text: "Return the Bike to Any Dock Today", shown: true })).toBe("label");
+  });
+});
+
+describe("classify", () => {
+  it("marks a kind only the shape decided as guessed, and lets a custom kindOf decide first", () => {
+    expect(classify({ text: "Docks near you", shown: true })).toEqual({
+      kind: "label",
+      guessed: true,
+    });
+    expect(classify({ name: "title", text: "Docks near you", shown: true })).toEqual({
+      kind: "label",
+      guessed: false,
+    });
+    const caption = (site: { name?: string }) => (site.name === "caption" ? "label" : undefined);
+    expect(classify({ name: "caption", text: "Docks near you" }, caption)).toEqual({
+      kind: "label",
+      guessed: false,
+    });
+    expect(classify({ name: "value", text: "Docks near you" }, caption).kind).toBe("unknown");
   });
 });
 
 describe("casing", () => {
   const terms = bikeTerms.filter((term) => term.term !== "Day Pass");
-  const withCasing = (casing: Casing, dayPass: Partial<Term> = {}) =>
+  const withCasing = (casing: Casing, dayPass: Partial<Term> = {}, wholeLabel = false) =>
     createMatcher(
       defineCorpus({
         terms: [
@@ -525,8 +556,10 @@ describe("casing", () => {
           { term: "Day Pass", abbr: ["DP"], case: "context", avoid: ["ticket"], ...dayPass },
         ],
         casing,
+        wholeLabel,
       }),
     );
+  const whole = (casing: Casing) => withCasing(casing, {}, true);
 
   it("headers take the label style by default", () => {
     expect(hits("Day pass", "header")).toEqual(["CASE Day pass -> Day Pass"]);
@@ -587,16 +620,25 @@ describe("casing", () => {
 
   it("a term with casing and no case is a context term", () => {
     const m = createMatcher(
-      defineCorpus({ terms: [{ term: "Lead Time", casing: { header: "upper" } }] }),
+      defineCorpus({ terms: [{ term: "Return Window", casing: { header: "upper" } }] }),
     );
-    expect(hits("Lead time", "header", m)).toEqual(["CASE Lead time -> LEAD TIME"]);
-    expect(hits("Lead time", "label", m)).toEqual(["CASE Lead time -> Lead Time"]);
-    expect(hits("Set the Lead Time.", "sentence", m)).toEqual(["CASE Lead Time -> lead time"]);
+    expect(hits("Return window", "header", m)).toEqual(["CASE Return window -> RETURN WINDOW"]);
+    expect(hits("Return window", "label", m)).toEqual(["CASE Return window -> Return Window"]);
+    expect(hits("Mind the Return Window.", "sentence", m)).toEqual([
+      "CASE Return Window -> return window",
+    ]);
   });
 
-  it("a label or header with a set style follows it as a whole, holding the term fixes", () => {
-    expect(hits("Buy a day pass", "label")).toEqual(["CASE day pass -> Day Pass"]);
-    const title = withCasing({ label: "title" });
+  it("checks only the term in a label unless wholeLabel is set, whatever casing says", () => {
+    expect(hits("Day pass price", "label")).toEqual(["CASE Day pass -> Day Pass"]);
+    expect(hits("Day pass price", "label", withCasing({ label: "title" }))).toEqual([
+      "CASE Day pass -> Day Pass",
+    ]);
+    expect(hits("Day pass price", "label", whole({ label: "sentence" }))).toEqual([]);
+  });
+
+  it("with wholeLabel, a label or header follows its style as a whole, holding the term fixes", () => {
+    const title = whole({});
     expect(hits("Buy a day pass", "label", title)).toEqual(["CASE day pass -> Day Pass"]);
     expect(hits("Day pass price", "label", title)).toEqual([
       "CASE Day pass -> undefined",
@@ -605,7 +647,7 @@ describe("casing", () => {
     expect(title.check("Day pass price", "label")[1]?.message).toBe(
       '"Day Pass price" is written "Day Pass Price": labels are in Title Case.',
     );
-    expect(hits("Day Pass price", "header", withCasing({ header: "upper" }))).toEqual([
+    expect(hits("Day Pass price", "header", whole({ header: "upper" }))).toEqual([
       "CASE Day Pass -> undefined",
       "CASE Day Pass price -> DAY PASS PRICE",
     ]);
@@ -636,10 +678,10 @@ describe("sentence starts and replacements", () => {
     ]);
     expect(hits("Included: day pass", "sentence")).toEqual([]);
     expect(hits("Included: Day Pass", "sentence")).toEqual(["CASE Day Pass -> Day pass"]);
-    const pcs = createMatcher(
-      defineCorpus({ terms: [...bikeTerms, { term: "pcs.", case: "exact", avoid: ["pieces"] }] }),
+    const hrs = createMatcher(
+      defineCorpus({ terms: [...bikeTerms, { term: "hrs.", case: "exact", avoid: ["hours"] }] }),
     );
-    expect(hits("Sold in 5 pcs. day pass bundles.", "sentence", pcs)).toEqual([]);
+    expect(hits("Valid for 24 hrs. day pass holders ride free.", "sentence", hrs)).toEqual([]);
   });
 
   it("each plural form after | starts a sentence", () => {
@@ -650,11 +692,11 @@ describe("sentence starts and replacements", () => {
   });
 
   it("a replacement ending in a period takes the sentence's own period", () => {
-    const pcs = createMatcher(
-      defineCorpus({ terms: [{ term: "pcs.", case: "exact", avoid: ["pieces"] }] }),
+    const hrs = createMatcher(
+      defineCorpus({ terms: [{ term: "hrs.", case: "exact", avoid: ["hours"] }] }),
     );
-    expect(hits("Shown in pieces.", "sentence", pcs)).toEqual(["AVOID pieces. -> pcs."]);
-    expect(hits("Shown in pieces here.", "sentence", pcs)).toEqual(["AVOID pieces -> pcs."]);
+    expect(hits("Rides last 2 hours.", "sentence", hrs)).toEqual(["AVOID hours. -> hrs."]);
+    expect(hits("Rides last 2 hours here.", "sentence", hrs)).toEqual(["AVOID hours -> hrs."]);
   });
 
   it("an avoid word in capitals asks for capitals unless the avoid word is an acronym", () => {

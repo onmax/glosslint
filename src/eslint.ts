@@ -1,7 +1,7 @@
 import type { ESLint, Linter } from "eslint";
 import { createRules } from "./eslint/rules.ts";
 import { DEFAULT_IGNORE_CALLEES } from "./eslint/sites.ts";
-import type { Corpus } from "./types.ts";
+import type { Corpus, KindOf } from "./types.ts";
 
 /** Options of the ESLint config. */
 export interface GlosslintEslintOptions {
@@ -16,6 +16,11 @@ export interface GlosslintEslintOptions {
   ignoreCallees?: string[];
   /** Report avoid words in declared names too. Off by default, since a rename touches every caller. */
   identifierAvoid?: boolean;
+  /**
+   * Decides whether a string is a label, header or sentence before glosslint's own `kindOf`, from its
+   * text, name and file. Return `undefined` to leave a string to glosslint.
+   */
+  kindOf?: KindOf;
 }
 
 /**
@@ -26,6 +31,7 @@ export default function glosslint(options: GlosslintEslintOptions): Linter.Confi
   const rules = createRules(options.corpus, {
     ignoreCallees: options.ignoreCallees ?? DEFAULT_IGNORE_CALLEES,
     identifierAvoid: options.identifierAvoid ?? false,
+    ...(options.kindOf ? { kindOf: options.kindOf } : {}),
   });
   const plugin: ESLint.Plugin = { meta: { name: "glosslint" }, rules };
   return [

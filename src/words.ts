@@ -36,6 +36,43 @@ export function capitalise(text: string): string {
   );
 }
 
+/** A word of shown text, for case styles: a letter, then letters, digits, periods and apostrophes. */
+export const WORD = /\p{L}[\p{L}\p{N}.'’]*/gu;
+
+/** English words that Title Case leaves lowercase past a label's first word. */
+export const SMALL_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "by",
+  "for",
+  "from",
+  "in",
+  "of",
+  "on",
+  "or",
+  "per",
+  "the",
+  "to",
+  "via",
+  "vs",
+  "with",
+]);
+
+export const isUpper = (char: string): boolean =>
+  char !== char.toLowerCase() && char === char.toUpperCase();
+
+/** Whether every word but a small one past the first starts with a capital, as "Buy a Day Pass" does. */
+export function isTitled(text: string): boolean {
+  const words = text.match(WORD) ?? [];
+  return (
+    words.length > 1 &&
+    words.every((word, index) => isUpper(word.charAt(0)) || (index > 0 && SMALL_WORDS.has(word)))
+  );
+}
+
 /** Characters allowed between the words of one term: spaces, hyphens and underscores. */
 export const WORD_GAP = /^[\s\-‐‑_]+$/;
 

@@ -8,8 +8,9 @@ import type {
   Plugin,
   TextRange,
 } from "@x18n/core";
-import { createMatcher, kindOf } from "./matcher.ts";
-import type { Corpus, Finding, FindingCode } from "./types.ts";
+import { caseModeOf, classify } from "./kind.ts";
+import { createMatcher } from "./matcher.ts";
+import type { Corpus, Finding, FindingCode, KindOf } from "./types.ts";
 
 /** Options of the x18n plugin. */
 export interface GlosslintX18nOptions {
@@ -17,6 +18,11 @@ export interface GlosslintX18nOptions {
   corpus: Corpus;
   /** The locale whose messages are checked. Default: the project's source locale. */
   sourceLocale?: string;
+  /**
+   * Decides whether a message or hard string is a label, header or sentence before glosslint's own
+   * `kindOf`. Return `undefined` to leave it to glosslint.
+   */
+  kindOf?: KindOf;
 }
 
 declare module "@x18n/core" {
@@ -94,6 +100,7 @@ function applyFixes(value: string, findings: readonly Finding[]): string {
 /**
  * The fixes of a message finding. x18n's `--fix` keeps the first `set` of a key, so when a message has several
  * autofixes, each finding's safe fix applies all of them, and a quick fix without a level applies only its own.
+ * A fix left out of `autofixes`, because only the message's shape placed it, gets only the quick fix.
  */
 function messageFixes(
   message: Message,
@@ -111,6 +118,7 @@ function messageFixes(
     },
   ];
   const own = `Change "${finding.text}" to "${finding.fix.replace}"`;
+  if (!autofixes.includes(finding)) return [{ title: own, ops: set([finding]) }];
   if (autofixes.length === 1) return [{ title: own, level: "safe", ops: set(autofixes) }];
   return [
     {
@@ -132,13 +140,20 @@ export default function glosslint(options: GlosslintX18nOptions): Plugin {
     for (const message of ctx.messages(locale)) {
       const value = message.value;
       if (typeof value !== "string") continue;
-      const findings = matcher.check(value, kindOf(message.key, value));
-      if (findings.length === 0) continue;
       const path = paths.get(message.resource);
+      const { kind, guessed } = classify(
+        { name: message.key, text: value, shown: true, ...(path ? { file: path } : {}) },
+        options.kindOf,
+      );
+      const findings = matcher.check(value, kind);
+      if (findings.length === 0) continue;
       const range = message.range?.value;
       const start =
         path !== undefined && range ? valueStart(ctx.text(path), range, value) : undefined;
-      const autofixes = findings.filter((finding) => finding.fix?.kind === "autofix");
+      // Where only the message's shape decided its kind, a `context` term's fix needs a person.
+      const safe = (finding: Finding) =>
+        finding.fix?.kind === "autofix" && !(guessed && caseModeOf(finding.term) === "context");
+      const autofixes = findings.filter(safe);
       for (const finding of findings) {
         yield {
           code: finding.code,
@@ -154,7 +169,16 @@ export default function glosslint(options: GlosslintX18nOptions): Plugin {
     }
     // x18n has no edit op for source files outside extraction, so hard strings get no fix.
     for (const hard of ctx.hardStrings()) {
-      const findings = matcher.check(hard.text, kindOf(hard.attribute, hard.text));
+      const { kind } = classify(
+        {
+          text: hard.text,
+          file: hard.path,
+          shown: hard.attribute === undefined,
+          ...(hard.attribute !== undefined ? { name: hard.attribute } : {}),
+        },
+        options.kindOf,
+      );
+      const findings = matcher.check(hard.text, kind);
       if (findings.length === 0) continue;
       const start = valueStart(ctx.text(hard.path), hard.range, hard.text);
       for (const finding of findings) {

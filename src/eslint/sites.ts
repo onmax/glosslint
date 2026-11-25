@@ -1,6 +1,6 @@
 import type { Rule } from "eslint";
-import { isTitled, kindOf } from "../matcher.ts";
-import type { Finding, TextKind } from "../types.ts";
+import { type Classified, classify } from "../kind.ts";
+import type { Finding, KindOf, KindSite, TextKind } from "../types.ts";
 import { identityMap, jsMap, yamlDoubleMap, yamlSingleMap } from "./offsets.ts";
 
 /** An AST node from any of the parsers: ESTree, vue-eslint-parser's template or yaml-eslint-parser. */
@@ -15,6 +15,8 @@ export interface Site {
   /** The text as the matcher reads it: the cooked string value. */
   text: string;
   kind: TextKind;
+  /** Whether only the text's shape decided `kind`, so a fix that depends on it needs a person. */
+  guessed: boolean;
   /** Source offset of the raw text that `map` indexes. */
   base: number;
   /** Cooked offset to raw offset, or `undefined` when the source can't be read back exactly. */
@@ -188,6 +190,9 @@ function isTextKey(node: Node): boolean {
   return node.type === "Literal" && typeof node.value === "string" && /\s/.test(node.value);
 }
 
+/** Decides the kind of a string from what the site builder knows about it. */
+export type Decide = (site: KindSite) => Classified;
+
 /** The name `kindOf` reads for a string: the key, variable, attribute or YAML key it belongs to. */
 export function stringName(node: Node): string | undefined {
   let child = node;
@@ -237,6 +242,7 @@ export function esSites(
   source: string,
   ignoreCallees: readonly string[],
   inTemplate: boolean,
+  decide: Decide,
 ): Site[] {
   if (isSkippedString(node, ignoreCallees)) return [];
   if (inTemplate && isSkippedAttribute(attributeNameOf(node))) return [];
@@ -251,7 +257,7 @@ export function esSites(
     return [
       {
         text,
-        kind: kindOf(name, text),
+        ...decide({ name, text }),
         base: node.range[0] + 1,
         map: jsMap(raw, text),
         within: node.range,
@@ -264,7 +270,10 @@ export function esSites(
   // A template is code when its text, read without the expressions, is: `item-${id}`.
   if (isCodeShape(quasis.map((quasi) => cookedOf(quasi) ?? "").join(""))) return [];
   // Every part of a template is the same kind of text: the kind of the whole, with each expression as a word.
-  const kind = kindOf(name, quasis.map((quasi) => cookedOf(quasi) ?? "").join("x"));
+  const { kind, guessed } = decide({
+    name,
+    text: quasis.map((quasi) => cookedOf(quasi) ?? "").join("x"),
+  });
   const sites: Site[] = [];
   for (const quasi of quasis) {
     const cooked = cookedOf(quasi);
@@ -275,6 +284,7 @@ export function esSites(
     sites.push({
       text: cooked,
       kind,
+      guessed,
       base,
       map: exact ? jsMap(raw, cooked) : undefined,
       within: quasi.range,
@@ -289,12 +299,11 @@ function attributeNameOf(node: Node): string | undefined {
   return attribute ? attributeName(attribute) : undefined;
 }
 
-/** The name a Vue text node's element gives it: the slot of a `<template #header>`, `heading` for `<h2>`, or the tag. */
+/** The name a Vue text node's element gives it: the slot of a `<template #header>`, else the tag. */
 function elementName(node: Node): string | undefined {
   const element = node.parent;
   if (element?.type !== "VElement") return undefined;
   const tag = String(element.rawName ?? element.name ?? "");
-  if (/^h[1-6]$/i.test(tag)) return "heading";
   if (tag !== "template") return tag;
   const attributes = ((element.startTag as Node | undefined)?.attributes ?? []) as Node[];
   for (const attribute of attributes) {
@@ -306,33 +315,14 @@ function elementName(node: Node): string | undefined {
   return undefined;
 }
 
-/** First words that open a sentence rather than a label, as in "There are no rides". */
-const SENTENCE_OPENER =
-  /^(?:there|this|that|these|those|it|you|we|they|i|is|are|was|were|do|does|did|can|could|will|would|should|has|have)$/i;
-
-/**
- * The kind of text a person reads, such as template text or a locale string: from its name, else
- * a label when it is a few words without a final stop and doesn't open like a sentence, or when it
- * is written in Title Case, else a sentence.
- */
-function shownKind(name: string | undefined, text: string): TextKind {
-  const kind = kindOf(name, text);
-  if (kind !== "unknown") return kind;
-  const trimmed = text.trim().replace(/:$/, "");
-  const words = trimmed.split(/\s+/);
-  if (/[.!?]$/.test(trimmed)) return "sentence";
-  const short = words.length <= 4 && !SENTENCE_OPENER.test(words[0]!);
-  return short || isTitled(trimmed.replace(/\([^)]*\)/g, "")) ? "label" : "sentence";
-}
-
 /** Builds the site of a Vue template text node. */
-export function textSite(node: Node, source: string): Site | undefined {
+export function textSite(node: Node, source: string, decide: Decide): Site | undefined {
   const text = node.value as string;
   if (text.trim() === "") return undefined;
   const raw = source.slice(node.range[0], node.range[1]);
   return {
     text,
-    kind: shownKind(elementName(node), text),
+    ...decide({ name: elementName(node), text, shown: true }),
     base: node.range[0],
     map: identityMap(raw, text),
     within: node.range,
@@ -341,7 +331,7 @@ export function textSite(node: Node, source: string): Site | undefined {
 }
 
 /** Builds the site of a static Vue attribute value. */
-export function attributeSite(attribute: Node, source: string): Site | undefined {
+export function attributeSite(attribute: Node, source: string, decide: Decide): Site | undefined {
   const value = attribute.value as Node | null;
   if (attribute.directive || !value || value.type !== "VLiteral") return undefined;
   const name = attributeName(attribute);
@@ -356,7 +346,7 @@ export function attributeSite(attribute: Node, source: string): Site | undefined
   }
   return {
     text,
-    kind: kindOf(name, text),
+    ...decide({ name, text }),
     base,
     map: identityMap(raw, text),
     within: value.range,
@@ -377,14 +367,14 @@ function yamlKeyName(node: Node): string | undefined {
 }
 
 /** Builds the site of a YAML string value; keys are never checked. */
-export function yamlSite(node: Node): Site | undefined {
+export function yamlSite(node: Node, decide: Decide): Site | undefined {
   if (typeof node.value !== "string" || node.value.trim() === "") return undefined;
   const parent = node.parent;
   if (parent?.type === "YAMLPair" && parent.key === node) return undefined;
   const text = node.value;
   const name = yamlKeyName(node);
   const raw = typeof node.raw === "string" ? node.raw : "";
-  const site = { text, kind: shownKind(name, text), within: node.range };
+  const site = { text, ...decide({ name, text, shown: true }), within: node.range };
   switch (node.style) {
     case "plain":
       return {
@@ -444,20 +434,25 @@ export function place(site: Site, source: string, findings: readonly Finding[]):
 export function stringListener(
   context: Rule.RuleContext,
   ignoreCallees: readonly string[],
+  kindOf: KindOf | undefined,
   onSite: (site: Site) => void,
 ): Rule.RuleListener {
   const source = context.sourceCode.text;
+  const file = context.filename;
+  const decide: Decide = (site) => classify({ ...site, file }, kindOf);
   const emit = (site: Site | undefined) => site && onSite(site);
   const es = (inTemplate: boolean) => (node: unknown) => {
     const n = node as Node;
     if (n.type === "Literal" && typeof n.value !== "string") return;
-    for (const site of esSites(n, source, ignoreCallees, inTemplate)) onSite(site);
+    for (const site of esSites(n, source, ignoreCallees, inTemplate, decide)) onSite(site);
   };
   const script: Rule.RuleListener = {
     Literal: es(false),
     TemplateLiteral: es(false),
     // yaml-eslint-parser's node types are not ESTree's, so the listener type does not know them.
-    ...({ YAMLScalar: (node: unknown) => emit(yamlSite(node as Node)) } as Rule.RuleListener),
+    ...({
+      YAMLScalar: (node: unknown) => emit(yamlSite(node as Node, decide)),
+    } as Rule.RuleListener),
   };
   const services = context.sourceCode.parserServices as
     | { defineTemplateBodyVisitor?: (template: object, script: object) => Rule.RuleListener }
@@ -465,8 +460,8 @@ export function stringListener(
   if (!services?.defineTemplateBodyVisitor) return script;
   return services.defineTemplateBodyVisitor(
     {
-      VText: (node: Node) => emit(textSite(node, source)),
-      VAttribute: (node: Node) => emit(attributeSite(node, source)),
+      VText: (node: Node) => emit(textSite(node, source, decide)),
+      VAttribute: (node: Node) => emit(attributeSite(node, source, decide)),
       Literal: es(true),
       TemplateLiteral: es(true),
     },

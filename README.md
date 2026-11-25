@@ -74,12 +74,13 @@ export default defineCorpus({
 
 ### Corpus fields
 
-| Field     | What it does                                                                                                                                                                                    |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extends` | Corpora to merge in first: presets, `fromGlossaryTable(…)` or another `defineCorpus(…)`. See [Merge order](#merge-order).                                                                       |
-| `terms`   | Your own terms.                                                                                                                                                                                 |
-| `allow`   | Phrases that are never reported. A finding that sits inside an allowed phrase is dropped. Words in a phrase match across spaces, hyphens and underscores, and a plural `s` or `es` matches too. |
-| `casing`  | The case style of `context` terms per kind of text: `{ label, header, sentence }`. See [Case styles](#case-styles).                                                                             |
+| Field        | What it does                                                                                                                                                                                    |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extends`    | Corpora to merge in first: presets, `fromGlossaryTable(…)` or another `defineCorpus(…)`. See [Merge order](#merge-order).                                                                       |
+| `terms`      | Your own terms.                                                                                                                                                                                 |
+| `allow`      | Phrases that are never reported. A finding that sits inside an allowed phrase is dropped. Words in a phrase match across spaces, hyphens and underscores, and a plural `s` or `es` matches too. |
+| `casing`     | The case style of `context` terms per kind of text: `{ label, header, sentence }`. See [Case styles](#case-styles).                                                                             |
+| `wholeLabel` | `true` to check every word of a label or header that holds a `context` term, not only the term. See [Case styles](#case-styles).                                                                |
 
 `allow` handles a word that has a second meaning. `rack` is an avoid word for Dock, but "roof rack" is a different thing, so `"roof rack"` goes in `allow`. The same goes for "check out our", which is a verb and not the noun Checkout. To switch off a preset term, allow its spellings.
 
@@ -112,7 +113,15 @@ Plurals ending in `s` or `es` match both terms and avoid words. glosslint report
 | `exact`    | One form everywhere. "E-bike" and "Ebike" are both reported, and the fix is always "eBike".                                                                                                                                         |
 | `context`  | Title Case in labels and lowercase in sentences, capitalised at the start of a sentence. A button "Buy a day pass" becomes "Buy a Day Pass", and the sentence "Buy a Day Pass at the kiosk." becomes "Buy a day pass at the kiosk." |
 
-`context` needs to know whether a string is a label, a table header or a sentence. glosslint guesses from the key or attribute name and the text. A string is a header when its name holds `header`, `column`, `col` or `th`, as AG Grid's `headerName` does, and a label when its name holds a word such as `label`, `title`, `button`, `tab` or `heading`, or ends in `name`. Both need at most seven words and no closing period. A string is a sentence when its name holds a word such as `description`, `tooltip`, `text`, `message`, `hint` or `help`, or when it ends in `.`, `!` or `?`. In anything else, comments included, `context` terms get no casing check. In a Vue template, text takes its kind from its element: a `<template #header>` slot is a header and `<h2>` a label. Template text and YAML values that their name doesn't place are labels at four words or fewer with no closing stop, unless they open like a sentence ("There is", "This", "Are you"). Longer ones are labels when they are already in Title Case, and sentences otherwise. In Markdown, headings are labels, a table's first row is headers, and paragraphs and list items are sentences.
+`context` needs to know whether a string is a label, a table header or a sentence. glosslint guesses from the key or attribute name and the text. A string is a header when its name holds `header`, `column`, `col` or `th`, as AG Grid's `headerName` does, and a label when its name holds a word such as `label`, `title`, `button`, `tab` or `heading`, or ends in `name`. Both need at most seven words and no closing period. A string is a sentence when its name holds a word such as `description`, `tooltip`, `text`, `message`, `hint` or `help`, or when it ends in `.`, `!` or `?`. In anything else, comments included, `context` terms get no casing check. In a Vue template, text takes its kind from its element: a `<template #header>` slot is a header and `<h2>` a label. Template text and YAML values that their name doesn't place are labels at four words or fewer with no closing stop, unless they open like a sentence ("There is", "This", "Are you"). Longer ones are labels when they are already in Title Case, and sentences otherwise. Since only the text's shape placed them, a `context` fix there is a suggestion rather than an autofix. In Markdown, headings are labels, a table's first row is headers, and paragraphs and list items are sentences.
+
+The ESLint config and the x18n plugin both take a `kindOf` option that decides first. It gets `{ text, name, file, shown }`, where `name` is the key, attribute or element and `shown` says the text is shown as it is, and returns `"label"`, `"header"`, `"sentence"`, or `undefined` to leave the string to glosslint. Its answer counts as certain, so its fixes are autofixes:
+
+```ts
+kindOf: ({ name, file }) => (file?.includes("/charts/") && name === "text" ? "label" : undefined),
+```
+
+The name words, sentence openers and Title Case rules are English, so `context` expects English source text.
 
 #### Case styles
 
@@ -128,7 +137,7 @@ Plurals ending in `s` or `es` match both terms and avoid words. glosslint report
 
 A header takes the label style unless `casing.header` sets its own. Words with an inner capital, such as `eBike`, keep it in every style but `upper`.
 
-When the corpus or the term sets `title` or `upper` for labels or headers, a label or header that holds a `context` term follows that style as a whole: with `casing: { label: "title" }`, the label "Day pass price" becomes "Day Pass Price", in one fix that also holds the term's own fix. Small words such as "a" and "of" stay lowercase unless they start the label or follow a dash or colon, and text in parentheses keeps its case. Without `casing`, only the term is checked.
+By default only the term is checked, so the label "Day pass price" becomes "Day Pass price". With `wholeLabel: true` on the corpus, a label or header that holds a `context` term follows the term's style as a whole when that style is `title` or `upper`: "Day pass price" becomes "Day Pass Price", in one fix that also holds the term's own fix. Small words such as "a" and "of" stay lowercase unless they start the label or follow a dash or colon, and text in parentheses keeps its case.
 
 ```ts
 export default defineCorpus({
@@ -238,17 +247,18 @@ ESLint needs `jiti` installed to read `eslint.config.ts`, or the flag `--flag un
 | `files`           | every file                                                 | Globs the rules run on.                                                                                                                                        |
 | `ignoreCallees`   | `["endsWith", "startsWith", "includes", "querySelector*"]` | Functions whose first argument is never checked. A trailing `*` matches a prefix. Your list replaces the default. `t`, `$t`, `te` and `tm` are always skipped. |
 | `identifierAvoid` | `false`                                                    | Report avoid words in declared names too. Off by default, because a rename touches every caller.                                                               |
+| `kindOf`          | none                                                       | Decides a string's kind before glosslint does. See [Casing](#casing).                                                                                          |
 
 The rules themselves take no options. To change a severity, add a config object after the spread, such as `{ rules: { "glosslint/identifier": "off" } }`.
 
 ### Rules
 
-| Rule                   | Severity | Reports                                       | Fix                                                         |
-| ---------------------- | -------- | --------------------------------------------- | ----------------------------------------------------------- |
-| `glosslint/term`       | error    | `GLOSSLINT_TERM`, `GLOSSLINT_CASE` in strings | autofix                                                     |
-| `glosslint/avoid`      | error    | `GLOSSLINT_AVOID` in strings                  | suggestion                                                  |
-| `glosslint/comment`    | error    | all three codes in comments                   | autofix for spelling and casing, suggestion for avoid words |
-| `glosslint/identifier` | warn     | how a declared name splits into words         | none: the message names the rename                          |
+| Rule                   | Severity | Reports                                       | Fix                                                          |
+| ---------------------- | -------- | --------------------------------------------- | ------------------------------------------------------------ |
+| `glosslint/term`       | error    | `GLOSSLINT_TERM`, `GLOSSLINT_CASE` in strings | autofix, or a suggestion where the text's shape set its kind |
+| `glosslint/avoid`      | error    | `GLOSSLINT_AVOID` in strings                  | suggestion                                                   |
+| `glosslint/comment`    | error    | all three codes in comments                   | autofix for spelling and casing, suggestion for avoid words  |
+| `glosslint/identifier` | warn     | how a declared name splits into words         | none: the message names the rename                           |
 
 **`term`** reports a term written with other splits or hyphens, and wrong capitals for `exact`, `context` and abbreviated terms. `eslint --fix` applies the fix and keeps the writer's capitals.
 
@@ -338,10 +348,11 @@ export default defineConfig({
 });
 ```
 
-| Option         | Default                     | What it does                           |
-| -------------- | --------------------------- | -------------------------------------- |
-| `corpus`       | required                    | The corpus.                            |
-| `sourceLocale` | the project's source locale | The locale whose messages are checked. |
+| Option         | Default                     | What it does                                                           |
+| -------------- | --------------------------- | ---------------------------------------------------------------------- |
+| `corpus`       | required                    | The corpus.                                                            |
+| `sourceLocale` | the project's source locale | The locale whose messages are checked.                                 |
+| `kindOf`       | none                        | Decides a message's kind before glosslint does. See [Casing](#casing). |
 
 The plugin adds three checks:
 
@@ -351,7 +362,7 @@ The plugin adds three checks:
 | `glosslint-avoid` | warning          | `GLOSSLINT_AVOID` |
 | `glosslint-case`  | error            | `GLOSSLINT_CASE`  |
 
-Change one under `checks`, such as `checks: { "glosslint-avoid": "error" }`. A message's key decides label or sentence, as described in [Casing](#casing). Spelling and casing findings in messages carry a safe fix that `x18n check --fix` applies. When a message has several, each safe fix applies all of them at once. Avoid words and hard-coded strings get no fix.
+Change one under `checks`, such as `checks: { "glosslint-avoid": "error" }`. A message's key decides label or sentence, as described in [Casing](#casing), and a message whose key doesn't place it is read by its shape. Spelling and casing findings in messages carry a safe fix that `x18n check --fix` applies, except a `context` fix in a message only its shape placed, which is a quick fix you pick. When a message has several, each safe fix applies all of them at once. Avoid words and hard-coded strings get no fix.
 
 `toX18nGlossary(corpus)` gives one entry per term with `term`, `translations` and `forms` as written, a `note` made of the description and nuance, and `doNotTranslate: true` for an `exact` term without translations.
 
@@ -573,7 +584,7 @@ npx glosslint check docs/guide/riding.md --format json
 
 `fix.kind` is one of:
 
-- `autofix`: a spelling or casing fix. It is safe to apply without asking.
+- `autofix`: a spelling or casing fix. It is safe to apply without asking. ESLint and x18n offer it as a suggestion instead when only the text's shape decided its kind, as described in [Casing](#casing).
 - `suggestion`: the term to use instead of an avoid word. Someone has to check that the meaning fits.
 - `rename`: a new name for an identifier. It touches every caller, so nothing applies it alone.
 

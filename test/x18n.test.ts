@@ -45,6 +45,7 @@ const en = resource("locales/en.json", "en", {
   "ride.start": "Unlock your ebike at the rack.",
   "pass.buy.label": "Buy a day pass",
   "pass.buy.description": "Buy a day pass today.",
+  "pass.promo": "Get a day pass",
   "ride.charge": "Bikes below the re-charge point go to charge with the ebike team.",
   "ride.quote": 'Say "hi" at the rack',
   "station.count": 3,
@@ -139,10 +140,14 @@ describe("glosslint x18n plugin", () => {
     const keys = (id: string) => byCheck[id]?.map((d) => d.key ?? d.location?.path);
     expect(keys("glosslint-term")).toEqual(["ride.charge"]);
     // `pass.buy.label` is a label, so the context term needs Title Case; the description is a sentence.
+    // `pass.promo` has no telling key, so its shape places it.
+    // Template text that no name places is read by its shape, as ESLint reads it.
     expect(keys("glosslint-case")).toEqual([
       "ride.start",
       "pass.buy.label",
+      "pass.promo",
       "ride.charge",
+      "src/App.vue",
       "src/App.vue",
       "src/App.vue",
     ]);
@@ -161,8 +166,10 @@ describe("glosslint x18n plugin", () => {
       "`${n} bikes at the rack`",
       "ebike",
       "day pass",
+      "day pass",
       "ebike",
       "ebike",
+      "day pass",
       "day pass",
     ]);
   });
@@ -188,7 +195,7 @@ describe("glosslint x18n plugin", () => {
     ]);
     expect(byCheck["glosslint-avoid"]?.every((d) => (d.fixes ?? []).length === 0)).toBe(true);
     const hard = all.filter((d) => d.key === undefined);
-    expect(hard.length).toBe(3);
+    expect(hard.length).toBe(4);
     expect(hard.every((d) => d.fixes === undefined)).toBe(true);
   });
 
@@ -231,6 +238,25 @@ describe("glosslint x18n plugin", () => {
         },
       ],
     ]);
+  });
+
+  it("lets kindOf place a message, and gives a fix that only its shape placed no safe level", () => {
+    const promo = (byCheck: Record<string, DiagnosticInput[]>) =>
+      byCheck["glosslint-case"]?.find((d) => d.key === "pass.promo");
+    // "Get a day pass" has no telling key, so only its length makes it a label.
+    expect(promo(byCheck)?.fixes).toEqual([
+      {
+        title: 'Change "day pass" to "Day Pass"',
+        ops: [{ type: "set", key: "pass.promo", locale: "en", value: "Get a Day Pass" }],
+      },
+    ]);
+    const placed = run(
+      glosslint({
+        corpus: bike,
+        kindOf: ({ name }) => (name === "pass.promo" ? "label" : undefined),
+      }),
+    );
+    expect(promo(placed)?.fixes?.[0]?.level).toBe("safe");
   });
 
   it("reads the locale given as sourceLocale", () => {

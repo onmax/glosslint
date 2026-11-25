@@ -67,6 +67,11 @@ export interface CorpusInput {
   allow?: string[];
   /** The case style of `context` terms per kind of text. Default: `title` in labels and headers, `sentence` in sentences. */
   casing?: Casing;
+  /**
+   * Also write a label or header that holds a `context` term wholly in its style, when that style is
+   * `title` or `upper`, so "Day pass price" becomes "Day Pass Price". Off by default: only the term is checked.
+   */
+  wholeLabel?: boolean;
 }
 
 /** A validated, flattened corpus, as `defineCorpus` returns it. */
@@ -79,10 +84,27 @@ export interface Corpus {
   readonly allow: readonly string[];
   /** The case style per kind of text, from `extends` first, then the corpus's own. */
   readonly casing?: Readonly<Casing>;
+  /** Whether labels and headers holding a `context` term follow their style as a whole. */
+  readonly wholeLabel?: boolean;
 }
 
 /** What a string is, which decides how `context` terms are cased and which checks run. */
 export type TextKind = "label" | "header" | "sentence" | "comment" | "identifier" | "unknown";
+
+/** A string an adapter is about to check, as the `kindOf` option sees it. */
+export interface KindSite {
+  /** The string. */
+  text: string;
+  /** The key, attribute, variable, slot or element tag the string belongs to, such as `headerName` or `h2`. */
+  name?: string;
+  /** The file the string is in, when the adapter knows it. */
+  file?: string;
+  /** Whether a person reads the string as it stands, as template text and locale messages are, so its shape may place it. */
+  shown?: boolean;
+}
+
+/** Decides the kind of a string an adapter checks, or returns `undefined` to leave it to glosslint's `kindOf`. */
+export type KindOf = (site: KindSite) => TextKind | undefined;
 
 /** What a finding may do: `autofix` applies alone, `suggestion` needs a person to pick it, `rename` touches every caller. */
 export type FixKind = "autofix" | "suggestion" | "rename";

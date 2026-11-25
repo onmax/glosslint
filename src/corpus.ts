@@ -2,7 +2,7 @@ import { GlosslintConfigError } from "./errors.ts";
 import type { Casing, Corpus, CorpusInput, Term } from "./types.ts";
 import { termKey } from "./words.ts";
 
-const INPUT_FIELDS = ["extends", "terms", "allow", "casing"] as const;
+const INPUT_FIELDS = ["extends", "terms", "allow", "casing", "wholeLabel"] as const;
 const TERM_FIELDS = [
   "term",
   "description",
@@ -316,10 +316,17 @@ export function defineCorpus(input: CorpusInput): Corpus {
     fail(CONFIG_ERRORS.badType, `"terms" must be a list.`, `Write it as [{ term: "…" }].`);
   checkStringList(input.allow, "allow", fail);
   checkCasing(input.casing, "the corpus", fail);
+  if (input.wholeLabel !== undefined && typeof input.wholeLabel !== "boolean")
+    fail(
+      CONFIG_ERRORS.badType,
+      `"wholeLabel" must be true or false.`,
+      `Write it as wholeLabel: true.`,
+    );
 
   const merged = new Map<string, Term>();
   const allow: string[] = [];
   const casing: Casing = {};
+  let wholeLabel: boolean | undefined;
   for (const [index, corpus] of (input.extends ?? []).entries()) {
     if (!isCorpus(corpus))
       fail(
@@ -330,6 +337,7 @@ export function defineCorpus(input: CorpusInput): Corpus {
     for (const term of corpus.terms) setLast(merged, termKey(term.term), term);
     allow.push(...corpus.allow);
     Object.assign(casing, corpus.casing);
+    wholeLabel = corpus.wholeLabel ?? wholeLabel;
   }
 
   const own = new Map<string, Term>();
@@ -349,11 +357,13 @@ export function defineCorpus(input: CorpusInput): Corpus {
   for (const [key, term] of own) setLast(merged, key, term);
   allow.push(...(input.allow ?? []));
   Object.assign(casing, input.casing);
+  wholeLabel = input.wholeLabel ?? wholeLabel;
 
   return Object.freeze({
     kind: "glosslint.corpus",
     terms: Object.freeze([...merged.values()]),
     allow: Object.freeze(allow),
     ...(Object.keys(casing).length > 0 ? { casing: Object.freeze(casing) } : {}),
+    ...(wholeLabel !== undefined ? { wholeLabel } : {}),
   });
 }

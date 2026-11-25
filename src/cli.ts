@@ -7,7 +7,8 @@ import { cac } from "cac";
 import { escapePath, glob, isDynamicPattern } from "tinyglobby";
 import pkg from "../package.json" with { type: "json" };
 import { formatFindings, toJson } from "./format.ts";
-import { createMatcher, kindOf } from "./matcher.ts";
+import { kindOf } from "./kind.ts";
+import { createMatcher } from "./matcher.ts";
 import { explain, explainMatches, printCorpus, testCorpus } from "./tools.ts";
 import type {
   CliFinding,
@@ -275,7 +276,7 @@ function blocks(original: string, masked: string, markdown: boolean): Block[] {
           found.push({
             start: cellStart,
             end: cellStart + cell.length,
-            kind: header ? "header" : kindOf(undefined, cell),
+            kind: header ? "header" : kindOf({ text: cell }),
           });
         cellStart += cell.length + 1;
       }

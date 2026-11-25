@@ -2,7 +2,8 @@ export { CONFIG_ERRORS, defineCorpus } from "./corpus.ts";
 export { GlosslintConfigError } from "./errors.ts";
 export { formatFinding, formatFindings, toJson } from "./format.ts";
 export type { FormatOptions } from "./format.ts";
-export { check, createMatcher, kindOf } from "./matcher.ts";
+export { kindOf } from "./kind.ts";
+export { check, createMatcher } from "./matcher.ts";
 export type { MatcherOptions } from "./matcher.ts";
 export { fromGlossaryTable } from "./table.ts";
 export type { GlossaryTableColumns } from "./table.ts";
@@ -22,6 +23,8 @@ export type {
   FindingCode,
   Fix,
   FixKind,
+  KindOf,
+  KindSite,
   Link,
   Matcher,
   Term,

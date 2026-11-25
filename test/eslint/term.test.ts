@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../../src/corpus.ts";
 import glosslint from "../../src/eslint.ts";
 import { bikeTerms } from "../core/bike.ts";
-import { covered, tester } from "./setup.ts";
+import { covered, suggested, tester } from "./setup.ts";
 
 describe("term in TS", () => {
   const { valid, invalid } = tester("term", "ts");
@@ -178,8 +178,12 @@ describe("term in Vue", () => {
   });
 
   it("reads template text as a label when it is a few words, else from its element or slot", async () => {
-    await invalid(`<template><p>Buy a day pass</p></template>`, {
-      output: `<template><p>Buy a Day Pass</p></template>`,
+    // Only the text's shape says it is a label, so the fix is a suggestion.
+    const code = `<template><p>Buy a day pass</p></template>`;
+    const { result } = await invalid(code, { output: null, errors: ["GLOSSLINT_CASE"] });
+    expect(suggested(code, result.messages[0]!)).toBe(`<template><p>Buy a Day Pass</p></template>`);
+    await invalid(`<template><h2>Buy a day pass</h2></template>`, {
+      output: `<template><h2>Buy a Day Pass</h2></template>`,
       errors: ["GLOSSLINT_CASE"],
     });
     await invalid(`<template><p>Riders who buy a Day Pass ride free all day.</p></template>`, {
@@ -269,26 +273,49 @@ describe("term in YAML", () => {
     await invalid(`a: check-out`, { output: `a: checkout`, errors: 1 });
   });
 
-  it("reads a value under an unknown key as a label when it is a few words, else a sentence", async () => {
-    await invalid(`buy: Buy a day pass`, {
-      output: `buy: Buy a Day Pass`,
-      errors: ["GLOSSLINT_CASE"],
-    });
+  it("reads a value under an unknown key as a label when it is a few words, else a sentence, and only suggests", async () => {
+    const suggests = async (code: string, fixed: string) => {
+      const { result } = await invalid(code, { output: null, errors: ["GLOSSLINT_CASE"] });
+      expect(suggested(code, result.messages[0]!)).toBe(fixed);
+    };
+    await suggests(`buy: Buy a day pass`, `buy: Buy a Day Pass`);
     await valid(`empty: There is no day pass`);
     await valid(`plan: Rent With a Day Pass From Any Dock (weekends)`);
-    await invalid(`promo: Riders who buy a Day Pass ride free all day`, {
-      output: `promo: Riders who buy a day pass ride free all day`,
+    await suggests(
+      `promo: Riders who buy a Day Pass ride free all day`,
+      `promo: Riders who buy a day pass ride free all day`,
+    );
+    // A spelling fix doesn't depend on the kind, so it stays an autofix.
+    await invalid(`a: Find the re-charge point`, {
+      output: `a: Find the recharge point`,
+      errors: 1,
+    });
+  });
+
+  it("lets kindOf decide a string's kind first, from its name, text or file", async () => {
+    const custom = tester("term", "yaml", {
+      kindOf: ({ name, file }) => (name === "cta" && file?.endsWith(".yml") ? "label" : undefined),
+    });
+    await custom.invalid(`cta: Riders who buy a day pass ride free`, {
+      output: `cta: Riders who buy a Day Pass ride free`,
       errors: ["GLOSSLINT_CASE"],
     });
   });
 
-  it("rewrites a whole label in the label style when the corpus sets one", async () => {
-    const titled = tester("term", "yaml", {
+  it("rewrites a whole label in its style only with wholeLabel", async () => {
+    const plain = tester("term", "yaml", {
       corpus: defineCorpus({ terms: bikeTerms, casing: { label: "title" } }),
     });
-    await titled.valid(`empty: There is no day pass price`);
-    await titled.invalid(`price: Day pass price`, {
-      output: `price: Day Pass Price`,
+    await plain.invalid(`title: Day pass price`, {
+      output: `title: Day Pass price`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+    const whole = tester("term", "yaml", {
+      corpus: defineCorpus({ terms: bikeTerms, wholeLabel: true }),
+    });
+    await whole.valid(`empty: There is no day pass price`);
+    await whole.invalid(`title: Day pass price`, {
+      output: `title: Day Pass Price`,
       errors: ["GLOSSLINT_CASE", "GLOSSLINT_CASE"],
     });
   });
