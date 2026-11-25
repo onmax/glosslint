@@ -22,6 +22,7 @@ function exportsOf(specifier: string): string[] {
 describe("dist", () => {
   it("exports every entry by the package name", () => {
     expect(exportsOf("glosslint")).toEqual([
+      "CONFIG_ERRORS",
       "GlosslintConfigError",
       "check",
       "createMatcher",
