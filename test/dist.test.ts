@@ -1,6 +1,6 @@
 // What npm users get: every entry imported by the package name, the CLI, and
 // the files `npm pack` would publish. Run with `pnpm test:dist`.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
@@ -64,6 +64,35 @@ describe("dist", () => {
     expect(readFileSync(`${root}${pkg.bin.glosslint}`, "utf8")).toMatch(
       /^#!\/usr\/bin\/env node\n/,
     );
+  });
+
+  it("runs all four commands on a config that imports glosslint by name", () => {
+    const cwd = `${root}test/fixtures/cli/bike`;
+    const cli = (...args: string[]) => {
+      const result = spawnSync(
+        process.execPath,
+        [`${root}${pkg.bin.glosslint}`, ...args, "--config", "glosslint.dist.config.mjs"],
+        { cwd, encoding: "utf8" },
+      );
+      return { code: result.status, stdout: result.stdout, stderr: result.stderr };
+    };
+    const check = cli("check", "docs");
+    expect(check.stderr).toBe("");
+    expect(check.code).toBe(1);
+    expect(check.stdout).toContain('[GLOSSLINT_AVOID] "rack" in docs/riding.md:7:51');
+    expect(check.stdout).toMatch(/5 findings in 3 of 4 files\.\n$/);
+    const json = JSON.parse(cli("docs", "--format", "json").stdout);
+    expect(json.summary).toMatchObject({ files: 4, findings: 5 });
+    expect(cli("test")).toMatchObject({
+      code: 0,
+      stdout: expect.stringContaining("2 terms, 0 failing."),
+    });
+    expect(cli("print")).toMatchObject({ code: 0, stdout: expect.stringMatching(/^## Dock\n/) });
+    expect(cli("explain", "rack")).toMatchObject({
+      code: 0,
+      stdout: expect.stringContaining('"rack" is an avoid word for Dock.'),
+    });
+    expect(cli("explain", "scooter").code).toBe(1);
   });
 
   it("packs only dist, the README, the licence and the notice", () => {
