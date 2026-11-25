@@ -615,6 +615,10 @@ describe("casing", () => {
       "CASE day passes -> Day Passes",
     ]);
     expect(hits("Return the bike to a dock", "label", title)).toEqual([]);
+    expect(hits("Rentals - at another dock day pass (from app)", "label", title)).toEqual([
+      "CASE Rentals - at another dock day pass (from app) -> Rentals - At Another Dock Day Pass (from app)",
+      "CASE day pass -> undefined",
+    ]);
   });
 
   it("leaves comments and unknown text alone", () => {

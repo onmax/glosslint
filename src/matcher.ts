@@ -97,10 +97,15 @@ export function isTitled(text: string): boolean {
   );
 }
 
+/**
+ * Words in parentheses keep their case ("(from dock)"), and the first word after a dash or colon
+ * starts again, as in "Rentals - At Another Dock".
+ */
 function titleCase(text: string): string {
-  let index = 0;
-  return text.replace(WORD, (word) => {
-    const first = index++ === 0;
+  return text.replace(WORD, (word, offset: number) => {
+    const before = text.slice(0, offset);
+    if (before.split("(").length > before.split(")").length) return word;
+    const first = !/\p{L}/u.test(before) || /[-–—:]\s*$/.test(before);
     if (!first && SMALL_WORDS.has(word.toLowerCase())) return word.toLowerCase();
     return word === word.toLowerCase() ? upperFirst(word) : word;
   });
