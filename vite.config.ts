@@ -27,9 +27,10 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  fmt: { ignorePatterns: ["**/dist/**", ".cache/**"] },
+  // docs/ is a Nuxt app with its own style, checked by its build.
+  fmt: { ignorePatterns: ["**/dist/**", ".cache/**", "docs/**"] },
   lint: {
-    ignorePatterns: ["**/dist/**", ".cache/**"],
+    ignorePatterns: ["**/dist/**", ".cache/**", "docs/**"],
     options: { typeAware: true, typeCheck: false },
   },
 });
