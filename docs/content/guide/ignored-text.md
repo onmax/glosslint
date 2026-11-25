@@ -41,6 +41,6 @@ Strings whose escapes a fix would break, and YAML block scalars in ESLint, still
 
 - Frontmatter, fenced and inline code, HTML comments and tags, link targets, and reference definitions
 - `import` and `export` lines in MDX
-- Comark (MDC) markup in `.md` and `.markdown` files: `::note` and closing `::` lines, `#title` slot lines, YAML props between `---` lines, standalone `:read-more{to="/docs"}` lines, and props such as `to`, `icon`, and `color`. Text inside components and slots is still checked, and so are `title`, `label`, `description`, and `name` props unless shaped like code
+- Comark (MDC) markup in `.md` and `.markdown` files: `::note` and closing `::` lines, `#title` slot lines, YAML props between `---` lines, inline components like `:badge[v4.4]{color="info"}` anywhere in a line, `{attrs}` right after a link, and props such as `to`, `icon`, and `color`. Text inside components, slots, and an inline component's brackets is still checked, and so are `title`, `label`, `description`, and `name` props unless shaped like code
 - `node_modules` and `.git` when given a folder (reads `.md`, `.mdx`, and `.txt`)
 - The glossary file loaded directly (`.agents/glossary.md` or `--glossary <path>`)

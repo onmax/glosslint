@@ -78,16 +78,16 @@ function isText(name: string, value: string): boolean {
   return !name.startsWith(":") && isTextName(name) && value.trim() !== "" && !isCodeShape(value);
 }
 
+type Span = { name: string; start: number; end: number };
+
 /**
- * Reads a whole component line: the name, then optional `[text]` and `{props}`, then nothing else.
- * Returns the text props and the kept `[text]`, or `undefined` when the line is something else.
+ * Reads what follows a component's name: optional `[text]`, then optional `{props}`. Returns where it
+ * ends, the text props and the kept `[text]`, or `undefined` when a bracket or brace doesn't close.
  */
-function readComponentLine(
+function readComponent(
   line: string,
   nameEnd: number,
-):
-  | { props: { name: string; start: number; end: number }[]; content?: [number, number] }
-  | undefined {
+): { end: number; props: Span[]; content?: [number, number] } | undefined {
   let index = nameEnd;
   let content: [number, number] | undefined;
   if (line[index] === "[") {
@@ -96,20 +96,65 @@ function readComponentLine(
     content = [index + 1, end - 1];
     index = end;
   }
-  const props: { name: string; start: number; end: number }[] = [];
+  const props: Span[] = [];
   if (line[index] === "{") {
-    const scanned = scanAttributes(line, index);
+    const scanned = readProps(line, index);
     if (!scanned) return undefined;
-    for (const attribute of scanned.attributes)
-      if (
-        attribute.value &&
-        isText(attribute.name, line.slice(attribute.value.start, attribute.value.end))
-      )
-        props.push({ name: attribute.name, ...attribute.value });
+    props.push(...scanned.props);
     index = scanned.end;
   }
-  if (line.slice(index).trim() !== "") return undefined;
-  return { props, ...(content ? { content } : {}) };
+  return { end: index, props, ...(content ? { content } : {}) };
+}
+
+/** Reads `{props}` at `at`, keeping the values of text props. */
+function readProps(line: string, at: number): { end: number; props: Span[] } | undefined {
+  const scanned = scanAttributes(line, at);
+  if (!scanned) return undefined;
+  const props: Span[] = [];
+  for (const attribute of scanned.attributes)
+    if (
+      attribute.value &&
+      isText(attribute.name, line.slice(attribute.value.start, attribute.value.end))
+    )
+      props.push({ name: attribute.name, ...attribute.value });
+  return { end: scanned.end, props };
+}
+
+// An inline component's colon follows no letter, digit, `_`, `:`, `\\` or `/`, and its name is followed
+// by `[` or `{`, so "Note: x", "10:30", `std::vector`, `https://` and `:smile:` stay prose.
+const INLINE_NAME = /(?<![\p{L}\p{N}_:\\/]):[A-Za-z][\w-]*(?=[[{])/gu;
+
+/**
+ * Blanks the inline components inside a line, `:badge[v4.4]{color="info"}`, keeping the `[text]`, and
+ * `{attrs}` right after a link or image, `[map](/map){target="_blank"}`. Returns the line and its text props.
+ */
+function maskInline(
+  line: string,
+  blank: (text: string) => string,
+): { line: string; props: Span[] } {
+  let out = line;
+  const props: Span[] = [];
+  const cut = (start: number, end: number) =>
+    (out = out.slice(0, start) + blank(out.slice(start, end)) + out.slice(end));
+  for (const match of line.matchAll(INLINE_NAME)) {
+    const nameEnd = match.index + match[0].length;
+    if (out[match.index] !== ":") continue;
+    const read = readComponent(line, nameEnd);
+    if (!read) continue;
+    cut(match.index, read.end);
+    if (read.content)
+      out =
+        out.slice(0, read.content[0]) + line.slice(...read.content) + out.slice(read.content[1]);
+    props.push(...read.props);
+  }
+  for (let index = line.indexOf("{"); index !== -1; index = line.indexOf("{", index + 1)) {
+    if ((line[index - 1] !== "]" && line[index - 1] !== ")") || out[index] !== "{") continue;
+    const read = readProps(line, index);
+    if (!read) continue;
+    cut(index, read.end);
+    props.push(...read.props);
+  }
+  return { line: out, props };
 }
 
 /** Reads a YAML props block's top-level `key: value` lines, keeping single-line scalars of text props. */
@@ -134,7 +179,8 @@ function yamlProps(
 }
 
 /**
- * Blanks Comark component markup in Markdown whose fences are already blanked, keeping every offset.
+ * Blanks Comark component markup in Markdown whose fences and code spans are already blanked, keeping
+ * every offset.
  * Returns the lines with markup blanked and the text props to check on their own.
  */
 export function maskComark(
@@ -161,19 +207,25 @@ export function maskComark(
       out[index] = blank(line);
       continue;
     }
+    const at = (spans: Span[]) =>
+      props.push(
+        ...spans.map((span) => ({
+          name: span.name,
+          start: offsets[index]! + span.start,
+          end: offsets[index]! + span.end,
+        })),
+      );
     const opener = OPENER.exec(line);
-    const inline = opener ? undefined : INLINE.exec(line);
-    const match = opener ?? inline;
-    if (!match) continue;
-    const read = readComponentLine(line, match[0].length);
-    if (!read) continue;
+    const match = opener ?? INLINE.exec(line);
+    const read = match ? readComponent(line, match[0].length) : undefined;
+    if (!read || line.slice(read.end).trim() !== "") {
+      const inline = maskInline(line, blank);
+      out[index] = inline.line;
+      at(inline.props);
+      continue;
+    }
     out[index] = blank(line);
-    for (const prop of read.props)
-      props.push({
-        name: prop.name,
-        start: offsets[index]! + prop.start,
-        end: offsets[index]! + prop.end,
-      });
+    at(read.props);
     if (read.content) {
       const [start, end] = read.content;
       out[index] = blank(line.slice(0, start)) + line.slice(start, end) + blank(line.slice(end));

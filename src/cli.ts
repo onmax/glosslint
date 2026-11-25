@@ -318,7 +318,7 @@ function maskMarkdownParts(
       lines[index] = blank(line);
     }
   }
-  out = lines.join("\n").replace(HTML_COMMENT, blank);
+  out = lines.join("\n").replace(HTML_COMMENT, blank).replace(INLINE_CODE, blank);
   // MDX reads `{...}` as code and has no Comark syntax.
   let props: ComarkProp[] = [];
   if (!options.mdx) {
@@ -326,7 +326,6 @@ function maskMarkdownParts(
     out = comark.lines.join("\n");
     props = comark.props;
   }
-  out = out.replace(INLINE_CODE, blank);
   out = out.replace(REFERENCE_DEFINITION, blank);
   out = out.replace(LINK_TARGET, blank);
   out = out.replace(LINK_REFERENCE, blank);

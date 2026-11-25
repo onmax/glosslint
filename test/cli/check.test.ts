@@ -369,8 +369,42 @@ describe("Comark components", () => {
     expect(where('::hub{to="x\n').map(([, , text]) => text)).toEqual(["hub"]);
   });
 
+  it("reads inline components inside a line: the text in brackets and text props, not the markup", () => {
+    expect(where('## Racks :badge[New hub]{color="hub" title="A rack"}\n')).toEqual([
+      [1, 4, "Racks", "Docks"],
+      [1, 21, "hub", "station"],
+      [1, 47, "rack", "dock"],
+    ]);
+    expect(where('| Rack | :badge[hub]{color="rack"} | :hub{to="/rack"} |\n')).toEqual([
+      [1, 3, "Rack", "Dock"],
+      [1, 17, "hub", "station"],
+    ]);
+  });
+
+  it("reads a link's text and text attributes, not its other attributes", () => {
+    expect(where('See the [rack map](/map){target="hub" title="Hub list"}.\n')).toEqual([
+      [1, 10, "rack", "dock"],
+      [1, 46, "Hub", "Station"],
+    ]);
+  });
+
+  it("leaves code spans and colons that start no component as prose", () => {
+    expect(where('Use `:hub[rack]{to="hub"}` here.\n')).toEqual([]);
+    expect(
+      where("Note: hub :smile: at 10:30, std::hub{x} and a:hub{x}.\n").map(([, column, text]) => [
+        column,
+        text,
+      ]),
+    ).toEqual([
+      [7, "hub"],
+      [34, "hub"],
+      [47, "hub"],
+    ]);
+  });
+
   it("keeps offsets in CRLF files", () => {
-    const lf = '::card{title="Rack guide"}\n---\ntitle: A hub\n---\nA rack.\n::\n';
+    const lf =
+      '::card{title="Rack guide"}\n---\ntitle: A hub\n---\nA rack :badge[hub]{title="Hub"}.\n::\n';
     const crlf = lf.replace(/\n/g, "\r\n");
     expect(maskMarkdown(lf)).toHaveLength(lf.length);
     expect(maskMarkdown(crlf)).toBe(maskMarkdown(lf).replace(/\n/g, "\r\n"));
