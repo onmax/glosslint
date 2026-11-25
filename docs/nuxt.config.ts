@@ -58,8 +58,10 @@ export default defineNuxtConfig({
       : true,
     // Content keeps GitHub answers that never change (commits, trees, archives) here, so a new Worker isolate opens the
     // Console overview with a few GitHub requests instead of reading every commit again.
+    // namespaceId pins the namespace that `vitehub deploy` created: ViteHub 0.5.1 records it in app/.vitehub/provision.json
+    // (Nuxt's srcDir) and then builds the KV binding without it, which makes wrangler create another namespace.
     kv: host === 'cloudflare'
-      ? { driver: 'cloudflare', namespaceName: 'glosslint-docs' }
+      ? { driver: 'cloudflare', namespaceName: 'glosslint-docs', namespaceId: '34936d73515247d98cf06c50d1b582b7' }
       : true,
     console: true,
   },
@@ -69,6 +71,8 @@ export default defineNuxtConfig({
         // glosslint.onmax.me is a custom domain of the Worker. The onmax.me zone is on the same Cloudflare account.
         routes: [{ pattern: 'glosslint.onmax.me', custom_domain: true }],
         workers_dev: false,
+        // The public key of the ViteHub Console link (app c74a8682), so the Console's signed requests verify.
+        vars: { VITEHUB_CONSOLE_KEY_CONSOLE_C74A8682: 'l3WoQCIu2-0Pe9h8XX6Keb6agNA-yridVqDAjCn6Vf8' },
       },
     },
   },
