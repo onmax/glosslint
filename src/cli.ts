@@ -58,6 +58,7 @@ export const CLI_ERRORS = {
   loadConfig: "GLOSSLINT_C010",
   notCorpus: "GLOSSLINT_C008",
   usage: "GLOSSLINT_USAGE",
+  failed: "GLOSSLINT_ERROR",
 } as const;
 
 const CONFIG_FILES = [
@@ -175,7 +176,8 @@ function blank(text: string): string {
 const FRONTMATTER = /^(?:---|\+\+\+)\r?\n[\s\S]*?\r?\n(?:---|\+\+\+|\.\.\.)[ \t]*(?:\r?\n|$)/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
-const INLINE_CODE = /(?<!`)(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?[^`]\1(?!`)/g;
+// A code span never crosses a blank line, written with LF or CRLF.
+const INLINE_CODE = /(?<!`)(`+)(?!`)(?:(?!\r?\n[ \t]*\r?\n)[\s\S])*?[^`]\1(?!`)/g;
 const LINK_TARGET =
   /(?<=\])\((?:[^()\s]|\([^()\s]*\))*(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?\s*\)/g;
 const LINK_REFERENCE = /(?<=\])\[[^\]\n]*\]/g;
@@ -183,8 +185,8 @@ const REFERENCE_DEFINITION = /^ {0,3}\[[^\]\n]+\]:[ \t]*\S.*$/gm;
 const AUTOLINK = /<(?:[a-z][a-z\d+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+)>/gi;
 const TAG = /<\/?[A-Za-z][^<>]*>/g;
 const LINE_PREFIX =
-  /^( {0,3}(?:>[ \t]?)*)(#{1,6}(?=[ \t]|$)|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t]))?([ \t]+\[[ xX]\](?=[ \t]))?/;
-const HEADING = /^ {0,3}#{1,6}(?:[ \t]|$)/;
+  /^( {0,3}(?:>[ \t]?)*)(#{1,6}(?=[ \t]|\r?$)|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t]))?([ \t]+\[[ xX]\](?=[ \t]))?/;
+const HEADING = /^ {0,3}#{1,6}(?:[ \t]|\r?$)/;
 const LIST_ITEM = /^ {0,3}(?:>[ \t]?)*(?:[-*+]|\d{1,9}[.)])[ \t]/;
 
 /**
@@ -226,7 +228,7 @@ export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): str
     .split("\n")
     .map((line) => {
       let masked = line.replace(LINE_PREFIX, blank);
-      if (HEADING.test(line)) masked = masked.replace(/[ \t]#+[ \t]*$/, blank);
+      if (HEADING.test(line)) masked = masked.replace(/[ \t]#+[ \t]*(?=\r?$)/, blank);
       return masked;
     })
     .join("\n");
@@ -629,7 +631,10 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
       );
       return 2;
     }
-    throw error;
+    // Anything else, such as a file it may not read, is one line on stderr, not a stack trace.
+    const message = error instanceof Error ? error.message : String(error);
+    io.stderr(`${paint(color, "1;31", `[${CLI_ERRORS.failed}]`)} ${message.split("\n")[0]}\n`);
+    return 2;
   }
 }
 

@@ -1,9 +1,12 @@
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { checkFileText, maskMarkdown } from "../../src/cli.ts";
 import { createMatcher } from "../../src/matcher.ts";
 import type { CliReport } from "../../src/types.ts";
 import { bike } from "../core/bike.ts";
-import { run } from "./run.ts";
+import { bikeDir, run } from "./run.ts";
 
 describe("glosslint check", () => {
   it("prints the findings as a tree with a summary, and exits 1", async () => {
@@ -128,6 +131,25 @@ describe("glosslint check", () => {
     expect(unknown.code).toBe(2);
     expect(unknown.stderr).toContain("Unknown option `--bogus`.");
   });
+
+  it.skipIf(process.getuid?.() === 0)(
+    "prints a file it may not read as one line and exits 2",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "glosslint-eacces-"));
+      try {
+        const file = join(dir, "locked.md");
+        writeFileSync(file, "Find a charger.\n");
+        chmodSync(file, 0);
+        const result = await run([file, "--config", join(bikeDir, "glosslint.config.ts")], dir);
+        expect(result).toMatchObject({ code: 2, stdout: "" });
+        expect(result.stderr).toMatch(
+          /^\[GLOSSLINT_ERROR\] EACCES: permission denied, open .*locked\.md'\n$/,
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe("Markdown masking", () => {
@@ -204,6 +226,34 @@ describe("Markdown masking", () => {
     expect(check('import { Rack } from "./rack"\n', "doc.mdx")).toEqual([]);
     expect(check("export const hub = 1\n", "doc.mdx")).toEqual([]);
     expect(check("export the hub list\n", "doc.md")).toHaveLength(1);
+  });
+
+  it("masks CRLF files as it masks LF ones", () => {
+    const lf = [
+      "---",
+      "title: rack",
+      "---",
+      "## A rack ##",
+      "",
+      "Use the `code",
+      "",
+      "New para with a rack and an ebike.",
+      "More `x` text.",
+      "- [ ] check the hub",
+      "#",
+      "",
+    ].join("\n");
+    const crlf = lf.replace(/\n/g, "\r\n");
+    expect(maskMarkdown(crlf)).toBe(maskMarkdown(lf).replace(/\n/g, "\r\n"));
+    const where = (text: string) =>
+      check(text).map((finding) => [finding.line, finding.column, finding.text]);
+    expect(where(crlf)).toEqual(where(lf));
+    expect(where(crlf)).toEqual([
+      [4, 6, "rack"],
+      [8, 17, "rack"],
+      [8, 29, "ebike"],
+      [10, 17, "hub"],
+    ]);
   });
 
   it("reads plain text without masking Markdown", () => {
