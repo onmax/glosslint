@@ -3,6 +3,7 @@ import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../../src/corpus.ts";
 import glosslint from "../../src/eslint.ts";
+import { bikeTerms } from "../core/bike.ts";
 import { covered, tester } from "./setup.ts";
 
 describe("term in TS", () => {
@@ -273,9 +274,22 @@ describe("term in YAML", () => {
       output: `buy: Buy a Day Pass`,
       errors: ["GLOSSLINT_CASE"],
     });
+    await valid(`empty: There is no day pass`);
+    await valid(`plan: Rent With a Day Pass From Any Dock (weekends)`);
     await invalid(`promo: Riders who buy a Day Pass ride free all day`, {
       output: `promo: Riders who buy a day pass ride free all day`,
       errors: ["GLOSSLINT_CASE"],
+    });
+  });
+
+  it("rewrites a whole label in the label style when the corpus sets one", async () => {
+    const titled = tester("term", "yaml", {
+      corpus: defineCorpus({ terms: bikeTerms, casing: { label: "title" } }),
+    });
+    await titled.valid(`empty: There is no day pass price`);
+    await titled.invalid(`price: Day pass price`, {
+      output: `price: Day Pass Price`,
+      errors: ["GLOSSLINT_CASE", "GLOSSLINT_CASE"],
     });
   });
 

@@ -1,5 +1,5 @@
 import type { Rule } from "eslint";
-import { kindOf } from "../matcher.ts";
+import { isTitled, kindOf } from "../matcher.ts";
 import type { Finding, TextKind } from "../types.ts";
 import { identityMap, jsMap, yamlDoubleMap, yamlSingleMap } from "./offsets.ts";
 
@@ -306,15 +306,23 @@ function elementName(node: Node): string | undefined {
   return undefined;
 }
 
+/** First words that open a sentence rather than a label, as in "There are no rides". */
+const SENTENCE_OPENER =
+  /^(?:there|this|that|these|those|it|you|we|they|i|is|are|was|were|do|does|did|can|could|will|would|should|has|have)$/i;
+
 /**
- * The kind of text a person reads, such as template text or a locale string: from its name,
- * else a label when it is a few words without a final stop, else a sentence.
+ * The kind of text a person reads, such as template text or a locale string: from its name, else
+ * a label when it is a few words without a final stop and doesn't open like a sentence, or when it
+ * is written in Title Case, else a sentence.
  */
 function shownKind(name: string | undefined, text: string): TextKind {
   const kind = kindOf(name, text);
   if (kind !== "unknown") return kind;
-  const short = text.trim().split(/\s+/).length <= 4 && !/[.!?:]$/.test(text.trim());
-  return short ? "label" : "sentence";
+  const trimmed = text.trim().replace(/:$/, "");
+  const words = trimmed.split(/\s+/);
+  if (/[.!?]$/.test(trimmed)) return "sentence";
+  const short = words.length <= 4 && !SENTENCE_OPENER.test(words[0]!);
+  return short || isTitled(trimmed.replace(/\([^)]*\)/g, "")) ? "label" : "sentence";
 }
 
 /** Builds the site of a Vue template text node. */

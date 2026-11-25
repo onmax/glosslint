@@ -638,6 +638,13 @@ describe("sentence starts and replacements", () => {
     expect(hits("Sold in 5 pcs. day pass bundles.", "sentence", pcs)).toEqual([]);
   });
 
+  it("each plural form after | starts a sentence", () => {
+    expect(hits("Day pass for {count} day | Day pass for {count} days", "sentence")).toEqual([]);
+    expect(hits("{count} day | day pass for {count} days", "sentence")).toEqual([
+      "CASE day pass -> Day pass",
+    ]);
+  });
+
   it("a replacement ending in a period takes the sentence's own period", () => {
     const pcs = createMatcher(
       defineCorpus({ terms: [{ term: "pcs.", case: "exact", avoid: ["pieces"] }] }),

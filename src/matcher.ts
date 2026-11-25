@@ -88,6 +88,15 @@ const upperFirst = (text: string): string => text.charAt(0).toUpperCase() + text
 /** Keeps a word's capitals when it has one past its first letter, such as `DP` or `eBike`. */
 const keepsCapitals = (word: string): boolean => /^.+\p{Lu}/u.test(word);
 
+/** Whether every word but a small one past the first starts with a capital, as "Buy a Day Pass" does. */
+export function isTitled(text: string): boolean {
+  const words = text.match(WORD) ?? [];
+  return (
+    words.length > 1 &&
+    words.every((word, index) => isUpper(word.charAt(0)) || (index > 0 && SMALL_WORDS.has(word)))
+  );
+}
+
 function titleCase(text: string): string {
   let index = 0;
   return text.replace(WORD, (word) => {
@@ -196,6 +205,8 @@ const DOTTED_WORDS = ["e.g.", "i.e.", "vs.", "approx.", "incl.", "excl.", "avg."
 function atSentenceStart(text: string, start: number, dotted: ReadonlySet<string>): boolean {
   const before = text.slice(0, start);
   if (/^[\s\p{Ps}\p{Pi}"'*_•-]*$/u.test(before)) return true;
+  // Each plural form after `|` ("{count} day | {count} days") starts again.
+  if (/\|\s*[\p{Ps}\p{Pi}"'*_]*$/u.test(before)) return true;
   const end = /(\S*)([.!?:])["'\p{Pf}\p{Pe}]*\s+[\p{Ps}\p{Pi}"'*_]*$/u.exec(before);
   if (!end) return false;
   if (end[2] === ":") return isUpper(text.charAt(start));
