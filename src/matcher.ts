@@ -335,6 +335,9 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     const exact = entry.mode === "exact" || entry.mode === "abbr";
     // An abbreviation in lowercase prose is usually another word or a unit: leave it.
     if (entry.mode === "abbr" && !/\p{Lu}/u.test(surface)) return undefined;
+    // case-police's rule: a preset term written all lowercase or all caps passes, whatever its spelling.
+    if (entry.skip.has("lower") && !/\p{Lu}/u.test(surface)) return undefined;
+    if (entry.skip.has("upper") && !hasLower(surface)) return undefined;
     if (squash(surface) !== squash(entry.canonical)) {
       const base = exact ? entry.canonical : keepCapitals(entry.canonical, surface);
       const replace = withSuffix(base, hit.suffix, entry.mode === "abbr");
@@ -351,8 +354,6 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         },
       );
     }
-    if (entry.skip.has("lower") && !/\p{Lu}/u.test(surface)) return undefined;
-    if (entry.skip.has("upper") && !hasLower(surface)) return undefined;
     // Context casing applies to labels and sentences only, so comments and unknown text get exact casing alone.
     let want: string | undefined;
     let where = "";
