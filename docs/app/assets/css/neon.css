@@ -340,6 +340,29 @@ html.vh-docs a[href] > :is(svg, .iconify) {
   color: var(--gl-mint-text);
 }
 
+/* A frame that names its code (a file name, or the language) draws a rule under the name, so the name sits apart from
+   the code. Code tabs carry their names in the tab strip instead. */
+.docs-content .ck:not([data-code-header] .ck):has(> .ck-bar > .ck-title) > .ck-bar {
+  border-bottom: 1px solid var(--_comark-border);
+}
+
+.docs-content div.ck:not([data-code-header] .ck):has(> .ck-bar > .ck-title) > pre {
+  padding-top: calc(var(--_ck-bar) + 0.625rem);
+}
+
+/* A shell block has no name, so comark-ui's terminal header would be an empty row with a rule. Its buttons sit over the
+   code instead, centred on the first line: the bar is as tall as the code's top padding, one line (1.3rem), and the same
+   padding again. */
+.docs-content .ck:not([data-code-header] .ck)[data-code-frame="terminal"]:not(:has(> .ck-bar > .ck-title)) > .ck-bar {
+  height: calc(2 * 0.75rem + 1.3rem);
+  padding-block: 0;
+  border-bottom: 0;
+}
+
+.docs-content div.ck:not([data-code-header] .ck)[data-code-frame="terminal"]:not(:has(> .ck-bar > .ck-title)) > pre {
+  padding-top: 0.75rem;
+}
+
 .docs-content .ct {
   box-shadow: 0 18px 40px -28px color-mix(in oklab, var(--gl-cyan) 45%, transparent);
 }
@@ -384,8 +407,10 @@ html.vh-docs a[href] > :is(svg, .iconify) {
 }
 
 /* The rail between two steps is a dim track with a lit tube in it. While the page scrolls, the tube draws down each step
-   as the step passes a reading line at 70% of the viewport, like a blade extending. Without scroll-driven animations, or
-   with reduced motion, the tube is simply lit. It moves with transform only. */
+   as the step passes a reading line at 70% of the viewport, like a blade extending. The steps near the top have passed
+   that line before any scroll, so on load every tube also draws from nothing on `scale`, which multiplies with the
+   scroll's `transform`. Without scroll-driven animations only the load draw runs; with reduced motion the tube is simply
+   lit. It moves with transforms only. */
 .docs-content .cs-step:not(:last-child) {
   view-timeline: --gl-step block;
   view-timeline-inset: 0% 30%;
@@ -402,12 +427,16 @@ html.vh-docs a[href] > :is(svg, .iconify) {
   transform-origin: top;
 }
 
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
+@media (prefers-reduced-motion: no-preference) {
+  .docs-content .cs-step::after {
+    animation: gl-saber-load 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+  }
+
+  @supports (animation-timeline: view()) {
     .docs-content .cs-step::after {
-      animation: gl-saber linear both;
-      animation-timeline: --gl-step;
-      animation-range: entry-crossing 0% entry-crossing 100%;
+      animation: gl-saber linear both, gl-saber-load 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+      animation-timeline: --gl-step, auto;
+      animation-range: entry-crossing 0% entry-crossing 100%, normal;
     }
   }
 }
@@ -415,6 +444,11 @@ html.vh-docs a[href] > :is(svg, .iconify) {
 @keyframes gl-saber {
   from { transform: scaleY(0); }
   to { transform: scaleY(1); }
+}
+
+@keyframes gl-saber-load {
+  from { scale: 1 0; }
+  to { scale: 1 1; }
 }
 
 /* Diagrams: nodes framed like the code, edges in the cyan tube, and a faint glow on each node in dark mode. */
