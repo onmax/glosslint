@@ -53,6 +53,7 @@ export default defineNuxtConfig({
     github: { repo: 'onmax/glosslint', dir: 'docs/content' },
     socials: [
       { label: 'glosslint on npmx', icon: 'i-glosslint-npmx', to: 'https://npmx.dev/package/glosslint' },
+      { label: '@_onmax on X', icon: 'i-simple-icons-x', to: 'https://x.com/_onmax' },
     ],
     seoAudit: 'error',
     // The install tabs' order and logos.
