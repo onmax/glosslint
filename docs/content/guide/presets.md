@@ -31,22 +31,17 @@ In [`.agents/glossary.md`](/guide/glossary), list preset names in `Extends:` abo
 # Glossary
 
 Extends: tech, inclusive
-
 Allow: check out our, roof rack
 
 ## Dock
-
 What: A powered stand where one bike is locked.
-
 Avoid:
-
 - rack: Racks are unpowered.
 - bay
 
 ## eBike
 
 ## Day Pass (DP)
-
 Case: context
 ```
 
@@ -103,6 +98,5 @@ Entries in `Allow:` match in any case, match across spaces, hyphens and undersco
 # Glossary
 
 Extends: tech, inclusive
-
 Allow: Apple Pay, ApplePay, whitelist
 ```

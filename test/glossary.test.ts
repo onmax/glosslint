@@ -58,23 +58,34 @@ describe("readGlossary", () => {
       { term: "kiosk" },
       { term: "Day Pass", abbr: ["DP", "D"] },
     ]);
-    const spelled = readGlossary("# Glossary\n\n## eBike\n\nCase: spelling\n").corpus!.terms;
+    const spelled = readGlossary("# Glossary\n\n## eBike\nCase: spelling\n").corpus!.terms;
     expect(spelled).toEqual([{ term: "eBike", case: "spelling" }]);
-    const how = readGlossary("# Glossary\n\n## kiosk\n\nHow: Always lowercase.\n").corpus!.terms;
+    const how = readGlossary("# Glossary\n\n## kiosk\nHow: Always lowercase.\n").corpus!.terms;
     expect(how[0]?.case).toBeUndefined();
   });
 
   it("joins a text field's lines and paragraphs with one space", () => {
     const text =
-      "# Glossary\n\n## Dock\n\nWhat: A powered stand\nwhere one bike is locked.\n\nIt charges the bike.\n";
+      "# Glossary\n\n## Dock\nWhat: A powered stand\nwhere one bike is locked.\n\nIt charges the bike.\n";
     expect(readGlossary(text).corpus!.terms[0]?.description).toBe(
       "A powered stand where one bike is locked. It charges the bike.",
     );
   });
 
+  it("reports a mistyped field on the next line instead of joining it to the field above", () => {
+    const typo = readGlossary("# Glossary\n\n## Dock\nWhat: A stand.\nAvod: rack\n");
+    expect(typo.problems.map((problem) => [problem.code, problem.line])).toEqual([
+      ["GLOSSLINT_G002", 5],
+    ]);
+    expect(typo.corpus!.terms[0]).toMatchObject({ description: "A stand.", avoid: ["rack"] });
+    const prose = readGlossary("# Glossary\n\n## Dock\nWhat: A stand\nsee below: it charges.\n");
+    expect(prose.problems).toEqual([]);
+    expect(prose.corpus!.terms[0]?.description).toBe("A stand see below: it charges.");
+  });
+
   it("reads comma lists, backticked avoid words and reasons split at the first colon and space", () => {
     const text =
-      "# Glossary\n\n## Dock\n\nAvoid: rack, `bay, berth`: Old words., `pod:x`, slot: Ops: only\n";
+      "# Glossary\n\n## Dock\nAvoid: rack, `bay, berth`: Old words., `pod:x`, slot: Ops: only\n";
     expect(readGlossary(text).corpus!.terms[0]?.avoid).toEqual([
       "rack",
       { word: "bay, berth", why: "Old words." },
@@ -84,10 +95,10 @@ describe("readGlossary", () => {
   });
 
   it("reports one code per problem the format names", () => {
-    expect(codes("# Glossary\n\n## Dock\n\nWhat: A stand.\n")).toEqual([]);
+    expect(codes("# Glossary\n\n## Dock\nWhat: A stand.\n")).toEqual([]);
     expect(codes("## Dock\n")).toEqual(["GLOSSLINT_G001"]);
-    expect(codes("# Glossary\n\n## Dock\n\nmeaning: A stand.\n")).toEqual(["GLOSSLINT_G002"]);
-    expect(codes("# Glossary\n\n## Dock\n\nLinks:\n\n- https://a.example\n")).toEqual([
+    expect(codes("# Glossary\n\n## Dock\nmeaning: A stand.\n")).toEqual(["GLOSSLINT_G002"]);
+    expect(codes("# Glossary\n\n## Dock\nLinks:\n- https://a.example\n")).toEqual([
       "GLOSSLINT_G003",
     ]);
     expect(codes(read("g004.md"))).toEqual(["GLOSSLINT_G004"]);
@@ -97,31 +108,75 @@ describe("readGlossary", () => {
     expect(codes(read("g008.md"))).toEqual(["GLOSSLINT_G008"]);
   });
 
+  it("reads a paragraph with several fields clean, and starts a field at a name in any case", () => {
+    const text =
+      "# Glossary\n\n## Station\nWhat: A group of docks.\nHow: Say station for the whole group.\nWhy: Riders see it on the map.\n";
+    const result = readGlossary(text);
+    expect(result.problems).toEqual([]);
+    expect(result.corpus!.terms[0]).toMatchObject({
+      description: "A group of docks.",
+      nuance: "Say station for the whole group.",
+      why: "Riders see it on the map.",
+    });
+    const lower = readGlossary(text.replace("How:", "how:"));
+    expect(lower.problems.map((problem) => `${problem.code} ${problem.line}`)).toEqual([
+      "GLOSSLINT_G002 5",
+    ]);
+    expect(lower.fixed).toBe(text);
+  });
+
+  it("ends a list at the next line that is not indented, or that a formatter indented as a field", () => {
+    const text = "# Glossary\n\n## Dock\nAvoid:\n- rack\nGood:\n- Park at the dock\n";
+    const result = readGlossary(text);
+    expect(result.problems).toEqual([]);
+    expect(result.corpus!.terms[0]).toMatchObject({
+      avoid: ["rack"],
+      examples: { good: ["Park at the dock"] },
+    });
+    const indented = readGlossary(text.replace("\nGood:", "\n  Good:"));
+    expect(indented.corpus).toEqual(result.corpus);
+    expect(indented.fixed).toBe(text);
+  });
+
+  it("reports the old layout's blank lines inside a term and the corpus fields as G003", () => {
+    const result = readGlossary(read("old-layout.md"));
+    expect(new Set(result.problems.map((problem) => problem.why))).toEqual(
+      new Set(["A blank line before this line."]),
+    );
+    expect(result.problems[0]).toMatchObject({
+      code: "GLOSSLINT_G003",
+      line: 7,
+      fix: "Remove it: a term's heading and its fields go on consecutive lines.",
+      fixable: true,
+    });
+    expect(result.fixed).toBe(read("spec.md"));
+  });
+
   it("reports text, tables, code fences and H3s a term has no place for", () => {
     const where = (body: string) =>
-      readGlossary(`# Glossary\n\n## Dock\n\n${body}\n`).problems.map(
+      readGlossary(`# Glossary\n\n## Dock\n${body}\n`).problems.map(
         (problem) => `${problem.code} ${problem.line} ${problem.term}`,
       );
-    expect(where("A stand.")).toEqual(["GLOSSLINT_G004 5 Dock"]);
-    expect(where("Avoid:\n\n- rack\n\nMore text.")).toEqual(["GLOSSLINT_G004 9 Dock"]);
-    expect(where("| a | b |\n| - | - |")).toEqual(["GLOSSLINT_G004 5 Dock"]);
-    expect(where("```\ncode\n```")).toEqual(["GLOSSLINT_G004 5 Dock"]);
-    expect(where("### Notes")).toEqual(["GLOSSLINT_G004 5 Dock"]);
+    expect(where("A stand.")).toEqual(["GLOSSLINT_G004 4 Dock"]);
+    expect(where("Avoid:\n- rack\n\nMore text.")).toEqual(["GLOSSLINT_G004 7 Dock"]);
+    expect(where("| a | b |\n| - | - |")).toEqual(["GLOSSLINT_G004 4 Dock"]);
+    expect(where("```\ncode\n```")).toEqual(["GLOSSLINT_G004 4 Dock"]);
+    expect(where("### Notes")).toEqual(["GLOSSLINT_G004 4 Dock"]);
   });
 
   it("reports bad values: Case, Casing, presets, links and empty fields", () => {
     const head = "# Glossary\n\n";
     expect(codes(`${head}Extends: tech, prose\n`)).toEqual(["GLOSSLINT_G006"]);
     expect(codes(`${head}Casing: label loud\n`)).toEqual(["GLOSSLINT_G006"]);
-    expect(codes(`${head}## Dock\n\nLinks:\n\n- [Docks](ftp://a)\n`)).toEqual(["GLOSSLINT_G006"]);
-    expect(codes(`${head}## Dock\n\nWhat:\n`)).toEqual(["GLOSSLINT_G006"]);
+    expect(codes(`${head}## Dock\nLinks:\n- [Docks](ftp://a)\n`)).toEqual(["GLOSSLINT_G006"]);
+    expect(codes(`${head}## Dock\nWhat:\n`)).toEqual(["GLOSSLINT_G006"]);
   });
 
   it("gives each problem its line, term, fix and whether --fix rewrites it", () => {
     const [problem] = readGlossary(read("g004.md")).problems;
     expect(problem).toEqual({
       code: "GLOSSLINT_G004",
-      line: 7,
+      line: 5,
       why: '"Note" is not a field.',
       fix: 'Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links" or "Case", or reword the line so it does not start with "Note:".',
       fixable: false,
@@ -166,11 +221,11 @@ describe("readGlossary", () => {
 
   it("reports failing examples as G009 but still gives the corpus", () => {
     const text =
-      "# Glossary\n\n## Dock\n\nAvoid: rack\n\nGood:\n\n- Park at the rack\n\nBad:\n\n- Park at the stand\n";
+      "# Glossary\n\n## Dock\nAvoid: rack\nGood:\n- Park at the rack\nBad:\n- Park at the stand\n";
     const result = readGlossary(text);
     expect(result.problems.map((problem) => `${problem.code} ${problem.line}`)).toEqual([
-      "GLOSSLINT_G009 9",
-      "GLOSSLINT_G009 13",
+      "GLOSSLINT_G009 6",
+      "GLOSSLINT_G009 8",
     ]);
     expect(result.corpus).toBeDefined();
   });
@@ -197,11 +252,11 @@ describe("fromGlossary", () => {
 
   it("throws the code, path:line and fix for G004 to G008", () => {
     for (const [name, line] of [
-      ["g004.md", 7],
+      ["g004.md", 5],
       ["g005.md", 5],
-      ["g006.md", 5],
+      ["g006.md", 4],
       ["g007.md", 3],
-      ["g008.md", 5],
+      ["g008.md", 4],
     ] as const) {
       const error = thrown(fixture(name));
       expect(error.code).toBe(`GLOSSLINT_G00${name[3]}`);

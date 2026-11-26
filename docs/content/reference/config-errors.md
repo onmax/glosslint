@@ -84,7 +84,6 @@ A field name uses the wrong case (`what:`), a known alias (`Description` or `Mea
 
 ```md
 ## Dock
-
 Description: A powered stand where one bike is locked.
 ```
 
@@ -92,7 +91,7 @@ Fix: rename it to the canonical field name (`What:`), or run `npx glosslint doct
 
 ### GLOSSLINT_G003
 
-The file differs from canonical layout: two fields share a paragraph, a list uses `*` or `+` bullets, blank lines split a list, a comma list field has entries both on its line and in a list below, a `-`-only field (`Good`, `Bad`, `Links`) has an entry on its line, a link is a bare URL (rewritten to `[url](url)`), fields are out of canonical order, or blank lines, CRLF endings, trailing spaces, or the final newline do not match canonical form.
+The file differs from canonical layout: a blank line follows a term's heading or separates two fields, a list uses `*` or `+` bullets, blank lines split a list, a comma list field has entries both on its line and in a list below, a `-`-only field (`Good`, `Bad`, `Links`) has an entry on its line, a link is a bare URL (rewritten to `[url](url)`), fields are out of canonical order, or blank lines, CRLF endings, trailing spaces, or the final newline do not match canonical form.
 
 Fix: run `npx glosslint doctor --fix`.
 
@@ -102,7 +101,6 @@ The file contains an unknown field name (such as `Note:`), a term field written 
 
 ```md
 ## Dock
-
 Note: Only powered stands count.
 ```
 
@@ -148,7 +146,6 @@ An `Avoid` item matches the term itself or another term defined in the same glos
 
 ```md
 ## Dock
-
 Avoid: station
 
 ## Station

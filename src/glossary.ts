@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONFIG_ERRORS, defineCorpus, nearest } from "./corpus.ts";
+import { CONFIG_ERRORS, defineCorpus, distance, nearest } from "./corpus.ts";
 import { GlosslintConfigError } from "./errors.ts";
 import inclusive from "./presets/inclusive.ts";
 import tech from "./presets/tech.ts";
@@ -94,6 +94,10 @@ const ALIASES: Record<string, string> = {
   "related links": "Links",
 };
 const PRESETS: Record<string, Corpus> = { tech, inclusive };
+const FIELD_NAMES = new Set([
+  ...[...CORPUS_FIELDS, ...TERM_FIELDS].map((spec) => spec.name.toLowerCase()),
+  ...Object.keys(ALIASES),
+]);
 const CASE_MODES: readonly CaseMode[] = ["exact", "spelling", "context"];
 const CASING = /^(label|header|sentence)\s+(title|sentence|lower|upper|as-written)$/;
 
@@ -104,6 +108,18 @@ const TABLE = /^ {0,3}\|/;
 const FIELD = /^ {0,3}([A-Za-z]+(?: [A-Za-z]+){0,2}):(?:[ \t]+(.*))?$/;
 const LINK = /^\[([^\]]*\S[^\]]*)\]\((https?:\/\/[^\s()]+)\)$/;
 const BARE_URL = /^<?(https?:\/\/[^\s<>()]+)>?$/;
+
+/**
+ * Whether a line starts a field: a field name or alias of the corpus or a term, in any case, then `:`.
+ * A word of four or more letters one edit from a name, such as `Avod:`, starts one too, so a typo is
+ * reported instead of joining the field above it.
+ */
+function isFieldLine(line: string): boolean {
+  const name = FIELD.exec(line)?.[1]?.toLowerCase();
+  if (name === undefined) return false;
+  if (FIELD_NAMES.has(name)) return true;
+  return /^[a-z]{4,}$/.test(name) && [...FIELD_NAMES].some((field) => distance(name, field) <= 1);
+}
 
 interface Item {
   line: number;
@@ -170,7 +186,8 @@ function scan(lines: readonly string[]): Block[] {
         const current = lines[i]!;
         const item = ITEM.exec(current);
         if (item) items.push({ line: i + 1, bullet: item[1]!, lines: [(item[2] ?? "").trim()] });
-        else if (/^[ \t]+\S/.test(current) && !startsBlock(current))
+        // A Markdown formatter indents a field line that follows a list as the last item's continuation.
+        else if (/^[ \t]+\S/.test(current) && !startsBlock(current) && !isFieldLine(current))
           items.at(-1)!.lines.push(current.trim());
         else break;
         i++;
@@ -306,17 +323,6 @@ class Reader {
         "Add `# Glossary` as the first line.",
       );
 
-    for (let i = 1; i < blocks.length; i++) {
-      const gap = blocks[i]!.start - blocks[i - 1]!.end - 1;
-      if (gap !== 1)
-        this.add(
-          P.layout,
-          blocks[i]!.start,
-          gap === 0 ? "No blank line before this line." : `${gap} blank lines before this line.`,
-          "Leave one blank line between blocks.",
-        );
-    }
-
     const intro: Block[] = [];
     while (index < blocks.length) {
       const block = blocks[index]!;
@@ -324,6 +330,37 @@ class Reader {
       if (block.kind === "h1") this.secondTitle(block);
       else intro.push(block);
       index++;
+    }
+
+    // One blank line sets off the title, the introduction, each term and each further paragraph of a
+    // field. A term's heading and its fields sit on consecutive lines, as do the corpus fields.
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i]!;
+      const gap = block.start - blocks[i - 1]!.end - 1;
+      const want =
+        i <= index ||
+        block.kind === "h1" ||
+        block.kind === "h2" ||
+        (block.kind === "paragraph" &&
+          !isFieldLine(block.lines[0]!) &&
+          blocks[i - 1]!.kind !== "h2")
+          ? 1
+          : 0;
+      if (gap === want) continue;
+      this.add(
+        P.layout,
+        block.start,
+        want === 1
+          ? gap === 0
+            ? "No blank line before this line."
+            : `${gap} blank lines before this line.`
+          : gap === 1
+            ? "A blank line before this line."
+            : `${gap} blank lines before this line.`,
+        want === 1
+          ? "Leave one blank line before a heading, after the introduction and between the paragraphs of one field."
+          : "Remove it: a term's heading and its fields go on consecutive lines.",
+      );
     }
 
     let end = index;
@@ -468,7 +505,7 @@ class Reader {
         continue;
       }
 
-      for (const segment of this.segments(block, specs)) {
+      for (const segment of this.segments(block)) {
         const head = FIELD.exec(segment.lines[0]!);
         if (!head) {
           if (current === sink) continue;
@@ -492,14 +529,6 @@ class Reader {
           current = sink;
           continue;
         }
-        if (segment.split)
-          this.add(
-            P.layout,
-            segment.line,
-            `${spec.name} shares a paragraph with the field before it.`,
-            `Leave a blank line before "${written}:".`,
-            term,
-          );
         if (fields.has(spec.name)) {
           this.add(
             P.twice,
@@ -529,23 +558,12 @@ class Reader {
     return fields;
   }
 
-  /** A paragraph's fields: a new one starts at each line that names a field of `specs`. */
-  private segments(
-    block: Block,
-    specs: readonly FieldSpec[],
-  ): { line: number; lines: string[]; split: boolean }[] {
-    const segments = [{ line: block.start, lines: [block.lines[0]!], split: false }];
+  /** A paragraph's fields: a new one starts at each line that names a field. */
+  private segments(block: Block): { line: number; lines: string[] }[] {
+    const segments = [{ line: block.start, lines: [block.lines[0]!] }];
     for (let i = 1; i < block.lines.length; i++) {
       const line = block.lines[i]!;
-      const name = FIELD.exec(line)?.[1];
-      const known =
-        name !== undefined &&
-        specs.some(
-          (spec) =>
-            spec.name.toLowerCase() === name.toLowerCase() ||
-            ALIASES[name.toLowerCase()] === spec.name,
-        );
-      if (known) segments.push({ line: block.start + i, lines: [line], split: true });
+      if (isFieldLine(line)) segments.push({ line: block.start + i, lines: [line] });
       else segments.at(-1)!.lines.push(line);
     }
     return segments;
@@ -712,40 +730,49 @@ function trimEnd(line: string): string {
   return line.replace(/\s+$/, "");
 }
 
-/** The canonical text of a glossary that has only fixable problems. */
+/**
+ * The canonical text of a glossary that has only fixable problems: one blank line between the title,
+ * each introduction block, the corpus fields and each term, and none inside a term or the corpus fields.
+ */
 function serialize(doc: Doc): string {
-  const blocks: string[][] = [["# Glossary"]];
-  for (const block of doc.intro) blocks.push(block.lines.map(trimEnd));
-  const fields = (map: Map<string, FieldNode>, specs: readonly FieldSpec[]) => {
-    for (const spec of specs) {
+  const sections: string[] = ["# Glossary"];
+  for (const block of doc.intro) sections.push(block.lines.map(trimEnd).join("\n"));
+  const fields = (map: Map<string, FieldNode>, specs: readonly FieldSpec[]) =>
+    specs.flatMap((spec) => {
       const node = map.get(spec.name);
-      if (node) blocks.push(...renderField(node));
-    }
-  };
-  fields(doc.corpus, CORPUS_FIELDS);
-  for (const term of doc.terms) {
-    blocks.push([`## ${term.name}${term.abbr.length ? ` (${term.abbr.join(", ")})` : ""}`]);
-    fields(term.fields, TERM_FIELDS);
-  }
-  return `${blocks.map((block) => block.join("\n")).join("\n\n")}\n`;
+      return node ? [renderField(node)] : [];
+    });
+  const corpus = fields(doc.corpus, CORPUS_FIELDS);
+  if (corpus.length) sections.push(corpus.join("\n"));
+  for (const term of doc.terms)
+    sections.push(
+      [
+        `## ${term.name}${term.abbr.length ? ` (${term.abbr.join(", ")})` : ""}`,
+        ...fields(term.fields, TERM_FIELDS),
+      ].join("\n"),
+    );
+  return `${sections.join("\n\n")}\n`;
 }
 
-function renderField(node: FieldNode): string[][] {
+/** A field's lines; the paragraphs of a text field after its first are set off by blank lines. */
+function renderField(node: FieldNode): string {
   const { name, kind } = node.spec;
   if (kind === "text") {
     const [first = [""], ...rest] = node.text;
-    return [[`${name}:${first[0] ? ` ${first[0]}` : ""}`, ...first.slice(1)], ...rest];
+    return [[`${name}:${first[0] ? ` ${first[0]}` : ""}`, ...first.slice(1)], ...rest]
+      .map((paragraph) => paragraph.join("\n"))
+      .join("\n\n");
   }
-  if (kind === "value") return [[`${name}: ${node.value}`]];
+  if (kind === "value") return `${name}: ${node.value}`;
   const items = node.items.filter((item) => itemText(item) !== "");
-  if (node.form === "inline") return [[`${name}: ${items.map(itemText).join(", ")}`]];
+  if (node.form === "inline") return `${name}: ${items.map(itemText).join(", ")}`;
   return [
-    [`${name}:`],
-    items.flatMap((item) => [
+    `${name}:`,
+    ...items.flatMap((item) => [
       `- ${item.lines[0]}`,
       ...item.lines.slice(1).map((line) => `  ${line}`),
     ]),
-  ];
+  ].join("\n");
 }
 
 function buildTerm(node: TermNode): Term {
@@ -880,7 +907,7 @@ function parse(
           P.layout,
           Math.min(at + 1, have.length),
           "The spacing, indentation or line endings differ from the canonical form.",
-          "Use LF line endings, one blank line between blocks, no trailing spaces and one final newline.",
+          "Use LF line endings, a blank line only before a heading, after the introduction and between the paragraphs of one field, no trailing spaces and one final newline.",
         );
       }
     }

@@ -78,7 +78,6 @@ List `<kind> <style>` pairs in the corpus `Casing:` field above the first term:
 Casing: header upper
 
 ## Day Pass (DP)
-
 Case: context
 ```
 

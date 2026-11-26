@@ -17,40 +17,26 @@ A glossary starts with `# Glossary`, optional introduction prose, optional corpu
 The words the rider app and the help center use.
 
 Extends: tech, inclusive
-
 Allow: check out our, roof rack
-
 Casing: label sentence, header title
 
 ## Dock
-
 What: A powered stand where one bike is locked.
-
 How: A station is a group of docks. Say dock for one stand.
-
 Why: Riders read "dock" on the stand itself.
-
 Avoid:
-
 - rack: Racks are unpowered.
 - bay
-
 Good:
-
 - Return the bike to any dock
-
 Bad:
-
 - Return the bike to any rack
-
 Links:
-
 - [Docks](https://example.com/docs/docks)
 
 ## eBike
 
 ## Day Pass (DP)
-
 Case: context
 ```
 
@@ -58,7 +44,7 @@ Any paragraph between `# Glossary` and the first field or `##` heading is introd
 
 ## File structure and syntax
 
-Every field is a paragraph whose first line starts with one to three words and a colon (`What:`, `Avoid:`, `Case:`). Field names are fixed English names. An unknown field name raises an error (`GLOSSLINT_G004`) rather than being treated as prose, so a typo never disappears quietly.
+Every field starts on a line that begins with its name and a colon (`What:`, `Avoid:`, `Case:`), even inside a paragraph, and a term's heading and its fields go on consecutive lines. Field names are fixed English names. An unknown field name raises an error (`GLOSSLINT_G004`) rather than being treated as prose, so a typo never disappears quietly. Markdown previews such as GitHub's join consecutive field lines into one paragraph, so the file reads best as source, which is how people and agents read it. A Markdown formatter such as Prettier indents a field that follows a list into the list's last item, so add `.agents/glossary.md` to its ignore file.
 
 - Text fields (`What`, `How`, `Why`) hold plain text. Line breaks and continuation paragraphs under a text field are kept as written in the file and joined by one space when loaded into the corpus.
 - List fields (`Avoid`, `Good`, `Bad`, `Links`) take `-` bullet items. `Extends`, `Allow`, `Casing`, and `Avoid` also accept a comma-separated list on the field's own line, such as `Avoid: customer, rider account`.
@@ -120,11 +106,11 @@ Problems `GLOSSLINT_G001` through `GLOSSLINT_G003` are fixable:
 
 - `GLOSSLINT_G001`: missing `# Glossary` title, or a different H1 title.
 - `GLOSSLINT_G002`: wrong casing on a field name (`what:`), an alias (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related` or `Related links` for `Links`), or a typo close to a valid field name.
-- `GLOSSLINT_G003`: layout issues such as two fields in one paragraph, `*` or `+` bullets, a bare URL under `Links` (rewritten to `[url](url)`), fields out of canonical order, wrong blank lines, CRLF endings, trailing spaces, or a missing final newline.
+- `GLOSSLINT_G003`: layout issues such as a blank line after a term's heading or between fields, `*` or `+` bullets, a bare URL under `Links` (rewritten to `[url](url)`), fields out of canonical order, wrong blank lines, CRLF endings, trailing spaces, or a missing final newline.
 
 Loaders (`fromGlossary`, ESLint, Oxlint, and `glosslint check`) still read a file that has only `G001` to `G003` problems as its fixed form would read. Problems `GLOSSLINT_G004` through `GLOSSLINT_G008` block loading, and `doctor --fix` leaves the file untouched when one is present so it never drops text. See [Config and glossary errors](/reference/config-errors) for every `GLOSSLINT_G00x` code.
 
-Canonical form uses `# Glossary`, the introduction as written, corpus fields in order, then terms in file order with fields in order, one blank line between blocks (including between a list field's label and its `-` list), LF line endings, and one final newline. Running `glosslint doctor --fix` a second time makes no changes.
+Canonical form uses `# Glossary`, the introduction as written, corpus fields in order, then terms in file order with fields in order, one blank line before each heading, between introduction blocks and after the introduction, no blank line after a `##` heading or between fields, LF line endings, and one final newline. Running `glosslint doctor --fix` a second time makes no changes.
 
 > [!NOTE]
 > `glosslint check` automatically skips the glossary file it loaded, whether `.agents/glossary.md` or `--glossary <path>`, even if you pass that file or its folder on the command line.

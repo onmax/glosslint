@@ -19,42 +19,31 @@ glosslint checks your product's vocabulary against one Markdown file, `.agents/g
 
 Write your product's terms in `.agents/glossary.md`. This excerpt comes from the bike-share app in [`examples/basic/.agents/glossary.md`](https://github.com/onmax/glosslint/blob/main/examples/basic/.agents/glossary.md):
 
+<!-- prettier-ignore -->
 ```md
 # Glossary
 
 The words the rider app and the help center use.
 
 Extends: tech, inclusive
-
 Allow: check out our, roof rack
 
 ## Dock
-
 What: A powered stand where one bike is locked.
-
 How: A station is a group of docks.
-
 Avoid:
-
 - rack: Racks are unpowered.
 - bay
-
 Good:
-
 - Return the bike to any dock
-
 Bad:
-
 - Return the bike to any rack
-
 Links:
-
 - [Docks](https://example.com/docs/docks)
 
 ## eBike
 
 ## Day Pass (DP)
-
 Case: context
 ```
 

@@ -1,13 +1,9 @@
 # Words
 
 ## Dock
-
 description: A powered stand where one bike is locked.
-
 Avoid: station
-
 Note: Racks are unpowered.
-
 Case: loud
 
 ## Station

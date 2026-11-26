@@ -43,7 +43,7 @@ export const CONFIG_ERRORS = {
 
 type Fail = (code: string, why: string, fix: string) => never;
 
-function distance(a: string, b: string): number {
+export function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, index) => index);
   for (let i = 1; i <= a.length; i++) {
     let diagonal = row[0]!;

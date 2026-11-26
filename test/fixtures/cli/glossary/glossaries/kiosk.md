@@ -1,5 +1,4 @@
 # Glossary
 
 ## Kiosk
-
 Avoid: terminal

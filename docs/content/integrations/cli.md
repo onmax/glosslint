@@ -106,29 +106,28 @@ When the file has problems, `doctor` prints each one with its code, file and lin
 [GLOSSLINT_G001] .agents/glossary.md:1: The title is "Words", not "Glossary".
 ╰▶ fix: Retitle it "# Glossary".
 
-[GLOSSLINT_G002] .agents/glossary.md:5: "description" is another name for "What".
+[GLOSSLINT_G002] .agents/glossary.md:4: "description" is another name for "What".
 ├▶ term: Dock
 ╰▶ fix: Rename it to "What".
 
-[GLOSSLINT_G008] .agents/glossary.md:7: "station" is an avoid word of "Dock" and a term of its own.
+[GLOSSLINT_G008] .agents/glossary.md:5: "station" is an avoid word of "Dock" and a term of its own.
 ╰▶ fix: Remove it from the Avoid list of "Dock", or remove the term "station".
 
-[GLOSSLINT_G004] .agents/glossary.md:9: "Note" is not a field.
+[GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
 ├▶ term: Dock
 ╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links" or "Case", or reword the line so it does not start with "Note:".
 
-[GLOSSLINT_G006] .agents/glossary.md:11: Case is "loud".
+[GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
 ├▶ term: Dock
 ╰▶ fix: Use "exact", "spelling" or "context".
 
-[GLOSSLINT_G003] .agents/glossary.md:16: How shares a paragraph with the field before it.
-├▶ term: Station
-╰▶ fix: Leave a blank line before "How:".
+[GLOSSLINT_G003] .agents/glossary.md:11: A blank line before this line.
+╰▶ fix: Remove it: a term's heading and its fields go on consecutive lines.
 
-[GLOSSLINT_G005] .agents/glossary.md:18: "station" is written twice: "Station" is the same term.
+[GLOSSLINT_G005] .agents/glossary.md:14: "station" is written twice: "Station" is the same term.
 ╰▶ fix: Merge the two sections into one.
 
-[GLOSSLINT_G007] .agents/glossary.md:20: The parentheses in "## Day Pass (day ticket)" hold more than abbreviations.
+[GLOSSLINT_G007] .agents/glossary.md:16: The parentheses in "## Day Pass (day ticket)" hold more than abbreviations.
 ├▶ term: Day Pass
 ╰▶ fix: Keep only abbreviations in parentheses, such as `## Day Pass (DP)`, and move the rest to `How`.
 

@@ -29,9 +29,18 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   // docs/ is a Nuxt app with its own style, checked by its build.
-  // The glossary fixture with fixable problems must keep its bad layout.
+  // Glossary files put a field right after a list, which a Markdown formatter indents into the list.
   fmt: {
-    ignorePatterns: ["**/dist/**", ".cache/**", "docs/**", "test/fixtures/glossary/fixable.md"],
+    ignorePatterns: [
+      "**/dist/**",
+      ".cache/**",
+      "docs/**",
+      "**/.agents/glossary.md",
+      "test/fixtures/glossary/**",
+      "test/fixtures/cli/doctor/**",
+      "test/fixtures/cli/glossary/glossaries/**",
+      "test/fixtures/oxlint/glossary/**",
+    ],
   },
   lint: {
     ignorePatterns: ["**/dist/**", ".cache/**", "docs/**"],

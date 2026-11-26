@@ -20,49 +20,37 @@ Version 0.0.2. The first user is a Nuxt 4 app of about 390 Vue files with an ESL
 
 ## The glossary file
 
+<!-- prettier-ignore -->
 ```md
 # Glossary
 
 The words the rider app and the help center use.
 
 Extends: tech, inclusive
-
 Allow: check out our, roof rack
-
 Casing: label sentence, header title
 
 ## Dock
-
 What: A powered stand where one bike is locked.
-
 How: A station is a group of docks. Say dock for one stand.
-
 Why: Riders read "dock" on the stand itself.
-
 Avoid:
-
 - rack: Racks are unpowered.
 - bay
-
 Good:
-
 - Return the bike to any dock
-
 Bad:
-
 - Return the bike to any rack
-
 Links:
-
 - [Docks](https://example.com/docs/docks)
 
 ## Day Pass (DP)
-
 Case: context
 ```
 
 - The H1 is `Glossary`. Each H2 is one term. Prose between the H1 and the first field or H2 is an introduction and is not read.
-- A field is a paragraph whose first line starts with one to three words and a colon. Names are fixed, in English, written as above. An unknown name is an error, never prose, so a typo is not silently read as text. A paragraph under a text field that does not start with a field continues it.
+- A field starts at a line that begins with its name and a colon, in any case, even inside a paragraph, and a term's heading and its fields go on consecutive lines, as do the corpus fields. Names are fixed, in English, written as above. An unknown name is an error, never prose, so a typo is not silently read as text. A paragraph under a text field that does not start with a field continues it.
+- Markdown previews such as GitHub's join consecutive field lines into one paragraph, so the file reads best as source, which is how people and agents read it. A Markdown formatter such as Prettier indents a field that follows a list into the list's last item, so add `.agents/glossary.md` to its ignore file.
 - Corpus fields, before the first H2: `Extends` (the presets `tech` and `inclusive`, by name, merged in order before the file's terms), `Allow` (`allow`), `Casing` (`casing`, as `kind style` pairs).
 - Term fields, in canonical order: `What` (`description`), `How` (`nuance`), `Why` (`why`, new), `Avoid` (`avoid`), `Good` and `Bad` (`examples`), `Links` (`links`), `Case` (`case`: `exact`, `spelling` or `context`).
 - `What`, `How` and `Why` are text, kept as written; line and paragraph breaks read as one space. `Avoid`, `Good`, `Bad` and `Links` are `-` lists. `Extends`, `Allow`, `Casing` and `Avoid` also take a comma list on the field's line.
@@ -118,9 +106,9 @@ glosslint(options?: { glossary?: string | URL, corpus?: Corpus, sourceLocale?, k
 ```
 
 - **`readGlossary`** (`src/glossary.ts`) is the one parser. `fromGlossary`, `doctor` and every adapter go through it. `corpus` is set when no `G004` to `G008` problem exists; `fixed` is the canonical text, set when the file can be rewritten and differs from it.
-- **Problems `--fix` rewrites.** `GLOSSLINT_G001`: the H1 is missing or not `Glossary` (inserted or retitled). `G002`: a field name in another case, an alias (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related` or `Related links` for `Links`), or a near miss by the `nearest` rule of `src/corpus.ts`. `G003`: layout, meaning two fields in one paragraph, `*` or `+` bullets, a bare URL under `Links` (becomes `[url](url)`), fields out of canonical order, or spacing.
+- **Problems `--fix` rewrites.** `GLOSSLINT_G001`: the H1 is missing or not `Glossary` (inserted or retitled). `G002`: a field name in another case, an alias (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related` or `Related links` for `Links`), or a near miss by the `nearest` rule of `src/corpus.ts`. `G003`: layout, meaning a blank line after a term's heading or between fields, `*` or `+` bullets, a bare URL under `Links` (becomes `[url](url)`), fields out of canonical order, or spacing.
 - **Problems only reported.** `G004`: an unknown field, or content the format has no place for (text before a term's first field or after a list, a table, a code fence, an H3). `G005`: a term or a field written twice. `G006`: a bad value (`Case`, `Casing`, an unknown preset, a link that is not `[title](http…)`, an empty field). `G007`: a term heading with no words, or with parentheses that are not abbreviations. `G008`: an avoid word that is a term of the file. `G009`: a failing example, which `doctor` reports and loaders ignore.
-- **Canonical form.** `# Glossary`, the introduction as written, the corpus fields, then each term in file order with its fields in canonical order. A list stays in the form it was written, on the field's line or as `-` items. One blank line between blocks, including between a list field's name and its list, so Markdown formatters leave the file alone. LF line endings and one final newline.
+- **Canonical form.** `# Glossary`, the introduction as written, the corpus fields, then each term in file order with its fields in canonical order. A list stays in the form it was written, on the field's line or as `-` items. One blank line before each heading, between introduction blocks, after the introduction and between the paragraphs of a text field, and none after a `##` heading or between fields. LF line endings and one final newline.
 - **`doctor`** reads only the glossary file, never a config. Exit 0 with no problems, 1 with problems left, 2 when the file is missing.
 - **ESLint** sets no parser, as in 0.0.1: the app's config supplies typescript-eslint, vue-eslint-parser and yaml-eslint-parser. `files` picks the source locale file.
 - **Oxlint** has no config hook, so the rules read the glossary on the first file, from `context.cwd`, and keep it for the process. It takes a path only: plugin entries are module specifiers and settings are JSON, so there is no `corpus` and no `kindOf`. Oxlint offers no parser services, so Vue templates are not visited, and it does not lint YAML. JS plugins are alpha in Oxlint 1.94, so `oxlint` is an optional peer and the entry may change with it.

@@ -1,5 +1,4 @@
 # Glossary
 
 ## Station
-
 Avoid: hub
