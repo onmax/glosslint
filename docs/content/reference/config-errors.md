@@ -173,7 +173,7 @@ Fix: narrow the avoid word or adjust the example so `Good` passes and `Bad` trig
 { term: "Dock", avoid: ["rack"] }
 ```
 
-See [defineCorpus](/guide/corpus) and [Defining terms](/guide/terms) for all accepted field names.
+See [Term fields](/guide/glossary#term-fields) and [Config-only term fields](/guide/corpus#config-only-term-fields) for all accepted field names.
 
 ### GLOSSLINT_C002
 

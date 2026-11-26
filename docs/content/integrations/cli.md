@@ -74,7 +74,7 @@ npx glosslint check docs/guide
 [GLOSSLINT_AVOID] "rack" in docs/guide/riding.md:3:56
 ├▶ why: Racks are unpowered.
 ├▶ fix: Use "dock": "Unlock a bike at any station, then return it to a free dock when you finish."
-╰▶ term: Dock, a powered stand where one bike is locked.
+├▶ term: Dock, a powered stand where one bike is locked.
 ╰▶ see: https://example.com/docs/docks
 
 [GLOSSLINT_TERM] "e-bike" in docs/guide/riding.md:4:15

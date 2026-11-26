@@ -1,21 +1,11 @@
 ---
 title: defineCorpus
-description: Configure glosslint with defineCorpus in glosslint.config.ts when you need skip, forms, translations, per-term casing, wholeLabel, or merging.
+description: Layer glosslint.config.ts on top of .agents/glossary.md for skip, forms, translations, per-term casing, wholeLabel, and merging.
 navigation.order: 4
 icon: i-lucide-book-marked
 ---
 
-[`.agents/glossary.md`](/guide/glossary) is the source of truth for your vocabulary, and most projects need no JavaScript or TypeScript config file. `defineCorpus` in `glosslint.config.ts` is an optional layer on top of it when you need options the Markdown file has no field for:
-
-- `skip` (`["lower"]`, `["upper"]`, or both) to allow all-lowercase or all-uppercase spellings on a term
-- `forms` and `translations` per locale, passed to [x18n](/integrations/x18n)'s glossary
-- per-term `casing` overrides
-- `wholeLabel: true` to enforce label casing across every word of a label containing a `context` term
-- sharing or composing corpora across packages in TypeScript
-
-## Extending `.agents/glossary.md`
-
-You do not have to move terms out of `.agents/glossary.md` to use `defineCorpus`. Load the glossary file with `fromGlossary()` inside `extends`, then layer on the TypeScript-only fields you need:
+Most projects only need [`.agents/glossary.md`](/guide/glossary). Add `glosslint.config.ts` when you need config-only options (`skip`, `forms`, `translations`, per-term `casing`, `wholeLabel`) or shared corpora across packages.
 
 ```ts [glosslint.config.ts]
 import { defineCorpus, fromGlossary } from "glosslint";
@@ -40,72 +30,46 @@ export default defineCorpus({
 });
 ```
 
-`fromGlossary()` reads `.agents/glossary.md` from the current working folder by default. Pass a `URL` built from `import.meta.url` to resolve another path relative to `glosslint.config.ts`:
+`fromGlossary()` reads `.agents/glossary.md` from the working directory; pass `fromGlossary(new URL("./docs/glossary.md", import.meta.url))` for another path. `defineCorpus` validates on load and throws `GlosslintConfigError` on mistakes ([Config and glossary errors](/reference/config-errors)).
 
-```ts
-fromGlossary(new URL("./docs/glossary.md", import.meta.url));
-```
+## How tools load `glosslint.config.ts`
 
-For a shared TypeScript preset package without a Markdown file, you can also pass presets in `extends` and entries in `terms` directly:
-
-```ts [glosslint.config.ts]
-import { defineCorpus } from "glosslint";
-import inclusive from "glosslint/presets/inclusive";
-import tech from "glosslint/presets/tech";
-
-export default defineCorpus({
-  extends: [tech, inclusive],
-  terms: [
-    {
-      term: "Dock",
-      description: "A powered stand where one bike is locked.",
-      nuance: "A station is a group of docks.",
-      avoid: [{ word: "rack", why: "Racks are unpowered." }, "bay"],
-      examples: { good: ["Return the bike to any dock"], bad: ["Return the bike to any rack"] },
-      links: [{ title: "Docks", url: "https://example.com/docs/docks" }],
-    },
-    { term: "Checkout" },
-    { term: "eBike", case: "exact" },
-    { term: "Day Pass", abbr: ["DP"], case: "context" },
-  ],
-  allow: ["check out our", "roof rack"],
-});
-```
-
-`defineCorpus` validates every field when the config loads and throws a `GlosslintConfigError` on a mistake, listed in [Config and glossary errors](/reference/config-errors).
-
-## How tools pick up `glosslint.config.ts`
-
-- **CLI:** `check`, `test`, `print`, and `explain` look for `glosslint.config.{ts,mts,js,mjs}` before falling back to `.agents/glossary.md`, unless `--glossary` is passed. `glosslint doctor` reads only the glossary Markdown file, never a config.
-- **ESLint:** Import your config and pass `{ corpus }` to `glosslint({ corpus })`. See [ESLint](/integrations/eslint).
-- **x18n:** Import your config and pass `{ corpus }` to the plugin and `toX18nGlossary(corpus)`. See [x18n](/integrations/x18n).
-- **Oxlint:** Reads `.agents/glossary.md` (or `settings.glosslint.glossary`) directly; it does not load `glosslint.config.ts`. See [Oxlint](/integrations/oxlint).
+- **CLI.** `check`, `test`, `print`, and `explain` load `glosslint.config.{ts,mts,js,mjs}` before `.agents/glossary.md` unless `--glossary` is passed. `doctor` reads only the Markdown glossary.
+- **ESLint.** Pass `{ corpus }` to `glosslint({ corpus })` ([ESLint](/integrations/eslint)).
+- **x18n.** Pass `{ corpus }` to the plugin and `toX18nGlossary(corpus)` ([x18n](/integrations/x18n)).
+- **Oxlint.** Reads `.agents/glossary.md` or `settings.glosslint.glossary`, never `glosslint.config.ts` ([Oxlint](/integrations/oxlint)).
 
 ## Corpus fields
 
-| Field        | What it does                                                                                                                                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extends`    | Corpora to merge in first: `fromGlossary(...)`, [presets](/guide/presets), or another `defineCorpus(...)`. See [Merge order](#merge-order).                                                                     |
-| `terms`      | Your own terms. See [Defining terms](/guide/terms).                                                                                                                                                             |
-| `allow`      | Phrases that are never reported. A finding that sits inside an allowed phrase is dropped. Words in a phrase match across spaces, hyphens and underscores, and a plural `s` or `es` matches too.                 |
-| `casing`     | The case style of `context` terms per kind of text: `{ label, header, sentence }`. See [Casing rules](/guide/casing).                                                                                           |
-| `wholeLabel` | `true` to check every word of a label or header that holds a `context` term, not only the term. See [Casing rules](/guide/casing).                                                                              |
+| Field | What it does |
+| --- | --- |
+| `extends` | Corpora merged first: `fromGlossary(...)`, [presets](/guide/presets), or another `defineCorpus(...)` ([Merge order](#merge-order)). |
+| `terms` | Term objects. Shared fields match [The glossary file](/guide/glossary); config-only fields follow below. |
+| `allow` | Phrases never reported ([Allowing phrases](#allowing-phrases)). |
+| `casing` | Default style for `context` terms: `{ label, header, sentence }` ([Casing rules](/guide/casing)). |
+| `wholeLabel` | Set `true` to check every word of a label or header holding a `context` term ([Casing rules](/guide/casing)). |
+
+## Config-only term fields
+
+Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `examples`, `links`, `case`) are documented in [The glossary file](/guide/glossary). These four exist only in `defineCorpus`:
+
+| Property | What it does |
+| --- | --- |
+| `casing` | Per-term style over corpus `casing`, such as `{ label: "as-written" }`. Setting `casing` without `case` makes the term `context`. |
+| `skip` | `["lower"]`, `["upper"]`, or both: whole-word casings that always pass (`tech` sets both so `github` and `GITHUB` pass while `Github` fails). |
+| `forms` | Locale forms such as `{ de: ["Dockingstation", "Dockingstationen"] }`, passed to [x18n](/integrations/x18n) and matched by `glosslint explain`. |
+| `translations` | Locale translations such as `{ de: "Dock" }`, passed to [x18n](/integrations/x18n). |
 
 ## Allowing phrases
 
-`allow` (or `Allow:` in `.agents/glossary.md`) handles a word that has a second meaning. With `rack` as an avoid word for Dock, "roof rack" means something else, so `"roof rack"` goes in `allow`. The same applies to `"check out our"`, which is a verb phrase rather than the noun Checkout.
-
-When glosslint finds a problem whose text sits inside an allowed phrase, it drops that finding. Words in an allowed phrase match across spaces, hyphens, and underscores, and plurals ending in `s` or `es` match too.
-
-> [!TIP]
-> To switch off a term from a preset, add its spellings to `Allow:` in `.agents/glossary.md` or `allow` in `defineCorpus`.
+Findings inside an `allow` or `Allow:` phrase are dropped. Use it for second meanings like `"roof rack"` or `"check out our"`, or to silence a preset term. Words match in any case, across spaces, hyphens, and underscores, and with `s` or `es` plurals.
 
 ## Merge order
 
-glosslint merges terms by key. A key is the term's words joined and lowercased, letters and digits only. For example, `"Re-charge point"` and `"recharge point"` share the same key.
+Terms merge by key: words joined and lowercased, letters and digits only (`"Re-charge point"` and `"recharge point"` share a key).
 
-1. glosslint reads `extends` from left to right. A later corpus replaces an earlier term with the same key. If `fromGlossary()` sits after `tech` and `inclusive`, terms from `.agents/glossary.md` replace preset terms with the same words.
-2. The corpus's own `terms` replace every term from `extends` with the same key. Two of your own terms with the same key throw `GLOSSLINT_C005`.
-3. A term is replaced whole. Fields are not merged.
-4. `allow` lists add up, with every `extends` entry's list first and then your own.
-5. `casing` merges per kind (`label`, `header`, `sentence`), with later entries winning; `wholeLabel` takes the last defined boolean.
+1. `extends` merges left to right; later corpora replace earlier terms with the same key.
+2. Your own `terms` replace matching keys from `extends`. Duplicate keys throw `GLOSSLINT_C005` (`GLOSSLINT_G005` in Markdown).
+3. Replacement is whole; fields do not merge.
+4. `allow` lists concatenate, `extends` first, then yours.
+5. `casing` merges per kind (`label`, `header`, `sentence`), last wins; `wholeLabel` takes the last defined boolean.

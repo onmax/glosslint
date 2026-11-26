@@ -1,34 +1,19 @@
 ---
 title: Coming from case-police
-description: How glosslint's tech preset matches case-police 2.2.1 across 488 entries, where the 7 joined spellings differ, and how to move over.
-navigation.order: 9
+description: Parity between glosslint's tech preset and case-police 2.2.1 across 488 entries, the 7 joined-spelling differences, and moving over.
+navigation.order: 8
 icon: i-lucide-arrow-right-left
 ---
 
-[case-police](https://github.com/antfu/case-police), by Anthony Fu, is a CLI that checks and fixes the casing of technology names such as `GitHub` and `macOS`. glosslint builds its tech preset directly from case-police's dictionaries so you can keep the same casing rules and add your own product glossary in one place.
+glosslint builds its `tech` preset from [case-police](https://github.com/antfu/case-police) 2.2.1 (MIT License, see [`NOTICE`](https://github.com/onmax/glosslint/blob/main/NOTICE)) so you can keep the same casing rules alongside your own glossary.
 
-## Dictionary coverage
+## Coverage and parity
 
-`glosslint/presets/tech` is generated from all five dictionaries of case-police 2.2.1 under the MIT License. The third-party license notice is in [`NOTICE`](https://github.com/onmax/glosslint/blob/main/NOTICE). [`scripts/tech.ts`](https://github.com/onmax/glosslint/blob/main/scripts/tech.ts) reads every JSON dictionary and writes 477 distinct keys plus 7 allowed spellings.
+[`scripts/tech.ts`](https://github.com/onmax/glosslint/blob/main/scripts/tech.ts) reads all 5 case-police dictionaries (488 entries: 309 `softwares`, 118 `abbreviates`, 30 `brands`, 18 `general`, 13 `products`) and outputs 477 keys plus 7 allowed joined spellings, each with `case: "exact"` and `skip: ["lower", "upper"]`.
 
-| Dictionary | Entries |
-| --- | --- |
-| `softwares` | 309 |
-| `abbreviates` | 118 |
-| `brands` | 30 |
-| `general` | 18 |
-| `products` | 13 |
-| **Total** | **488** |
+[`test/tech-parity.test.ts`](https://github.com/onmax/glosslint/blob/main/test/tech-parity.test.ts) tests all 488 entries in 4 forms (Capitalised, lower, UPPER, canonical: 1,952 cases). 1,945 match case-police verbatim. The 7 differences are joined spellings placed in `allow` alongside their spaced terms (`Antdesign` stays as written, while `Ant design` still becomes `Ant Design`):
 
-## Casing parity and the 7 differences
-
-glosslint matches case-police's casing rule: a word written all lowercase or all uppercase passes, so `github` and `GITHUB` pass while `Github` becomes `GitHub`. [`scripts/tech.ts`](https://github.com/onmax/glosslint/blob/main/scripts/tech.ts) sets `case: "exact"` and `skip: ["lower", "upper"]` on every term in the tech preset for that reason.
-
-[`test/tech-parity.test.ts`](https://github.com/onmax/glosslint/blob/main/test/tech-parity.test.ts) checks parity against case-police 2.2.1 directly. It places each of the 488 entries inside a sentence in four forms: Capitalised, lower, UPPER and the canonical spelling, making 1,952 cases. Both tools fix every sentence and the test compares the results.
-
-Of the 1,952 cases, 1,945 produce the same output. The only 7 differences come from joined spellings that case-police lists beside a spaced form with the same key:
-
-| Term in `glosslint/presets/tech` | Joined spelling in `allow` |
+| Term in `tech` | Joined spelling in `allow` |
 | --- | --- |
 | `Ant Design` | `AntDesign` |
 | `Ant Design Vue` | `AntDesignVue` |
@@ -38,38 +23,18 @@ Of the 1,952 cases, 1,945 produce the same output. The only 7 differences come f
 | `Tailwind CSS` | `TailwindCSS` |
 | `Windi CSS` | `WindiCSS` |
 
-A glosslint corpus holds one term per key, so the preset keeps the spaced form, such as `Tailwind CSS`, as the term and puts the joined spelling, `TailwindCSS`, in `allow`. Because `allow` matches in any case, glosslint leaves `Antdesign` as written where case-police rewrites it to `AntDesign`. The spaced form still gets checked, so `Ant design` still rewrites to `Ant Design`.
-
 ## What glosslint adds
 
-Extending `tech` in [`.agents/glossary.md`](/guide/glossary) puts technology names into the same glossary as the rest of your product vocabulary:
-
-- **Your own product terms.** Define terms like `Dock`, `eBike` and `Day Pass` alongside `Extends: tech` and other [Built-in presets](/guide/presets).
-- **Avoid words with reasons.** Flag discouraged terms such as `rack` or `hub` with a reason explaining what to use instead.
-- **Context casing.** Apply different styles in labels, table headers and sentences with `Case: context`, such as `Day Pass` in a button and `day pass` in a sentence. See [Casing rules](/guide/casing).
-- **Meaning on every finding.** Every finding prints the term's description, nuance and documentation link so writers and coding agents learn the vocabulary as they work.
-- **Code, translations and docs.** Run the same glossary through [ESLint](/integrations/eslint) for JavaScript, TypeScript, Vue templates and YAML locales, [Oxlint](/integrations/oxlint) for JavaScript and TypeScript, [x18n](/integrations/x18n) for translations, and [the CLI](/integrations/cli) for Markdown docs.
+- Your own product terms and [built-in presets](/guide/presets) in [`.agents/glossary.md`](/guide/glossary).
+- Avoid words with reasons, descriptions, and links printed on every finding.
+- [Context casing](/guide/casing) that adapts between labels, headers, and sentences.
+- Checks across [ESLint](/integrations/eslint), [Oxlint](/integrations/oxlint), [x18n](/integrations/x18n), and [the CLI](/integrations/cli).
 
 ## Moving over
 
-::steps
-
-### Install glosslint
-
-Install `glosslint` as a dev dependency. glosslint needs Node 22.18 or later.
-
-::code-group
-```sh [pnpm]
+```sh pm
 pnpm add -D glosslint
 ```
-```sh [npm]
-npm install -D glosslint
-```
-::
-
-### Extend the tech preset
-
-Create `.agents/glossary.md` with `Extends: tech`:
 
 ```md [.agents/glossary.md]
 # Glossary
@@ -77,19 +42,8 @@ Create `.agents/glossary.md` with `Extends: tech`:
 Extends: tech
 ```
 
-Add `##` sections below `Extends: tech` whenever you want to add your own product terms.
-
-### Check Markdown and fix code
-
-Run the CLI to check Markdown and text files:
-
 ```sh
-npx glosslint check
+npx glosslint check  # report findings in Markdown and text files (read-only)
 ```
 
-> [!NOTE]
-> `glosslint check` only reports findings and never edits checked docs.
-
-To autofix casing in JavaScript, TypeScript, Vue templates and YAML locale files, add `...glosslint()` in [ESLint](/integrations/eslint) and run `eslint --fix`, or add `"glosslint/oxlint"` in [Oxlint](/integrations/oxlint) and run `oxlint --fix` for JavaScript and TypeScript.
-
-::
+For code autofixes, add `...glosslint()` in [ESLint](/integrations/eslint) (`eslint --fix`) or `"glosslint/oxlint"` in [Oxlint](/integrations/oxlint) (`oxlint --fix`).

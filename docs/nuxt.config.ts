@@ -55,6 +55,8 @@ export default defineNuxtConfig({
       { label: 'glosslint on npmx', icon: 'i-glosslint-npmx', to: 'https://npmx.dev/package/glosslint' },
     ],
     seoAudit: 'error',
+    // The install tabs' order and logos.
+    parser: 'parser.ts',
   },
   vitehub: {
     name: 'glosslint-docs',
@@ -70,6 +72,10 @@ export default defineNuxtConfig({
       ? { driver: 'cloudflare', namespaceName: 'glosslint-docs', namespaceId: '34936d73515247d98cf06c50d1b582b7' }
       : true,
     console: true,
+  },
+  // The terms page joined the glossary page.
+  routeRules: {
+    '/guide/terms': { redirect: { to: '/guide/glossary', statusCode: 301 } },
   },
   nitro: {
     cloudflare: {

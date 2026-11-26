@@ -1,15 +1,11 @@
 ---
 title: The glossary file
-description: "Write your product glossary in .agents/glossary.md: format rules, every field, casing inference, canonical layout, and migrating from 0.0.1."
+description: Format rules, corpus and term fields, avoid reasons, casing inference, and doctor --fix for .agents/glossary.md.
 navigation.order: 3
 icon: i-lucide-file-text
 ---
 
-`.agents/glossary.md` is the source of truth for glosslint. People and coding agents read it directly, and the CLI, ESLint (`glosslint()` with no options), Oxlint, and `fromGlossary()` all load it automatically. Pass `--glossary <path>` on the CLI, `glossary` in ESLint, `settings.glosslint.glossary` in Oxlint, or a path to `fromGlossary(path)` when you keep the file somewhere else.
-
-## Full example
-
-A glossary starts with `# Glossary`, optional introduction prose, optional corpus fields (`Extends`, `Allow`, `Casing`), and one `##` section per term. The comment under the title links this page, so an agent that opens the file can look up its format:
+The CLI, ESLint (`glosslint()`), Oxlint, and `fromGlossary()` load `.agents/glossary.md` by default. Override the path with `--glossary <path>`, `glossary` in ESLint, `settings.glosslint.glossary` in Oxlint, or `fromGlossary(path)`.
 
 ```md [.agents/glossary.md]
 # Glossary
@@ -42,90 +38,73 @@ Links:
 Case: context
 ```
 
-Any paragraph between `# Glossary` and the first field or `##` heading is introduction prose. glosslint keeps it when formatting the file and does not parse it as fields.
+Paragraphs between `# Glossary` and the first field or `##` heading stay as introduction prose.
 
-## File structure and syntax
+## Syntax rules
 
-Every field starts on a line that begins with its name and a colon (`What:`, `Avoid:`, `Case:`), even inside a paragraph, and a term's heading and its fields go on consecutive lines. Field names are fixed English names. An unknown field name raises an error (`GLOSSLINT_G004`) rather than being treated as prose, so a typo never disappears quietly. Markdown previews such as GitHub's join consecutive field lines into one paragraph, so the file reads best as source, which is how people and agents read it. A Markdown formatter such as Prettier indents a field that follows a list into the list's last item, so add `.agents/glossary.md` to its ignore file.
-
-- Text fields (`What`, `How`, `Why`) hold plain text. Line breaks and continuation paragraphs under a text field are kept as written in the file and joined by one space when loaded into the corpus.
-- List fields (`Avoid`, `Good`, `Bad`, `Links`) take `-` bullet items. `Extends`, `Allow`, `Casing`, and `Avoid` also accept a comma-separated list on the field's own line, such as `Avoid: customer, rider account`.
-- Headings above `##` (such as a second `#` heading) and sub-headings (`###` to `######`), tables, code fences, and stray text outside a text field are not allowed in a glossary file and report `GLOSSLINT_G004`.
+- Fields start with `Name:` on consecutive lines under `# Glossary` or `##`. Unknown names, other heading levels, tables, code fences, and stray text report `GLOSSLINT_G004`.
+- Text fields (`What`, `How`, `Why`) join multiple lines with a space on load.
+- List fields (`Avoid`, `Good`, `Bad`, `Links`) take `-` bullets. `Extends`, `Allow`, `Casing`, and `Avoid` also accept comma-separated items on one line.
+- Ignore `.agents/glossary.md` in Prettier; Markdown formatters indent a field after a list into the last item.
 
 ## Corpus fields
 
-Corpus fields appear before the first `##` term heading, in this canonical order:
+Place before the first `##` heading in canonical order:
 
-| Field     | Syntax                                                    | What it sets                                                                                                              |
-| --------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `Extends` | Comma list or `-` list of preset names                    | Presets merged in order before the file's terms. Valid names are `tech` and `inclusive`. See [Presets](/guide/presets).   |
-| `Allow`   | Comma list or `-` list of phrases                         | Phrases never reported, such as `check out our, roof rack`.                                                               |
-| `Casing`  | Comma list or `-` list of `<kind> <style>` pairs          | Default style for `context` terms. Kind is `label`, `header` or `sentence`; style is `title`, `sentence`, `lower`, `upper` or `as-written`. |
+| Field | Syntax | What it sets |
+| --- | --- | --- |
+| `Extends` | Comma or `-` list | Presets merged first: `tech`, `inclusive` ([Presets](/guide/presets)). |
+| `Allow` | Comma or `-` list | Phrases never reported, such as `check out our, roof rack`. |
+| `Casing` | `<kind> <style>` list | Style for `context` terms. Kind: `label`, `header`, `sentence`. Style: `title`, `sentence`, `lower`, `upper`, `as-written`. |
 
 ## Term fields
 
-Each `##` heading defines one term. Term fields appear in this canonical order:
+Each `##` heading defines one term. Fields go in canonical order and all are optional; a minimal term is `## Checkout`:
 
-| Field   | Corpus property | Syntax                                 | What it does                                                                                                               |
-| ------- | --------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `What`  | `description`   | Text                                   | What the concept is, printed on every finding about the term.                                                              |
-| `How`   | `nuance`        | Text                                   | How the term differs from nearby concepts and when not to use it. Fallback `why` when neither the avoid word nor `Why` gives one. |
-| `Why`   | `why`           | Text                                   | Why the project uses this term. Used as `why` on avoid findings whose avoid item has no reason of its own.                 |
-| `Avoid` | `avoid`         | Comma list or `-` list                 | Words to avoid, written as `word` or `word: reason`.                                                                       |
-| `Good`  | `examples.good` | `-` list                               | Example strings that must pass with no findings for this term.                                                             |
-| `Bad`   | `examples.bad`  | `-` list                               | Example strings that must produce a finding for this term.                                                                 |
-| `Links` | `links`         | `-` list of `[title](url)`             | Reference pages with `http://` or `https://` URLs. The first URL becomes the finding's `see`.                              |
-| `Case`  | `case`          | `exact`, `spelling` or `context`       | How capitals are checked on this term. See [Casing rules](/guide/casing).                                                  |
+| Glossary field | `defineCorpus` | What it does |
+| --- | --- | --- |
+| `## Heading` | `term` | Required. Term as written, such as `Dock` or `eBike`. |
+| `## Term (AB)` | `abbr` | Abbreviations in parentheses, such as `DP`. Always `exact`. |
+| `What` | `description` | Definition printed on every finding. |
+| `How` | `nuance` | Distinction from nearby terms. Shown in ESLint and Oxlint messages, and fallback `why`. |
+| `Why` | `why` | Reason for the term. Fallback `why` for avoid items, and shown in `glosslint explain`. |
+| `Avoid` | `avoid` | Comma or `-` list of `word` or `word: reason`. |
+| `Good` / `Bad` | `examples` | `-` list of test strings run by `doctor` (`GLOSSLINT_G009`) and `glosslint test`. |
+| `Links` | `links` | `-` list of `[title](url)` (`http://` or `https://`). First URL becomes `see`. |
+| `Case` | `case` | `exact`, `spelling` (default), or `context` ([Casing rules](/guide/casing)). |
 
-Every field is optional. A minimal term can be just `## Checkout`.
+Plurals ending in `s` or `es` match terms and avoid words: listing `rack` also flags `"racks"` and suggests `"docks"`.
 
-### Writing `Avoid` entries
+`Good` strings must pass with no findings for the term; `Bad` strings must trigger one. `glosslint doctor` runs them against the file and its `Extends` presets; `glosslint test` runs them against the full loaded corpus, including presets and config.
 
-Each item in `Avoid` is either `word` or `word: reason`, split at the first colon followed by a space. Wrap a word in backticks when it contains a comma or a colon; glosslint drops the backticks when loading:
+### Avoid entries
 
 ```md
 Avoid: rack, `bay, berth`: Old words., `pod:x`, slot: Ops: only
 ```
 
-That line defines four avoid entries: `"rack"`, `{ word: "bay, berth", why: "Old words." }`, `"pod:x"`, and `{ word: "slot", why: "Ops: only" }`.
+Items split at the first colon followed by a space. Wrap words containing a comma or colon in backticks, which glosslint strips on load. That line defines `"rack"`, `{ word: "bay, berth", why: "Old words." }`, `"pod:x"`, and `{ word: "slot", why: "Ops: only" }`.
 
-## How headings and casing are inferred
+`why` precedence for an avoid finding: 1) the avoid item's own reason, 2) `Why`, 3) `How` (`nuance`).
 
-Two rules apply when reading `##` headings:
+Avoid words match in any case, unless they contain two consecutive capitals like `SM`, which matches as written. An avoid word sharing a key with a term (`day-pass` for `Day Pass`) reports `GLOSSLINT_TERM`, not `GLOSSLINT_AVOID`.
 
-- **Abbreviations in parentheses.** `## Day Pass (DP)` or `## Day Pass (DP, D)` sets the term to `Day Pass` and `abbr` to `["DP"]` or `["DP", "D"]`. Parentheses in a heading may hold only abbreviations: single words that are one uppercase letter or contain an uppercase letter after the first character (such as `DP`, `D`, or `eB`). Explanatory text in parentheses reports `GLOSSLINT_G007`; move it to `How:`.
-- **Automatic `exact` casing.** A term whose name has an uppercase letter immediately after any letter, such as `eBike` or `SOS`, defaults to `Case: exact` unless `Case:` sets another mode. A lowercase word like `kiosk` does not infer `exact` from prose in `How:` (even if `How:` says "Always lowercase."); write `Case: exact` explicitly.
+## Heading inference
 
-## Canonical layout and `glosslint doctor`
+- **Abbreviations.** `## Day Pass (DP)` or `## Day Pass (DP, D)` sets `abbr`. Only single-word abbreviations with one uppercase letter or an uppercase letter after the first character (`DP`, `D`, `eB`) are allowed; prose in parentheses reports `GLOSSLINT_G007`.
+- **Automatic `exact`.** Names with a capital right after a letter (`eBike`, `SOS`) default to `Case: exact` unless `Case:` sets another mode. Lowercase names like `kiosk` need `Case: exact`.
 
-`glosslint doctor` checks `.agents/glossary.md` against the format rules and tests its `Good` and `Bad` examples (`GLOSSLINT_G009`).
+## Canonical layout and `doctor`
 
 ```sh
-npx glosslint doctor --fix
+npx glosslint doctor        # validate format, values, and Good/Bad examples
+npx glosslint doctor --fix  # rewrite G001-G003 into canonical form
 ```
 
-Problems `GLOSSLINT_G001` through `GLOSSLINT_G003` are fixable:
+- `GLOSSLINT_G001`: missing or wrong `# Glossary` title.
+- `GLOSSLINT_G002`: wrong field casing (`what:`), aliases (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related`, or `Related links` for `Links`), or close typos.
+- `GLOSSLINT_G003`: layout issues: blank lines inside a term, `*` or `+` bullets, bare URLs under `Links`, out-of-order fields, CRLF, trailing spaces, or missing final newline.
 
-- `GLOSSLINT_G001`: missing `# Glossary` title, or a different H1 title.
-- `GLOSSLINT_G002`: wrong casing on a field name (`what:`), an alias (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related` or `Related links` for `Links`), or a typo close to a valid field name.
-- `GLOSSLINT_G003`: layout issues such as a blank line after a term's heading or between fields, `*` or `+` bullets, a bare URL under `Links` (rewritten to `[url](url)`), fields out of canonical order, wrong blank lines, CRLF endings, trailing spaces, or a missing final newline.
+Loaders still read files with only `G001` to `G003` as their fixed form would read. `GLOSSLINT_G004` through `GLOSSLINT_G008` block loading, and `doctor --fix` leaves the file untouched ([Config and glossary errors](/reference/config-errors)). `glosslint check` always skips the glossary file it loaded directly.
 
-Loaders (`fromGlossary`, ESLint, Oxlint, and `glosslint check`) still read a file that has only `G001` to `G003` problems as its fixed form would read. Problems `GLOSSLINT_G004` through `GLOSSLINT_G008` block loading, and `doctor --fix` leaves the file untouched when one is present so it never drops text. See [Config and glossary errors](/reference/config-errors) for every `GLOSSLINT_G00x` code.
-
-Canonical form uses `# Glossary`, the introduction as written, corpus fields in order, then terms in file order with fields in order, one blank line before each heading, between introduction blocks and after the introduction, no blank line after a `##` heading or between fields, LF line endings, and one final newline. Running `glosslint doctor --fix` a second time makes no changes.
-
-> [!NOTE]
-> `glosslint check` automatically skips the glossary file it loaded, whether `.agents/glossary.md` or `--glossary <path>`, even if you pass that file or its folder on the command line.
-
-## Layering `defineCorpus` on top
-
-Five advanced corpus options have no field in `.agents/glossary.md`: `skip`, `forms`, `translations`, per-term `casing`, and `wholeLabel`. Keep your main glossary in `.agents/glossary.md` and extend it from `glosslint.config.ts` with `defineCorpus({ extends: [fromGlossary()], ... })` when you need them. See [defineCorpus](/guide/corpus).
-
-## Coming from 0.0.1
-
-glosslint 0.1.0 removes the Markdown table reader (breaking change). Move your 0.0.1 table rows into `.agents/glossary.md`:
-
-1. Create `.agents/glossary.md` starting with `# Glossary`.
-2. Turn each table row into a `## Term` section using `What:` for `Meaning`/`Description`, `How:` for `Notes`, `Avoid:` for `Avoid`, and `Links:` for `Links`. Move any presets and `allow` phrases to `Extends:` and `Allow:` at the top.
-3. Run `npx glosslint doctor --fix` to normalize the layout and check your examples.
-4. Remove the table loader call from `glosslint.config.ts`, or delete `glosslint.config.ts` if `.agents/glossary.md` covers every field you use.
+For config-only options (`skip`, `forms`, `translations`, per-term `casing`, `wholeLabel`), layer [`defineCorpus`](/guide/corpus) on top of `.agents/glossary.md`.

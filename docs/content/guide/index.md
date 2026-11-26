@@ -1,6 +1,6 @@
 ---
 title: Introduction to glosslint
-description: How glosslint checks your product terms from .agents/glossary.md in code, translations and docs.
+description: Check your product vocabulary from .agents/glossary.md across code, translations, and Markdown docs.
 navigation.order: 1
 navigation.title: Introduction
 icon: i-lucide-book-open
@@ -9,7 +9,7 @@ icon: i-lucide-book-open
 glosslint checks your product vocabulary across code, translations, and Markdown docs from one file, [`.agents/glossary.md`](/guide/glossary).
 
 > [!IMPORTANT]
-> `.agents/glossary.md` is the source of truth for your terms. People, coding agents, and every runner read it directly. Built-in [presets](/guide/presets) and `glosslint.config.ts` with [`defineCorpus`](/guide/corpus) are optional extras on top of it, not a second place to define terms.
+> `.agents/glossary.md` is the source of truth. People, coding agents, and every runner read it directly. Built-in [presets](/guide/presets) and [`defineCorpus`](/guide/corpus) are optional layers on top.
 
 ## One glossary file
 
@@ -44,7 +44,7 @@ Four runners read `.agents/glossary.md` by default:
 | `GLOSSLINT_AVOID` | Avoid words, such as `rack` instead of `Dock` | `suggestion` with reason and meaning |
 | `GLOSSLINT_CASE` | Wrong capitals on `exact`, `context`, or abbreviated terms | `autofix`, or `suggestion` when kind is guessed |
 
-See [Findings](/reference/findings) for the full JSON shape. Examples in this guide come from [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic).
+See [Findings](/reference/findings) for the JSON shape. Examples in this guide come from [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic).
 
 ## Next steps
 

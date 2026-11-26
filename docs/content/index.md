@@ -19,7 +19,7 @@ Add the glosslint/eslint or glosslint/oxlint plugin.
 ```
 
 #humans
-```sh
+```sh pm
 pnpm add -D glosslint
 ```
 ::

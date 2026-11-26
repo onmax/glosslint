@@ -675,18 +675,24 @@ onBeforeUnmount(() => {
   text-wrap: pretty;
 }
 
+/* The audience switch and its snippet share one frame, drawn like the docs' code frames: the switch is the frame's
+   header, and the code block or install tabs inside drop their own frame. */
 .gl-hero-tabs {
+  --gl-frame-border: color-mix(in oklab, var(--gl-cyan, var(--ui-primary)) 20%, var(--ui-border));
   max-width: 36rem;
   margin-top: 1.75rem;
+  overflow: hidden;
+  border: 1px solid var(--gl-frame-border);
+  border-radius: calc(var(--ui-radius) * 2);
+  background: var(--ui-bg-muted);
+  box-shadow: 0 18px 40px -28px color-mix(in oklab, var(--gl-cyan, var(--ui-primary)) 45%, transparent);
 }
 
 .gl-hero-tablist {
-  display: inline-flex;
+  display: flex;
   gap: 0.125rem;
-  padding: 0.1875rem;
-  border: 1px solid var(--ui-border);
-  border-radius: 0.625rem;
-  background: var(--ui-bg-muted);
+  padding: 0.375rem;
+  border-bottom: 1px solid var(--gl-frame-border);
 }
 
 .gl-hero-tab {
@@ -711,12 +717,35 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 35%, var(--ui-border)), 0 0 14px -6px color-mix(in oklab, var(--ui-primary) 70%, transparent);
 }
 
-.gl-hero-panel {
-  margin-top: 0.75rem;
-}
-
 .gl-hero-panel > :deep(*) {
   margin-block: 0;
+}
+
+.gl-hero-panel :deep(:is(.ck, .ct)) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gl-hero-panel :deep(.ct)::before {
+  display: none;
+}
+
+/* The prompt's "text" label says nothing, so its bar goes and the copy button floats in the corner. */
+.gl-hero-panel :deep(.ck-title) {
+  display: none;
+}
+
+.gl-hero-panel > :deep(.ck) > .ck-bar {
+  left: auto;
+  border: 0;
+  background: transparent;
+}
+
+.gl-hero-tabs .gl-hero-panel > :deep(div.ck) > pre {
+  padding-top: 1rem;
+  padding-right: 3rem;
 }
 
 /* The agent prompt is prose for copying, so it wraps instead of scrolling out of the box. */
