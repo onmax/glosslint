@@ -5,7 +5,7 @@ navigation.order: 3
 icon: i-lucide-file-text
 ---
 
-`.agents/glossary.md` is the default source of truth for glosslint. People and coding agents read it directly, and the CLI, ESLint (`glosslint()` with no options), Oxlint, and `fromGlossary()` all load it automatically. Pass `--glossary <path>` on the CLI, `glossary` in ESLint, `settings.glosslint.glossary` in Oxlint, or a path to `fromGlossary(path)` when you keep the file somewhere else.
+`.agents/glossary.md` is the source of truth for glosslint. People and coding agents read it directly, and the CLI, ESLint (`glosslint()` with no options), Oxlint, and `fromGlossary()` all load it automatically. Pass `--glossary <path>` on the CLI, `glossary` in ESLint, `settings.glosslint.glossary` in Oxlint, or a path to `fromGlossary(path)` when you keep the file somewhere else.
 
 ## Full example
 
@@ -115,7 +115,7 @@ Canonical form uses `# Glossary`, the introduction as written, corpus fields in 
 > [!NOTE]
 > `glosslint check` automatically skips the glossary file it loaded, whether `.agents/glossary.md` or `--glossary <path>`, even if you pass that file or its folder on the command line.
 
-## When to use `defineCorpus` instead
+## Layering `defineCorpus` on top
 
 Five advanced corpus options have no field in `.agents/glossary.md`: `skip`, `forms`, `translations`, per-term `casing`, and `wholeLabel`. Keep your main glossary in `.agents/glossary.md` and extend it from `glosslint.config.ts` with `defineCorpus({ extends: [fromGlossary()], ... })` when you need them. See [defineCorpus](/guide/corpus).
 

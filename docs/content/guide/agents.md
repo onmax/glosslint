@@ -17,7 +17,7 @@ Because your vocabulary lives in [`.agents/glossary.md`](/guide/glossary), codin
 Read `.agents/glossary.md` before writing UI copy, comments, or docs. Run `npx glosslint doctor --fix` after editing it.
 ```
 
-If your project defines extra terms or overrides in `glosslint.config.ts` with [`defineCorpus`](/guide/corpus), you can still run `npx glosslint print` to export the merged corpus as Markdown or JSON. See [CLI](/integrations/cli#print).
+If your project layers extra options in `glosslint.config.ts` with [`defineCorpus`](/guide/corpus), you can run `npx glosslint print` to export the merged corpus as Markdown or JSON. See [CLI](/integrations/cli#print).
 
 ## Workflow for coding agents
 

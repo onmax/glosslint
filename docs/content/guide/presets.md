@@ -45,25 +45,15 @@ Avoid:
 Case: context
 ```
 
-In [`defineCorpus`](/guide/corpus), import the presets and pass them in `extends`:
+If you also use [`defineCorpus`](/guide/corpus) on top of `.agents/glossary.md`, import the presets and pass them in `extends` before `fromGlossary()`:
 
 ```ts [glosslint.config.ts]
-import { defineCorpus } from "glosslint";
+import { defineCorpus, fromGlossary } from "glosslint";
 import inclusive from "glosslint/presets/inclusive";
 import tech from "glosslint/presets/tech";
 
 export default defineCorpus({
-  extends: [tech, inclusive],
-  terms: [
-    {
-      term: "Dock",
-      description: "A powered stand where one bike is locked.",
-      avoid: [{ word: "rack", why: "Racks are unpowered." }, "bay"],
-    },
-    { term: "eBike", case: "exact" },
-    { term: "Day Pass", abbr: ["DP"], case: "context" },
-  ],
-  allow: ["check out our", "roof rack"],
+  extends: [tech, inclusive, fromGlossary()],
 });
 ```
 

@@ -5,7 +5,7 @@ navigation.order: 4
 icon: i-lucide-book-marked
 ---
 
-Most projects keep their vocabulary in [`.agents/glossary.md`](/guide/glossary) and need no JavaScript or TypeScript config file. `defineCorpus` in `glosslint.config.ts` is the second way to build a corpus. Reach for it when you need options the Markdown file has no field for:
+[`.agents/glossary.md`](/guide/glossary) is the source of truth for your vocabulary, and most projects need no JavaScript or TypeScript config file. `defineCorpus` in `glosslint.config.ts` is an optional layer on top of it when you need options the Markdown file has no field for:
 
 - `skip` (`["lower"]`, `["upper"]`, or both) to allow all-lowercase or all-uppercase spellings on a term
 - `forms` and `translations` per locale, passed to [x18n](/integrations/x18n)'s glossary
@@ -46,7 +46,7 @@ export default defineCorpus({
 fromGlossary(new URL("./docs/glossary.md", import.meta.url));
 ```
 
-You can also define a full corpus in `glosslint.config.ts` without a Markdown file by listing presets in `extends` and your terms in `terms`:
+For a shared TypeScript preset package without a Markdown file, you can also pass presets in `extends` and entries in `terms` directly:
 
 ```ts [glosslint.config.ts]
 import { defineCorpus } from "glosslint";

@@ -27,7 +27,7 @@ Links:
 - [Docks](https://example.com/docs/docks)
 ```
 
-The same term in [`defineCorpus`](/guide/corpus) looks like this:
+In an optional [`defineCorpus`](/guide/corpus) layer on top of `.agents/glossary.md`, the same term looks like this:
 
 ```ts
 {
