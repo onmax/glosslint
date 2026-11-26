@@ -1,6 +1,6 @@
 ---
 title: Coming from case-police
-description: How glosslint's tech preset matches case-police 2.2.1 across 488 entries, where the 7 joined spellings differ, and how to migrate.
+description: How glosslint's tech preset matches case-police 2.2.1 across 488 entries, where the 7 joined spellings differ, and how to move over.
 navigation.order: 9
 icon: i-lucide-arrow-right-left
 ---
@@ -42,13 +42,13 @@ A glosslint corpus holds one term per key, so the preset keeps the spaced form, 
 
 ## What glosslint adds
 
-Extending `glosslint/presets/tech` puts technology names into the same corpus as the rest of your product vocabulary:
+Extending `tech` in [`.agents/glossary.md`](/guide/glossary) puts technology names into the same glossary as the rest of your product vocabulary:
 
-- **Your own product terms.** Define terms like `Dock`, `eBike` and `Day Pass` alongside the tech preset, or load them from a [Glossary table](/guide/glossary-table) and combine them with other [Built-in presets](/guide/presets).
-- **Avoid words with reasons.** Flag discouraged terms such as `rack` or `hub` with a `why` message explaining what to use instead.
-- **Context casing.** Apply different styles in labels, table headers and sentences with `case: "context"`, such as `Day Pass` in a button and `day pass` in a sentence. See [Casing](/guide/casing).
+- **Your own product terms.** Define terms like `Dock`, `eBike` and `Day Pass` alongside `Extends: tech` and other [Built-in presets](/guide/presets).
+- **Avoid words with reasons.** Flag discouraged terms such as `rack` or `hub` with a reason explaining what to use instead.
+- **Context casing.** Apply different styles in labels, table headers and sentences with `Case: context`, such as `Day Pass` in a button and `day pass` in a sentence. See [Casing rules](/guide/casing).
 - **Meaning on every finding.** Every finding prints the term's description, nuance and documentation link so writers and coding agents learn the vocabulary as they work.
-- **Code, translations and docs.** Run the same corpus through [ESLint](/integrations/eslint) for JavaScript, TypeScript, Vue templates and YAML locales, [x18n](/integrations/x18n) for translations, and [the CLI](/integrations/cli) for Markdown docs.
+- **Code, translations and docs.** Run the same glossary through [ESLint](/integrations/eslint) for JavaScript, TypeScript, Vue templates and YAML locales, [Oxlint](/integrations/oxlint) for JavaScript and TypeScript, [x18n](/integrations/x18n) for translations, and [the CLI](/integrations/cli) for Markdown docs.
 
 ## Moving over
 
@@ -69,16 +69,15 @@ npm install -D glosslint
 
 ### Extend the tech preset
 
-Create `glosslint.config.ts` at the root of your repository and extend `glosslint/presets/tech`:
+Create `.agents/glossary.md` with `Extends: tech`:
 
-```ts [glosslint.config.ts]
-import { defineCorpus } from "glosslint";
-import tech from "glosslint/presets/tech";
+```md [.agents/glossary.md]
+# Glossary
 
-export default defineCorpus({
-  extends: [tech],
-});
+Extends: tech
 ```
+
+Add `##` sections below `Extends: tech` whenever you want to add your own product terms.
 
 ### Check Markdown and fix code
 
@@ -89,8 +88,8 @@ npx glosslint check
 ```
 
 > [!NOTE]
-> The glosslint CLI only reports findings and has no `--fix` flag.
+> `glosslint check` only reports findings and never edits checked docs.
 
-To autofix casing in JavaScript, TypeScript, Vue templates and YAML locale files, wire your corpus into [ESLint](/integrations/eslint) and run `eslint --fix`.
+To autofix casing in JavaScript, TypeScript, Vue templates and YAML locale files, add `...glosslint()` in [ESLint](/integrations/eslint) and run `eslint --fix`, or add `"glosslint/oxlint"` in [Oxlint](/integrations/oxlint) and run `oxlint --fix` for JavaScript and TypeScript.
 
 ::

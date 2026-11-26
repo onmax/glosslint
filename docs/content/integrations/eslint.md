@@ -1,23 +1,22 @@
 ---
 title: ESLint integration
 navigation.title: ESLint
-description: Lint JavaScript, TypeScript, Vue templates, YAML locales, comments and identifiers against your glosslint corpus with ESLint flat config.
-navigation.order: 1
+description: Lint JavaScript, TypeScript, Vue templates, YAML locales, comments and identifiers from .agents/glossary.md with ESLint flat config.
+navigation.order: 2
 icon: i-lucide-file-code
 ---
 
-Use `glosslint/eslint` to check product terms in JavaScript, TypeScript, Vue templates, YAML locale files, comments, and declared identifiers as you code. It requires ESLint 9.15 or later as a peer dependency and reads the same [corpus](/guide/corpus) you use with the CLI and x18n.
+Use `glosslint/eslint` to check product terms in JavaScript, TypeScript, Vue templates, YAML locale files, comments, and declared identifiers as you code. It requires ESLint 9.15 or later as a peer dependency and reads [`.agents/glossary.md`](/guide/glossary) by default with no options.
 
 ## Setup
 
-`glosslint/eslint` returns ESLint flat config objects. Spread them into `eslint.config.ts`:
+`glosslint/eslint` returns ESLint flat config objects. Spread `glosslint()` into `eslint.config.ts` after the parsers your project uses:
 
 ```ts [eslint.config.ts]
 import glosslint from "glosslint/eslint";
 import tseslint from "typescript-eslint";
 import vueParser from "vue-eslint-parser";
 import * as yamlParser from "yaml-eslint-parser";
-import corpus from "./glosslint.config.ts";
 
 export default [
   { files: ["**/*.ts"], languageOptions: { parser: tseslint.parser } },
@@ -26,27 +25,50 @@ export default [
     languageOptions: { parser: vueParser, parserOptions: { parser: tseslint.parser } },
   },
   { files: ["**/*.yml"], languageOptions: { parser: yamlParser } },
-  ...glosslint({ corpus, files: ["src/**/*.{ts,vue}", "locales/*.yml"] }),
+  ...glosslint({ files: ["src/**/*.{ts,vue}", "locales/en.yml"] }),
 ];
 ```
+
+With no `glossary` or `corpus` option, `glosslint()` reads `.agents/glossary.md` from `process.cwd()` once when the ESLint config is built.
 
 glosslint sets no parser. Your ESLint config supplies the parser for each file type:
 
 - `typescript-eslint` for TypeScript files
 - `vue-eslint-parser` for Vue templates, with `typescript-eslint` as `parserOptions.parser` for TypeScript script blocks
-- `yaml-eslint-parser` for YAML locale files
+- `yaml-eslint-parser` for YAML locale files (scope `files` to your source locale, such as `locales/en.yml`)
 - Plain JavaScript files need no extra parser
 
+To read a glossary at another path, pass `glossary`:
+
+```ts [eslint.config.ts]
+...glosslint({ glossary: "docs/glossary.md", files: ["src/**/*.{ts,vue}"] })
+```
+
+To use a [`defineCorpus`](/guide/corpus) config instead of reading a glossary file directly, pass `corpus`:
+
+```ts [eslint.config.ts]
+import glosslint from "glosslint/eslint";
+import corpus from "./glosslint.config.ts";
+
+export default [
+  // ...parsers
+  ...glosslint({ corpus, files: ["src/**/*.{ts,vue}", "locales/en.yml"] }),
+];
+```
+
+Passing both `glossary` and `corpus` throws `GLOSSLINT_C012`.
+
 > [!NOTE]
-> ESLint needs `jiti` installed to read `eslint.config.ts`, or the flag `--flag unstable_native_nodejs_ts_config`. An `eslint.config.mjs` with the same contents needs neither, because Node 22.18 imports `./glosslint.config.ts` itself.
+> ESLint needs `jiti` installed to read `eslint.config.ts`, or the flag `--flag unstable_native_nodejs_ts_config`. An `eslint.config.mjs` with the same contents needs neither, because Node 22.18 imports `.ts` files natively.
 
 ## Options
 
-Pass an options object to `glosslint(...)`:
+All options are optional. Pass an options object to `glosslint(options?)`:
 
 | Option            | Default                                                    | What it does                                                                                                                                                   |
 | ----------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `corpus`          | required                                                   | The corpus, from `import corpus from "./glosslint.config.ts"`.                                                                                                 |
+| `glossary`        | `".agents/glossary.md"`                                    | Path (`string` resolved from `process.cwd()`) or `URL` to a glossary file. Cannot be combined with `corpus` (`GLOSSLINT_C012`).                                 |
+| `corpus`          | none                                                       | A `Corpus` object to use instead of reading a glossary file, such as `defineCorpus({ extends: [fromGlossary()], ... })`. Cannot be combined with `glossary`.    |
 | `files`           | every file                                                 | Globs the rules run on.                                                                                                                                        |
 | `ignoreCallees`   | `["endsWith", "startsWith", "includes", "querySelector*"]` | Functions whose first argument is never checked. A trailing `*` matches a prefix. Your list replaces the default. `t`, `$t`, `te` and `tm` are always skipped. |
 | `identifierAvoid` | `false`                                                    | Report avoid words in declared names too. Off by default, because a rename touches every caller.                                                               |
@@ -57,7 +79,7 @@ The rules themselves take no options. To change a severity or turn a rule off, a
 ```ts [eslint.config.ts]
 export default [
   // ...parsers
-  ...glosslint({ corpus, files: ["src/**/*.{ts,vue}", "locales/*.yml"] }),
+  ...glosslint({ files: ["src/**/*.{ts,vue}", "locales/en.yml"] }),
   { rules: { "glosslint/identifier": "off" } },
 ];
 ```
@@ -111,11 +133,11 @@ Set `identifierAvoid: true` in the `glosslint(...)` options if you also want `gl
 
 ## Message format
 
-Each ESLint message is one line made of the headline, the reason, `Term: description`, the nuance, and `See <url>` when those fields exist on the term. The ESLint `messageId` is the finding code, such as `GLOSSLINT_AVOID`. See [Findings](/reference/findings) for all three codes and every field a finding carries.
+Each ESLint message is one line made of the headline, the reason (the avoid word's reason, else the term's `Why`), `Term: description`, the nuance (`How`), and `See <url>` when those fields exist on the term. The ESLint `messageId` is the finding code, such as `GLOSSLINT_AVOID`. See [Findings](/reference/findings) for all three codes and every field a finding carries.
 
 ## Worked example
 
-With the `eslint.config.ts` above and the bike-share corpus, these three files:
+With the `eslint.config.ts` above and the bike-share `.agents/glossary.md`, these three files:
 
 ```yaml [locales/en.yml]
 # locales/en.yml
