@@ -40,12 +40,15 @@ export default function glosslint(options: GlosslintEslintOptions = {}): Linter.
       why: "glosslint() takes `glossary` or `corpus`, not both.",
       fix: "Pass `glossary` to read a file, or `corpus` with `extends: [fromGlossary(…)]` to add to one.",
     });
-  const corpus = options.corpus ?? fromGlossary(options.glossary);
-  const rules = createRules(corpus, {
-    ignoreCallees: options.ignoreCallees ?? DEFAULT_IGNORE_CALLEES,
-    identifierAvoid: options.identifierAvoid ?? false,
-    ...(options.kindOf ? { kindOf: options.kindOf } : {}),
-  });
+  const binding = {
+    corpus: options.corpus ?? fromGlossary(options.glossary),
+    settings: {
+      ignoreCallees: options.ignoreCallees ?? DEFAULT_IGNORE_CALLEES,
+      identifierAvoid: options.identifierAvoid ?? false,
+      ...(options.kindOf ? { kindOf: options.kindOf } : {}),
+    },
+  };
+  const rules = createRules(() => binding);
   const plugin: ESLint.Plugin = { meta: { name: "glosslint" }, rules };
   return [
     {

@@ -1,7 +1,17 @@
 // What npm users get: every entry imported by the package name, the CLI, and
 // the files `npm pack` would publish. Run with `pnpm test:dist`.
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -39,7 +49,8 @@ describe("dist", { timeout: 60_000 }, () => {
       "toJson",
       "toX18nGlossary",
     ]);
-    for (const entry of ["glosslint/eslint", "glosslint/x18n"])
+    expect(exportsOf("glosslint")).not.toContain("fromGlossaryTable");
+    for (const entry of ["glosslint/eslint", "glosslint/oxlint", "glosslint/x18n"])
       expect(exportsOf(entry)).toEqual(["default"]);
     for (const entry of ["glosslint/presets/tech", "glosslint/presets/inclusive"])
       expect(exportsOf(entry)).toEqual(["default"]);
@@ -50,6 +61,7 @@ describe("dist", { timeout: 60_000 }, () => {
     expect(Object.keys(pkg.exports)).toEqual([
       ".",
       "./eslint",
+      "./oxlint",
       "./x18n",
       "./presets/tech",
       "./presets/inclusive",
@@ -95,6 +107,39 @@ describe("dist", { timeout: 60_000 }, () => {
       stdout: expect.stringContaining('"rack" is an avoid word for Dock.'),
     });
     expect(cli("explain", "scooter").code).toBe(1);
+  });
+
+  it("loads glosslint/oxlint in oxlint by the package name", () => {
+    // A project with glosslint installed: node_modules/glosslint is this package.
+    const project = mkdtempSync(join(tmpdir(), "glosslint-dist-oxlint-"));
+    try {
+      cpSync(`${root}test/fixtures/oxlint`, project, { recursive: true });
+      mkdirSync(join(project, "node_modules"));
+      symlinkSync(root, join(project, "node_modules/glosslint"), "dir");
+      const config = { jsPlugins: ["glosslint/oxlint"], rules: { "glosslint/term": "error" } };
+      writeFileSync(join(project, ".oxlintrc.json"), JSON.stringify(config));
+      // Under Vite+ (VP_VERSION set), oxlint reads vite.config.ts instead of .oxlintrc.json.
+      const env = Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !key.startsWith("VP_")),
+      );
+      // On GitHub Actions, oxlint switches to the github format, so pin the one-line format.
+      const result = spawnSync(
+        `${root}node_modules/.bin/oxlint`,
+        ["--format", "unix", "bikes.ts"],
+        {
+          cwd: project,
+          env,
+          encoding: "utf8",
+        },
+      );
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain(
+        'bikes.ts:2:23: "Re-charge point" is spelled "Recharge point". [Error/glosslint(term)]',
+      );
+      expect(result.status).toBe(1);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
   });
 
   it("packs only dist, the README, the licence and the notice", () => {

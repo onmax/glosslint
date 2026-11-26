@@ -17,6 +17,18 @@ export interface RuleSettings {
 
 export type RuleName = "term" | "avoid" | "comment" | "identifier";
 
+/** The corpus and settings a rule uses on one file. */
+export interface Binding {
+  corpus: Corpus;
+  settings: RuleSettings;
+}
+
+/**
+ * Gives the rules their corpus and settings when they start on a file. ESLint binds them once, when the
+ * config is built; Oxlint has no config hook, so its binding reads the glossary from the first file's context.
+ */
+export type Bind = (context: Rule.RuleContext) => Binding;
+
 const matchers = new WeakMap<Corpus, Matcher>();
 const identifierMatchers = new WeakMap<Corpus, Matcher>();
 
@@ -86,14 +98,14 @@ const AVOID_CODES = new Set<FindingCode>(["GLOSSLINT_AVOID"]);
 const ALL_CODES = new Set<FindingCode>(["GLOSSLINT_TERM", "GLOSSLINT_AVOID", "GLOSSLINT_CASE"]);
 
 function stringRule(
-  corpus: Corpus,
-  settings: RuleSettings,
+  bind: Bind,
   codes: ReadonlySet<FindingCode>,
   meta: Rule.RuleMetaData,
 ): Rule.RuleModule {
   return {
     meta: { schema: [], messages, ...meta },
     create(context) {
+      const { corpus, settings } = bind(context);
       const matcher = matcherFor(corpus);
       return stringListener(context, settings.ignoreCallees, settings.kindOf, (site) =>
         report(context, site, matcher.check(site.text, site.kind), codes),
@@ -106,7 +118,7 @@ function stringRule(
 const DIRECTIVE =
   /^\s*(?:eslint|global|globals|exported|jshint|istanbul|c8|v8|prettier-ignore|oxlint|biome|@ts-|ts-|#?(?:end)?region\b|\/\s*<reference)/;
 
-function commentRule(corpus: Corpus): Rule.RuleModule {
+function commentRule(bind: Bind): Rule.RuleModule {
   return {
     meta: {
       type: "suggestion",
@@ -117,7 +129,7 @@ function commentRule(corpus: Corpus): Rule.RuleModule {
       messages,
     },
     create(context) {
-      const matcher = matcherFor(corpus);
+      const matcher = matcherFor(bind(context).corpus);
       const { sourceCode } = context;
       const source = sourceCode.text;
       const check = (comment: { value: string; range?: [number, number]; type: string }) => {
@@ -201,7 +213,7 @@ function declaredNames(node: Node): Node[] {
   return names;
 }
 
-function identifierRule(corpus: Corpus, settings: RuleSettings): Rule.RuleModule {
+function identifierRule(bind: Bind): Rule.RuleModule {
   return {
     meta: {
       type: "suggestion",
@@ -210,6 +222,7 @@ function identifierRule(corpus: Corpus, settings: RuleSettings): Rule.RuleModule
       messages,
     },
     create(context) {
+      const { corpus, settings } = bind(context);
       const matcher = matcherFor(corpus, settings.identifierAvoid);
       const { sourceCode } = context;
       const seen = new Set<Node>();
@@ -255,24 +268,21 @@ function identifierRule(corpus: Corpus, settings: RuleSettings): Rule.RuleModule
   };
 }
 
-/** The four rules, bound to one corpus. */
-export function createRules(
-  corpus: Corpus,
-  settings: RuleSettings,
-): Record<RuleName, Rule.RuleModule> {
+/** The four rules, with the corpus and settings `bind` gives them on each file. */
+export function createRules(bind: Bind): Record<RuleName, Rule.RuleModule> {
   return {
-    term: stringRule(corpus, settings, STRING_CODES, {
+    term: stringRule(bind, STRING_CODES, {
       type: "suggestion",
       docs: docs("Spell terms as the corpus does, with the casing it asks for."),
       fixable: "code",
       hasSuggestions: true,
     }),
-    avoid: stringRule(corpus, settings, AVOID_CODES, {
+    avoid: stringRule(bind, AVOID_CODES, {
       type: "suggestion",
       docs: docs("Report words the corpus says to avoid, and suggest the term."),
       hasSuggestions: true,
     }),
-    comment: commentRule(corpus),
-    identifier: identifierRule(corpus, settings),
+    comment: commentRule(bind),
+    identifier: identifierRule(bind),
   };
 }

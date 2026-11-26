@@ -6,6 +6,7 @@ export default defineConfig({
     entry: {
       index: "src/index.ts",
       eslint: "src/eslint.ts",
+      oxlint: "src/oxlint.ts",
       x18n: "src/x18n.ts",
       "presets/tech": "src/presets/tech.ts",
       "presets/inclusive": "src/presets/inclusive.ts",
@@ -14,7 +15,7 @@ export default defineConfig({
     format: ["esm"],
     platform: "node",
     // The peers come from the user's project, as do Node's built-ins.
-    deps: { neverBundle: [/^node:/, /^eslint(\/|$)/, /^@x18n\/core(\/|$)/] },
+    deps: { neverBundle: [/^node:/, /^eslint(\/|$)/, /^oxlint(\/|$)/, /^@x18n\/core(\/|$)/] },
     fixedExtension: true,
     dts: true,
     clean: true,
