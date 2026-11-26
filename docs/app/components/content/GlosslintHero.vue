@@ -2,9 +2,10 @@
 // `::glosslint-hero`: the headline and the pitch, a prompt for agents and an install line for people, and the ways in,
 // beside the neon sign that says what glosslint does.
 //
-// The sign hangs on two nails. Each click on a nail turns it a little; a nail turned six times falls out. With one nail
-// out the sign swings and hangs from the other, and with both out it falls to the bottom edge of the window, unplugged,
-// with a spark at the outlet. A reload hangs it back up.
+// The sign hangs on two nails. Each click on a nail turns it a third of the way round; a nail turned six times falls
+// out. With one nail out the sign swings and hangs from the other, and with both out it falls to the bottom edge of the
+// window, unplugged, with a spark at the outlet. "Hang it back up" sends a cloud with a fishing rod to hook the sign and
+// lift it back onto the wall.
 
 const slots = useSlots()
 
@@ -13,6 +14,7 @@ const tabs = [
   { slot: 'humans', label: 'For humans' },
 ].filter(tab => slots[tab.slot])
 const tab = ref(tabs[0]?.slot)
+
 const tabIds = useId()
 const tabButtons = ref<HTMLButtonElement[]>([])
 
@@ -37,9 +39,9 @@ const nails: Record<Side, { x: number, y: number, slot: number }> = {
 const sides: Side[] = ['left', 'right']
 const other = (side: Side): Side => side === 'left' ? 'right' : 'left'
 
-// Six turns of 7.5° pull a nail out: 45° in all, a little at a time.
+// Each click turns a nail a third of the way round; six clicks, two full turns, pull it out.
 const turnsToDrop = 6
-const degreesPerTurn = 45 / turnsToDrop
+const degreesPerTurn = 120
 // The angle the sign settles at on one nail. Its cable on the other side keeps it from swinging all the way.
 const hangAngle = 15
 
@@ -57,6 +59,7 @@ const wall = ref<HTMLElement>()
 const board = ref<HTMLElement>()
 const fallenSign = ref<HTMLElement>()
 const nailButtons = reactive<Partial<Record<Side, HTMLButtonElement>>>({})
+const restoreButton = ref<{ $el: HTMLElement }>()
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -108,7 +111,9 @@ async function drop(side: Side) {
   }
   else {
     await fall()
-    announcement.value = 'Both nails are out. The sign fell to the bottom of the window and came unplugged. Reload the page to hang it back up.'
+    announcement.value = 'Both nails are out. The sign fell to the bottom of the window and came unplugged.'
+    await nextTick()
+    restoreButton.value?.$el.focus()
   }
 }
 
@@ -201,11 +206,146 @@ async function fall() {
   ], { duration })
 }
 
+// ---- The rescue: a cloud flies in, lowers a hook onto the fallen sign, and reels it up onto the wall. ----
+
+const rescuing = ref(false)
+// Remounting the sign on the wall lights its tubes again.
+const signKey = ref(0)
+const liftStyle = ref<Record<string, string>>()
+const cloud = ref<{ x: number, y: number, size: number, tilt: number, tip: [number, number], hook?: [number, number] }>()
+
+// The rod's tip in the cloud's 220 × 150 drawing.
+const rodTip: [number, number] = [214, 22]
+const phases = { arrive: 900, lower: 650, tug: 350, lift: 1600, reel: 450, leave: 850 }
+
+const lerp = (a: number, b: number, p: number) => a + (b - a) * p
+const easeOut = (p: number) => 1 - (1 - p) ** 3
+const easeInOut = (p: number) => p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2
+
+function rehang() {
+  for (const side of sides) {
+    turns[side] = 0
+    out[side] = false
+  }
+  pivot.value = undefined
+  angle.value = 0
+  fallen.value = false
+  liftStyle.value = undefined
+  signKey.value++
+}
+
+async function finishRescue() {
+  cloud.value = undefined
+  rescuing.value = false
+  announcement.value = 'The sign is back on its nails.'
+  await nextTick()
+  nailButtons.left?.focus()
+}
+
+async function hangBack() {
+  if (!fallen.value || rescuing.value) return
+  rescuing.value = true
+  const el = fallenSign.value
+  if (prefersReducedMotion() || !el) {
+    rehang()
+    return finishRescue()
+  }
+  announcement.value = 'A cloud is lifting the sign back onto the wall.'
+
+  const wallRect = wall.value!.getBoundingClientRect()
+  if (wallRect.top < 0 || wallRect.bottom > window.innerHeight) {
+    wall.value!.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    await new Promise(resolve => setTimeout(resolve, 600))
+  }
+
+  for (const animation of el.getAnimations()) animation.cancel()
+  const { left, width } = fallenBox.value
+  const height = width * 400 / 760
+  // The fallen sign turns about its bottom middle. Hooked, it hangs from its top middle, so the same tilt needs a shift.
+  const tilt = -1.2
+  const r = tilt * Math.PI / 180
+  const from: [number, number] = [height * Math.sin(r), height - height * Math.cos(r)]
+  const size = Math.min(220, Math.max(120, width * 0.4))
+  const tipOffset = [size * rodTip[0] / 220, size * rodTip[1] / 220]
+  // The hook bites the top edge of the frame.
+  const bite = 5
+  const hookAt = (shift: [number, number]): [number, number] => [left + width / 2 + shift[0], window.innerHeight - height + bite + shift[1]]
+  const lowest = tipOffset[1]! + 12
+  const lineLength = Math.min(240, Math.max(120, height * 0.6))
+  const shortLine = 48
+
+  const place = (tip: [number, number], cloudTilt: number, hook?: [number, number]) => {
+    const bob = Math.sin(performance.now() / 1000 * 2 * Math.PI * 0.7) * 3
+    const at: [number, number] = [tip[0], Math.max(lowest, tip[1]) + bob]
+    cloud.value = { x: at[0] - tipOffset[0]!, y: at[1] - tipOffset[1]!, size, tilt: cloudTilt, tip: at, hook }
+    return at
+  }
+  const lift = (shift: [number, number], degrees: number) => {
+    liftStyle.value = { transformOrigin: '50% 0', translate: `${shift[0]}px ${shift[1]}px`, rotate: `${degrees}deg` }
+  }
+
+  lift(from, tilt)
+  const start = hookAt(from)
+  const hover: [number, number] = [start[0], start[1] - lineLength]
+  const offscreen: [number, number] = [window.innerWidth + size, -size]
+  const began = performance.now()
+  let rehung = false
+  let leaveFrom: [number, number] | undefined
+
+  const step = (now: number) => {
+    let t = now - began
+    if (t < phases.arrive) {
+      const p = easeOut(t / phases.arrive)
+      place([lerp(offscreen[0], hover[0], p), lerp(offscreen[1], hover[1], p)], -10 * (1 - p))
+    }
+    else if ((t -= phases.arrive) < phases.lower) {
+      const p = (t / phases.lower) ** 2
+      const tip = place(hover, 0)
+      cloud.value!.hook = [tip[0], lerp(tip[1], start[1], p)]
+    }
+    else if ((t -= phases.lower) < phases.tug) {
+      const pull = Math.sin(Math.PI * t / phases.tug) * 10
+      lift([from[0], from[1] - pull], tilt + pull * 0.2)
+      place([hover[0], hover[1] - pull], 0, [start[0], start[1] - pull])
+    }
+    else if ((t -= phases.tug) < phases.lift) {
+      const q = t / phases.lift
+      const p = easeInOut(q)
+      const target = wall.value!.getBoundingClientRect()
+      const to: [number, number] = [target.left - left, target.top - (window.innerHeight - height)]
+      const shift: [number, number] = [lerp(from[0], to[0], p), lerp(from[1], to[1], p)]
+      lift(shift, lerp(tilt, 0, p) + Math.sin(q * 2 * Math.PI * 1.6) * 3 * (1 - q))
+      const hook = hookAt(shift)
+      place([hook[0], hook[1] - lerp(lineLength, shortLine, p)], 0, hook)
+    }
+    else if ((t -= phases.lift) < phases.reel) {
+      if (!rehung) {
+        rehung = true
+        rehang()
+      }
+      const target = wall.value!.getBoundingClientRect()
+      const hook: [number, number] = [target.left + width / 2, target.top + bite]
+      const tip = place([hook[0], hook[1] - shortLine], 0)
+      cloud.value!.hook = [tip[0], lerp(hook[1], tip[1] + 14, easeOut(t / phases.reel))]
+    }
+    else if ((t -= phases.reel) < phases.leave) {
+      leaveFrom ??= cloud.value!.tip
+      const p = (t / phases.leave) ** 2
+      place([lerp(leaveFrom[0], -size * 0.4, p), lerp(leaveFrom[1], -size, p)], -12 * p)
+    }
+    else {
+      return finishRescue()
+    }
+    frame = requestAnimationFrame(step)
+  }
+  frame = requestAnimationFrame(step)
+}
+
 // Rays out of the socket, and bits of hot metal that fly off and drop.
 const sparkRays = [-2.6, -2.05, -1.55, -1.1, -0.6, 0.25, 2.9, 3.5]
 const sparkBits = [[-38, 34], [-26, 52], [-12, 60], [-46, 12], [-30, -18], [-8, -30], [10, 44]]
 
-const onResize = () => fallen.value && placeFallen()
+const onResize = () => fallen.value && !rescuing.value && placeFallen()
 onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
@@ -294,7 +434,7 @@ onBeforeUnmount(() => {
       </svg>
 
       <div ref="board" class="gl-board" :style="boardStyle">
-        <GlosslintSign lit />
+        <GlosslintSign :key="signKey" lit />
       </div>
 
       <!-- The cable into its plug, in front of the wall. It stays with the sign when the sign falls. -->
@@ -329,6 +469,18 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
+      <UButton
+        v-if="fallen && !rescuing"
+        ref="restoreButton"
+        class="gl-restore"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-cloud"
+        @click="hangBack"
+      >
+        Hang it back up
+      </UButton>
+
       <p class="gl-visually-hidden" aria-live="polite">
         {{ announcement }}
       </p>
@@ -338,10 +490,37 @@ onBeforeUnmount(() => {
     <div
       v-if="fallen"
       ref="fallenSign"
-      class="gl-fallen"
-      :style="{ left: `${fallenBox.left}px`, width: `${fallenBox.width}px` }"
+      :class="['gl-fallen', { 'is-lifting': liftStyle }]"
+      :style="[{ left: `${fallenBox.left}px`, width: `${fallenBox.width}px` }, liftStyle]"
     >
       <GlosslintSign :lit="fallenLit" unplugged />
+    </div>
+
+    <!-- The rescue cloud: a puffed-up tube of neon in a hard hat, fishing the sign off the floor. -->
+    <div v-if="cloud" class="gl-rescue" aria-hidden="true">
+      <svg class="gl-rescue-line">
+        <template v-if="cloud.hook">
+          <path :d="`M ${cloud.tip.join(' ')} L ${cloud.hook[0]} ${Math.max(cloud.tip[1], cloud.hook[1] - 14)}`" class="gl-rescue-string" />
+          <path :transform="`translate(${cloud.hook.join(' ')})`" d="M 0 -15 V -5 A 5 5 0 0 1 -10 -5 V -8" class="gl-rescue-hook" />
+        </template>
+      </svg>
+      <svg
+        class="gl-cloud"
+        viewBox="0 0 220 150"
+        :style="{ left: `${cloud.x}px`, top: `${cloud.y}px`, width: `${cloud.size}px`, rotate: `${cloud.tilt}deg` }"
+      >
+        <path d="M 150 100 L 214 22" class="gl-cloud-rod" />
+        <path
+          d="M 40 110 A 26 26 0 0 1 38 60 A 32 32 0 0 1 92 38 A 36 36 0 0 1 156 52 A 28 28 0 0 1 172 104 A 18 18 0 0 1 140 114 A 20 20 0 0 1 100 116 A 20 20 0 0 1 60 114 A 16 16 0 0 1 40 110 Z"
+          class="gl-cloud-body"
+        />
+        <circle cx="178" cy="66" r="6" class="gl-cloud-reel" />
+        <path d="M 82 78 Q 88 70 94 78 M 112 78 Q 118 70 124 78 M 97 88 Q 103 94 109 88" class="gl-cloud-face" />
+        <ellipse cx="76" cy="89" rx="6" ry="3.5" class="gl-cloud-cheek" />
+        <ellipse cx="130" cy="89" rx="6" ry="3.5" class="gl-cloud-cheek" />
+        <path d="M 100 27 A 21 17 0 0 1 142 27 Z" class="gl-cloud-hat" />
+        <path d="M 94 28 H 148" class="gl-cloud-brim" />
+      </svg>
     </div>
 
     <div
@@ -505,7 +684,7 @@ onBeforeUnmount(() => {
   visibility: hidden;
 }
 
-/* ---- Nails: a button each, over the board's top corners. The hit area is at least 28px. ---- */
+/* ---- Nails: a button each, over the board's top corners. The hit area is twice the nail and at least 44px. ---- */
 
 .gl-nail {
   position: absolute;
@@ -524,7 +703,7 @@ onBeforeUnmount(() => {
 
 .gl-nail::before {
   position: absolute;
-  inset: min(0px, calc(50% - 14px));
+  inset: min(-50%, calc(50% - 22px));
   border-radius: 50%;
   content: "";
 }
@@ -546,7 +725,7 @@ onBeforeUnmount(() => {
   stroke: #05070c;
   stroke-width: 2.2;
   stroke-linecap: round;
-  transition: rotate 0.22s ease-out;
+  transition: rotate 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 /* Bright steel with a shine at the top left, so the nails read as something to turn. */
@@ -641,9 +820,102 @@ onBeforeUnmount(() => {
   filter: drop-shadow(0 -2px 10px rgb(0 0 0 / 35%));
 }
 
-/* On the light page the dark board sits under dark text, so it lies there faded. */
-:global(.light .gl-fallen > svg) {
-  opacity: 0.25;
+/* Hooked, the sign rises over the page on its way back to the wall. */
+.gl-fallen.is-lifting {
+  z-index: 60;
+}
+
+.gl-restore {
+  position: absolute;
+  top: 42%;
+  left: 47.5%;
+  translate: -50% -50%;
+}
+
+.gl-rescue {
+  --gl-cloud-fill: #0d1522;
+  --gl-cloud-ink: #e6fbff;
+  --gl-cloud-line: rgb(230 251 255 / 75%);
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  pointer-events: none;
+}
+
+:global(.light .gl-rescue) {
+  --gl-cloud-fill: #fff;
+  --gl-cloud-ink: #0f172a;
+  --gl-cloud-line: rgb(15 23 42 / 70%);
+}
+
+.gl-rescue-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.gl-rescue-string {
+  fill: none;
+  stroke: var(--gl-cloud-line);
+  stroke-width: 1.25;
+}
+
+.gl-rescue-hook {
+  fill: none;
+  stroke: #cbd5e1;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 45%));
+}
+
+.gl-cloud {
+  position: absolute;
+  overflow: visible;
+}
+
+.gl-cloud-body {
+  fill: var(--gl-cloud-fill);
+  stroke: #22e8ff;
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px rgb(34 232 255 / 90%)) drop-shadow(0 0 14px rgb(34 232 255 / 45%));
+}
+
+.gl-cloud-face {
+  fill: none;
+  stroke: var(--gl-cloud-ink);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+
+.gl-cloud-cheek {
+  fill: #ff4770;
+  opacity: 0.45;
+}
+
+.gl-cloud-rod {
+  stroke: #94a3b8;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.gl-cloud-reel {
+  fill: #1e293b;
+  stroke: #94a3b8;
+  stroke-width: 2.5;
+}
+
+/* The hard hat: the screwdriver's amber. */
+.gl-cloud-hat {
+  fill: #f59e0b;
+}
+
+.gl-cloud-brim {
+  stroke: #f59e0b;
+  stroke-width: 5;
+  stroke-linecap: round;
 }
 
 .gl-visually-hidden {
