@@ -14,6 +14,7 @@
 //   it's let go; Enter or Space on it emits `plug`. The hero decides whether either plugs the cable in.
 // - `focus()` focuses the end.
 // - Under reduced motion it draws once and on each drag move, with no sway and no sparks.
+// - Its loop stops while the stub is off screen or the tab is hidden, and the canvases are capped at 2x pixel density.
 
 const props = withDefaults(defineProps<{
   anchor: [number, number]
@@ -30,6 +31,7 @@ const root = ref<HTMLElement>()
 const wire = ref<HTMLCanvasElement>()
 const sparkCanvas = ref<HTMLCanvasElement>()
 const end = ref<HTMLButtonElement>()
+const box = ref<HTMLElement>()
 const state = ref<'live' | 'held'>('live')
 const wallSize = ref({ width: 0, height: 0 })
 
@@ -64,10 +66,14 @@ function init() {
     const d = Math.hypot(dx, dy) || 1
     dir = [dx / d, dy / d]
   }
+  // Torn out under tension, the cord whips: the end flicks sideways, away from the board, harder the further out.
+  const whip = reduced ? 0 : 14
+  const side = dir[1]! < 0 ? 1 : -1
   knots = Array.from({ length: count }, (_, i) => {
     const x = centre() + dir[0]! * segment() * i
     const y = centre() + dir[1]! * segment() * i
-    return { x, y, px: x, py: y }
+    const kick = whip * (i / (count - 1)) ** 2
+    return { x, y, px: x + dir[1]! * side * kick, py: y - dir[0]! * side * kick + kick * 0.4 }
   })
 }
 
@@ -82,12 +88,13 @@ function reach(point: { x: number, y: number }) {
 }
 
 function step(dt: number, t: number) {
-  const gravity = 1500
-  const sway = reduced ? 0 : Math.sin(t * 1.1) * 40 + Math.sin(t * 2.7 + 1) * 18
+  // A heavy rubber cord: it settles slowly and sways on a long, lazy beat.
+  const gravity = 950
+  const sway = reduced ? 0 : Math.sin(t * 0.55) * 30 + Math.sin(t * 1.25 + 1) * 9
   for (let i = 1; i < count; i++) {
     const knot = knots[i]!
-    const vx = (knot.x - knot.px) * 0.985
-    const vy = (knot.y - knot.py) * 0.985
+    const vx = (knot.x - knot.px) * 0.978
+    const vy = (knot.y - knot.py) * 0.978
     knot.px = knot.x
     knot.py = knot.y
     knot.x += vx + sway * (i / count) * dt * dt
@@ -149,7 +156,7 @@ function measured() {
 // ---- Drawing ----
 
 function fit(canvas: HTMLCanvasElement) {
-  const dpr = window.devicePixelRatio || 1
+  const dpr = Math.min(2, window.devicePixelRatio || 1)
   const px = Math.round(size.value * dpr)
   if (canvas.width !== px) {
     canvas.width = px
@@ -160,49 +167,163 @@ function fit(canvas: HTMLCanvasElement) {
   return ctx
 }
 
+const isDark = () => document.documentElement.classList.contains('dark')
+
+// The copper inside the torn end: two conductors, each splayed into loose strands. Fixed per mount so they don't jitter.
+const strands = Array.from({ length: 9 }, (_, i) => ({
+  wire: i % 2 ? 1 : -1,
+  spread: (Math.random() - 0.5) * 1.5,
+  length: 0.55 + Math.random() * 0.45,
+  curl: (Math.random() - 0.5) * 0.9,
+  color: ['#b8622a', '#d98545', '#8f4a1c'][i % 3]!,
+}))
+
+// How hot the torn end is, 0 to 1: it flares after each burst and cools back to a faint ember.
+let heat = 1
+let breath = 0
+
 function draw() {
   const canvas = wire.value
   if (!canvas) return
   const ctx = fit(canvas)
   ctx.clearRect(0, 0, size.value, size.value)
   const scale = Math.max(0.5, wallSize.value.width / 800)
+  const dark = isDark()
+  // The hero's cable is 5 wall units wide; the stub is the same cord, a touch heavier so it reads at small sizes.
+  const width = Math.max(5, 8 * scale)
 
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  const trace = () => {
+  const trace = (from = 0) => {
     ctx.beginPath()
-    ctx.moveTo(knots[0]!.x, knots[0]!.y)
-    for (let i = 1; i < count - 1; i++) {
+    ctx.moveTo(knots[from]!.x, knots[from]!.y)
+    for (let i = from + 1; i < count - 1; i++) {
       const a = knots[i]!
       const b = knots[i + 1]!
       ctx.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2)
     }
     ctx.lineTo(knots[count - 1]!.x, knots[count - 1]!.y)
   }
+
+  // A soft shadow on the wall, then the rubber: a dark rim, the jacket, and a sheen along its top.
+  ctx.save()
+  ctx.shadowColor = dark ? 'rgb(0 0 0 / 55%)' : 'rgb(15 23 42 / 28%)'
+  ctx.shadowBlur = 6 * scale + 2
+  ctx.shadowOffsetX = 1.5 * scale
+  ctx.shadowOffsetY = 5 * scale
+  trace()
+  ctx.strokeStyle = '#05070c'
+  ctx.lineWidth = width + 1.6
+  ctx.stroke()
+  ctx.restore()
   trace()
   ctx.strokeStyle = '#1c2433'
-  ctx.lineWidth = 5 * scale
+  ctx.lineWidth = width
   ctx.stroke()
   ctx.save()
-  ctx.translate(-1, -1)
+  ctx.translate(-width * 0.18, -width * 0.22)
   trace()
-  ctx.strokeStyle = 'rgb(255 255 255 / 8%)'
-  ctx.lineWidth = 1
+  ctx.strokeStyle = 'rgb(255 255 255 / 11%)'
+  ctx.lineWidth = width * 0.42
+  ctx.stroke()
+  trace()
+  ctx.strokeStyle = 'rgb(255 255 255 / 15%)'
+  ctx.lineWidth = Math.max(1, width * 0.14)
   ctx.stroke()
   ctx.restore()
 
-  // The torn end: three copper strands splayed past the jacket.
+  // The strain relief where the cord leaves the plug: a short, thicker boot.
+  const boot = knots[1]!
+  ctx.beginPath()
+  ctx.moveTo(knots[0]!.x, knots[0]!.y)
+  ctx.lineTo(knots[0]!.x + (boot.x - knots[0]!.x) * 0.7, knots[0]!.y + (boot.y - knots[0]!.y) * 0.7)
+  ctx.strokeStyle = '#1a202c'
+  ctx.lineWidth = width * 1.55
+  ctx.lineCap = 'butt'
+  ctx.stroke()
+  ctx.lineCap = 'round'
+
   const tip = knots[count - 1]!
   const before = knots[count - 2]!
   const angle = Math.atan2(tip.y - before.y, tip.x - before.x)
-  ctx.strokeStyle = '#d97706'
-  ctx.lineWidth = 1.2
-  for (const spread of [-0.5, 0, 0.45]) {
-    ctx.beginPath()
-    ctx.moveTo(tip.x, tip.y)
-    ctx.lineTo(tip.x + Math.cos(angle + spread) * 6 * scale, tip.y + Math.sin(angle + spread) * 6 * scale)
+  const ux = Math.cos(angle)
+  const uy = Math.sin(angle)
+  const flash = sparkField.light
+
+  // A burst lights the last stretch of cord from below.
+  if (flash > 0) {
+    ctx.save()
+    ctx.globalCompositeOperation = dark ? 'lighter' : 'source-over'
+    trace(count - 5)
+    ctx.strokeStyle = dark ? `rgb(255 170 90 / ${flash * 0.55})` : `rgb(249 115 22 / ${flash * 0.45})`
+    ctx.lineWidth = width * 0.6
     ctx.stroke()
+    ctx.restore()
   }
+
+  // The cut face of the jacket, then two insulated conductors and their copper splayed out past it.
+  const nx = -uy
+  const ny = ux
+  ctx.strokeStyle = '#2a3447'
+  ctx.lineWidth = Math.max(1, width * 0.22)
+  ctx.beginPath()
+  ctx.moveTo(tip.x + nx * width * 0.48, tip.y + ny * width * 0.48)
+  ctx.lineTo(tip.x - nx * width * 0.48, tip.y - ny * width * 0.48)
+  ctx.stroke()
+  const core = Math.max(3, 4 * scale)
+  const reachOut = Math.max(8, 13 * scale)
+  // The strands trail a little behind the end as it moves.
+  const lag = Math.max(-0.5, Math.min(0.5, ((tip.x - tip.px) * nx + (tip.y - tip.py) * ny) * -0.12))
+  for (const wireSide of [-1, 1]) {
+    const ox = tip.x + nx * width * 0.2 * wireSide
+    const oy = tip.y + ny * width * 0.2 * wireSide
+    ctx.strokeStyle = wireSide < 0 ? '#5a3418' : '#24406a'
+    ctx.lineWidth = width * 0.36
+    ctx.lineCap = 'butt'
+    ctx.beginPath()
+    ctx.moveTo(ox - ux, oy - uy)
+    ctx.lineTo(ox + ux * core, oy + uy * core)
+    ctx.stroke()
+    ctx.lineCap = 'round'
+    for (const strand of strands) {
+      if (strand.wire !== wireSide) continue
+      const sx = ox + ux * core
+      const sy = oy + uy * core
+      const a = angle + strand.spread * 0.8 + wireSide * 0.25 + lag
+      const len = reachOut * strand.length
+      const ex = sx + Math.cos(a) * len
+      const ey = sy + Math.sin(a) * len
+      const c = a + strand.curl
+      ctx.strokeStyle = strand.color
+      ctx.lineWidth = Math.max(0.9, 1.2 * scale)
+      ctx.beginPath()
+      ctx.moveTo(sx, sy)
+      ctx.quadraticCurveTo(sx + Math.cos(c) * len * 0.6, sy + Math.sin(c) * len * 0.6, ex, ey)
+      ctx.stroke()
+    }
+  }
+
+  // The ember: a faint glow on the copper that breathes, and flares with each burst.
+  const glow = Math.min(1, 0.28 + 0.16 * Math.sin(breath) + heat * 0.6 + flash * 0.4)
+  const ex = tip.x + ux * (core + reachOut * 0.4)
+  const ey = tip.y + uy * (core + reachOut * 0.4)
+  const radius = (12 + heat * 10) * Math.max(0.8, scale)
+  ctx.save()
+  ctx.globalCompositeOperation = dark ? 'lighter' : 'source-over'
+  const ember = ctx.createRadialGradient(ex, ey, 0, ex, ey, radius)
+  if (dark) {
+    ember.addColorStop(0, `rgb(255 214 150 / ${glow * 0.75})`)
+    ember.addColorStop(0.3, `rgb(255 120 30 / ${glow * 0.4})`)
+    ember.addColorStop(1, 'rgb(255 90 20 / 0)')
+  }
+  else {
+    ember.addColorStop(0, `rgb(234 88 12 / ${glow * 0.55})`)
+    ember.addColorStop(0.35, `rgb(249 115 22 / ${glow * 0.22})`)
+    ember.addColorStop(1, 'rgb(249 115 22 / 0)')
+  }
+  ctx.fillStyle = ember
+  ctx.fillRect(ex - radius, ey - radius, radius * 2, radius * 2)
+  ctx.restore()
 
   frames++
   canvas.dataset.frames = String(frames)
@@ -211,105 +332,112 @@ function draw() {
   if (end.value) end.value.style.translate = `${tip.x - 22}px ${tip.y - 22}px`
 }
 
-// ---- Sparks: rare bursts from the torn end, drawn the way Canvas UI draws light: short hot streaks and a flash. ----
+// ---- Sparks: long quiet stretches, then a short, violent burst from the torn end. ----
 
-interface Spark { x: number, y: number, vx: number, vy: number, life: number, age: number }
-let sparks: Spark[] = []
-let flash = 0
+const sparkField = new SparkField()
 let nextBurst = 0
 let sparksDirty = false
 
+// The moment the cable tears out: the biggest burst, a white flash, and the cord whipping away.
+function snap(t: number) {
+  const tip = knots[count - 1]!
+  if (sparkCanvas.value) sparkField.clipTo(sparkCanvas.value)
+  const scale = Math.max(0.6, wallSize.value.width / 800)
+  sparkField.burst(tip.x, tip.y, { count: 64, angle: -Math.PI / 2, spread: 1.6, speed: [260, 760], life: [0.35, 0.95], width: 2.6 })
+  // The flash is wide, so it sits a little in from the hero's edge to light the wall rather than be cut off by it.
+  sparkField.flash(Math.min(tip.x, sparkField.right - 70 * scale), tip.y, { radius: 150 * scale, life: 0.22, white: true })
+  heat = 1
+  nextBurst = t + 1.4 + Math.random() * 1.2
+}
+
 function burst(t: number) {
   const tip = knots[count - 1]!
-  const n = 14 + Math.floor(Math.random() * 12)
-  for (let i = 0; i < n; i++) {
-    const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.4
-    const speed = 80 + Math.random() * 220
-    sparks.push({ x: tip.x, y: tip.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 0.18 + Math.random() * 0.35, age: 0 })
+  if (sparkCanvas.value) sparkField.clipTo(sparkCanvas.value)
+  const before = knots[count - 2]!
+  const angle = Math.atan2(tip.y - before.y, tip.x - before.x)
+  // Sprayed out of the end and up, leaning away from the hero's edge just past the outlet, then gravity takes them.
+  const lean = Math.atan2(Math.sin(angle) - 1.1, Math.cos(angle) - 0.45)
+  sparkField.burst(tip.x, tip.y, { count: 22 + Math.floor(Math.random() * 16), angle: lean, spread: 1.15, speed: [200, 620], life: [0.22, 0.6], width: 2.2, flash: { radius: 70, life: 0.12 } })
+  // A third of the time it crackles again a moment later.
+  if (Math.random() < 0.35) aftershock = t + 0.08 + Math.random() * 0.08
+  heat = 1
+  // The cord jumps with the discharge.
+  if (!target) {
+    for (let i = count - 3; i < count; i++) {
+      const k = (i - count + 4) / 3
+      knots[i]!.px -= (Math.random() - 0.5) * 7 * k
+      knots[i]!.py += 3 * k
+    }
   }
-  flash = 0.09
-  nextBurst = t + 1.4 + Math.random() * 2.2
+  nextBurst = t + 2 + Math.random() * 2.2
+}
+
+let aftershock = 0
+
+function crackle() {
+  const tip = knots[count - 1]!
+  sparkField.burst(tip.x, tip.y, { count: 6 + Math.floor(Math.random() * 6), angle: -Math.PI / 2, spread: 1.4, speed: [150, 420], life: [0.15, 0.35], width: 1.8, flash: { radius: 34, life: 0.07 } })
+  aftershock = 0
 }
 
 function drawSparks(dt: number) {
   const canvas = sparkCanvas.value
   if (!canvas) return
-  if (!sparks.length && flash <= 0 && !sparksDirty) return
+  sparkField.floor = centre() + props.length + 22
+  sparkField.step(dt)
+  if (!sparkField.active && !sparksDirty) return
   const ctx = fit(canvas)
   ctx.clearRect(0, 0, size.value, size.value)
-  sparksDirty = false
-  if (!sparks.length && flash <= 0) return
-  sparksDirty = true
-
-  const dark = document.documentElement.classList.contains('dark')
-  ctx.globalCompositeOperation = dark ? 'lighter' : 'source-over'
-  ctx.lineCap = 'round'
-  const tip = knots[count - 1]!
-  if (flash > 0) {
-    const glow = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 18)
-    glow.addColorStop(0, dark ? 'rgb(220 250 255 / 90%)' : 'rgb(255 170 60 / 85%)')
-    glow.addColorStop(1, dark ? 'rgb(34 232 255 / 0%)' : 'rgb(249 115 22 / 0%)')
-    ctx.fillStyle = glow
-    ctx.globalAlpha = Math.min(1, flash / 0.09)
-    ctx.fillRect(tip.x - 18, tip.y - 18, 36, 36)
-    ctx.globalAlpha = 1
-    flash -= dt
-  }
-  for (const spark of sparks) {
-    spark.age += dt
-    spark.vy += 900 * dt
-    spark.x += spark.vx * dt
-    spark.y += spark.vy * dt
-    const fade = 1 - spark.age / spark.life
-    if (fade <= 0) continue
-    const tail = { x: spark.x - spark.vx * 0.025, y: spark.y - spark.vy * 0.025 }
-    if (dark) {
-      ctx.strokeStyle = `rgb(125 243 255 / ${fade * 0.8})`
-      ctx.lineWidth = 2.4
-      ctx.beginPath()
-      ctx.moveTo(tail.x, tail.y)
-      ctx.lineTo(spark.x, spark.y)
-      ctx.stroke()
-      ctx.strokeStyle = `rgb(255 255 255 / ${fade})`
-      ctx.lineWidth = 1
-    }
-    else {
-      ctx.strokeStyle = `rgb(124 45 18 / ${fade * 0.7})`
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.moveTo(tail.x, tail.y)
-      ctx.lineTo(spark.x, spark.y)
-      ctx.stroke()
-      ctx.strokeStyle = `rgb(249 115 22 / ${fade})`
-      ctx.lineWidth = 1.6
-    }
-    ctx.beginPath()
-    ctx.moveTo(tail.x, tail.y)
-    ctx.lineTo(spark.x, spark.y)
-    ctx.stroke()
-  }
-  sparks = sparks.filter(spark => spark.age < spark.life)
+  sparksDirty = sparkField.active
+  if (sparksDirty) sparkField.draw(ctx, isDark())
 }
 
-// ---- The loop ----
+// ---- The loop: it runs only while the stub is on screen and the tab is visible. ----
 
 let frame = 0
 let last = 0
+let running = false
+let onScreen = true
+let snapped = false
 
 function tick(now: number) {
   const t = now / 1000
   const dt = Math.min(1 / 30, (now - last) / 1000)
   last = now
   step(dt, t)
-  draw()
-  if (t >= nextBurst) burst(t)
+  heat = Math.max(0, heat - dt * 1.3)
+  breath += dt * 1.4
+  if (!snapped) {
+    snapped = true
+    snap(t)
+  }
+  else if (t >= nextBurst) {
+    burst(t)
+  }
+  if (aftershock && t >= aftershock) crackle()
   drawSparks(dt)
+  draw()
   frame = requestAnimationFrame(tick)
 }
 
-// Under reduced motion the rope settles at once and is drawn once.
+function start() {
+  if (running || reduced || !onScreen || document.hidden) return
+  running = true
+  last = performance.now()
+  frame = requestAnimationFrame(tick)
+}
+
+function stop() {
+  running = false
+  cancelAnimationFrame(frame)
+}
+
+const onVisibility = () => document.hidden ? stop() : start()
+
+// Under reduced motion the rope settles at once and is drawn once: a still, frayed stub, no sparks.
 function settle() {
   for (let i = 0; i < 90; i++) step(1 / 60, 0)
+  heat = 0
   draw()
 }
 
@@ -319,6 +447,7 @@ function measure() {
 }
 
 let observer: ResizeObserver | undefined
+let seen: IntersectionObserver | undefined
 
 onMounted(() => {
   reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -327,14 +456,20 @@ onMounted(() => {
   observer = new ResizeObserver(measure)
   observer.observe(root.value!)
   if (reduced) return settle()
-  last = performance.now()
-  nextBurst = 0
-  frame = requestAnimationFrame(tick)
+  seen = new IntersectionObserver(([entry]) => {
+    onScreen = !!entry?.isIntersecting
+    onScreen ? start() : stop()
+  })
+  seen.observe(box.value!)
+  document.addEventListener('visibilitychange', onVisibility)
+  start()
 })
 
 onBeforeUnmount(() => {
-  cancelAnimationFrame(frame)
+  stop()
   observer?.disconnect()
+  seen?.disconnect()
+  document.removeEventListener('visibilitychange', onVisibility)
 })
 
 // ---- The end in a hand ----
@@ -384,7 +519,7 @@ defineExpose({ focus: () => end.value?.focus() })
 
 <template>
   <div ref="root" class="gl-live-wire">
-    <div class="gl-live-wire-box" :style="boxStyle">
+    <div ref="box" class="gl-live-wire-box" :style="boxStyle">
       <canvas ref="wire" class="gl-wire" :data-state="state" aria-hidden="true" />
       <canvas ref="sparkCanvas" class="gl-sparks" aria-hidden="true" />
       <button

@@ -258,6 +258,9 @@ async function hangBack(fromKeyboard = false) {
   liveWire.value?.focus()
 }
 
+// A spark at the grommet as the cable goes back in; the sign's own ignite follows it.
+const plugSpark = ref(0)
+
 async function reconnect(fromKeyboard = false) {
   if (state.value === 'fallen') {
     if (fromKeyboard) announcement.value = 'Hang the sign back on the wall before you plug it in.'
@@ -266,6 +269,7 @@ async function reconnect(fromKeyboard = false) {
   if (state.value !== 'hung-dark') return
   state.value = 'hung-live'
   powered.value = true
+  if (!prefersReducedMotion()) plugSpark.value++
   announcement.value = 'The cable is plugged back in, and the sign is lit.'
   if (!fromKeyboard) return
   await nextTick()
@@ -390,6 +394,8 @@ onBeforeUnmount(() => {
         @release="onWireRelease"
         @plug="reconnect(true)"
       />
+
+      <GlosslintSparkPop v-if="plugSpark" :key="plugSpark" :at="grommetAt" @done="plugSpark = 0" />
 
       <template v-for="side in sides" :key="side">
         <button
