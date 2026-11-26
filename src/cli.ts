@@ -455,7 +455,8 @@ export function checkFileText(
       );
     }
   }
-  return findings;
+  // A prop's findings can fall between two findings of the prose around it.
+  return findings.sort((a, b) => a.start - b.start);
 }
 
 function toCliFinding(

@@ -277,7 +277,8 @@ export function maskComark(
         name: "",
         start: offsets[index]! + start,
         end: offsets[index]! + end,
-        text: inline.line.slice(start, end),
+        // The CLI blanks link targets in the page, which this separate text never reaches.
+        text: inline.line.slice(start, end).replace(LINK_TARGET, blank),
       });
     }
     depth++;

@@ -316,6 +316,7 @@ describe("Comark components", () => {
       "::",
     ].join("\n");
     expect(where(text)).toEqual([]);
+    expect(where("::card[Read [map](rack).]\n::\n")).toEqual([]);
   });
 
   it("checks text props and the body, at their place in the source", () => {
@@ -371,6 +372,10 @@ describe("Comark components", () => {
   });
 
   it("reads inline components inside a line: the text in brackets and text props, not the markup", () => {
+    expect(where('See :badge[status]{title="Rack guide"} beside a hub.\n')).toEqual([
+      [1, 27, "Rack", "Dock"],
+      [1, 49, "hub", "station"],
+    ]);
     expect(where('## Racks :badge[New hub]{color="hub" title="A rack"}\n')).toEqual([
       [1, 4, "Racks", "Docks"],
       [1, 21, "hub", "station"],
