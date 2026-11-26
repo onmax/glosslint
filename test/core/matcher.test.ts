@@ -317,6 +317,7 @@ describe("masks (decision 8)", () => {
   it("still reports an avoid word against a slash", () => {
     expect(hits("Find a rack/dock nearby")).toEqual(["AVOID rack -> dock"]);
     expect(hits("See https://registry.npmjs.org/@nuxt/kit?tag=rack")).toEqual([]);
+    expect(hits("Mail rack@www.example.com")).toEqual([]);
   });
 
   it("gives a lowercase repository slug no whole-label finding", () => {

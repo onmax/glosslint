@@ -92,6 +92,11 @@ const SCOPED_PACKAGE =
 /** A repository issue or ref, such as `nuxt/nuxt#18395` or `nuxt/nuxt@v3`. */
 const REPO_REF =
   /(?<![\p{L}\p{N}_./@-])[\p{L}\p{N}][\p{L}\p{N}_.-]*\/[\p{L}\p{N}_.-]+(?:#\d+|@[\p{L}\p{N}_.-]*[\p{L}\p{N}])/gu;
+/** One pass, so the span that starts first wins: a URL keeps a package inside it, an email its `www.` domain. */
+const CODE_SPAN = new RegExp(
+  [URL, REPO_REF, SCOPED_PACKAGE, EMAIL].map((pattern) => pattern.source).join("|"),
+  "giu",
+);
 const PATH = /(?<![\p{L}\p{N}.~])(?:\.{1,2}|~)?\/[\p{L}\p{N}_.~/-]+/gu;
 const CHUNK = /[\p{L}\p{N}_]+(?:[-.][\p{L}\p{N}_]+)*/gu;
 const CAMEL = /\p{Ll}\p{Lu}/u;
@@ -138,11 +143,7 @@ function isKept(key: string, keep: ReadonlySet<string>): boolean {
  */
 export function mask(text: string, keep: ReadonlySet<string> = new Set()): string {
   let out = blankAll(text, BACKTICKS);
-  out = blankAll(out, URL);
-  // Before emails, which would take the `nuxt@1.2.3` of `nuxt/nuxt@1.2.3`.
-  out = blankAll(out, REPO_REF);
-  out = blankAll(out, SCOPED_PACKAGE);
-  out = blankAll(out, EMAIL);
+  out = blankAll(out, CODE_SPAN);
   out = blankAll(out, PATH);
   if (out.search(ICU_HEAD) !== -1) {
     const icu = maskIcu(out);
