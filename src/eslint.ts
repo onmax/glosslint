@@ -31,7 +31,8 @@ export interface GlosslintEslintOptions {
 /**
  * ESLint flat configs that run glosslint's rules: `...glosslint()`. The corpus comes from `corpus`, else
  * from the `glossary` file, else from `.agents/glossary.md`, read once when the config is built. They set
- * no parser: your config supplies typescript-eslint, vue-eslint-parser or yaml-eslint-parser.
+ * no parser: your config supplies typescript-eslint, vue-eslint-parser, yaml-eslint-parser or
+ * jsonc-eslint-parser.
  */
 export default function glosslint(options: GlosslintEslintOptions = {}): Linter.Config[] {
   if (options.corpus && options.glossary !== undefined)

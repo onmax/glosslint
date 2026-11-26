@@ -8,6 +8,7 @@ describe("avoid in TS", () => {
     await valid(`const intro = "Return the bike to any dock.";`);
     await valid(`const intro = "Mount it on the roof rack.";`);
     await valid(`const intro = "Mount it on the Roof-Rack.";`);
+    await valid(`const key = "rack.activeRacks";`);
   });
 
   it("suggests the term and never fixes", async () => {
@@ -74,5 +75,19 @@ describe("avoid in YAML", () => {
 
   it("never reports keys", async () => {
     await valid(`rack: Dock`);
+  });
+});
+
+describe("avoid in JSON", () => {
+  const { valid, invalid } = tester("avoid", "json");
+
+  it("reports values with a suggestion", async () => {
+    const code = `{ "a": "Return it to the rack" }`;
+    const { result } = await invalid(code, { output: null, errors: 1 });
+    expect(suggested(code, result.messages[0]!)).toBe(`{ "a": "Return it to the dock" }`);
+  });
+
+  it("never reports keys", async () => {
+    await valid(`{ "rack": "Dock" }`);
   });
 });

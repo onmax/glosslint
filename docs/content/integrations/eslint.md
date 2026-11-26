@@ -1,12 +1,14 @@
 ---
 title: ESLint integration
 navigation.title: ESLint
-description: Lint JavaScript, TypeScript, Vue templates, YAML locales, comments and identifiers from .agents/glossary.md with ESLint flat config.
+description: Lint JavaScript, TypeScript, Vue templates, YAML and JSON locale files, comments and identifiers from .agents/glossary.md with ESLint flat config.
 navigation.order: 2
 icon: i-lucide-file-code
 ---
 
-Use `glosslint/eslint` to check product terms in JavaScript, TypeScript, Vue templates, YAML locale files, comments, and declared identifiers as you code. It requires ESLint 9.15 or later as a peer dependency and reads [`.agents/glossary.md`](/guide/glossary) by default with no options.
+Use `glosslint/eslint` to check product terms in JavaScript, TypeScript, Vue templates, YAML and JSON locale files, comments, and declared identifiers as you code. It requires ESLint 9.15 or later as a peer dependency and reads [`.agents/glossary.md`](/guide/glossary) by default with no options.
+
+For Nuxt projects using `@nuxt/eslint` and `vue-i18n`, see [Nuxt and vue-i18n](/integrations/nuxt).
 
 ## Setup
 
@@ -36,6 +38,7 @@ glosslint sets no parser. Your ESLint config supplies the parser for each file t
 - `typescript-eslint` for TypeScript files
 - `vue-eslint-parser` for Vue templates, with `typescript-eslint` as `parserOptions.parser` for TypeScript script blocks
 - `yaml-eslint-parser` for YAML locale files (scope `files` to your source locale, such as `locales/en.yml`)
+- `jsonc-eslint-parser` for JSON locale files (scope `files` to your source locale)
 - Plain JavaScript files need no extra parser
 
 To read a glossary at another path, pass `glossary`:
@@ -103,19 +106,19 @@ Both rules read the same places:
 
 - String literals and the text parts of template literals in JavaScript and TypeScript
 - Text in Vue templates, and static attribute values
-- YAML string values. Keys are never read.
+- YAML and JSON string values. Keys are never read.
 
 Both rules skip strings that are code:
 
 - Import and export sources, object and class keys, member names, and TypeScript literal types. A quoted object key with a space in it is text, so ESLint reads it.
 - Operands of comparisons and `switch` cases, directives such as `"use strict"`, enum member names, and tagged templates.
 - The first argument of `t`, `$t`, `te`, `tm`, and of `ignoreCallees`.
-- The Vue attributes `class`, `style`, `id`, `key`, `ref`, `name`, `to`, `href`, `src`, `icon`, `type`, `variant`, `color`, `size`, `slot`, `is`, `for`, the `aria-*` attributes that hold ids (`aria-labelledby`, `aria-describedby`, `aria-controls`, `aria-owns`), and every `data-*`.
-- Strings with no spaces shaped like code: all lowercase, kebab, snake, camelCase, or a path.
+- The Vue attributes `class`, `style`, `id`, `key`, `ref`, `name`, `to`, `href`, `src`, `icon`, `type`, `variant`, `color`, `size`, `slot`, `is`, `for`, `keypath`, the `aria-*` attributes that hold ids (`aria-labelledby`, `aria-describedby`, `aria-controls`, `aria-owns`), and every `data-*`.
+- Strings with no spaces shaped like code: all lowercase, kebab, snake, camelCase, a path, or a dotted key such as `alarm.activeAlarms`.
 
 Before matching inside any checked string, glosslint also blanks placeholders, URLs, backticks, and code tokens. See [What glosslint skips](/guide/ignored-text) for the full list.
 
-The rules offer a fix only where the source can take it as written. A string whose escapes the fix would break, or a YAML block scalar, gets the finding without a fix.
+The rules offer a fix only where the source can take it as written. A string in code, JSON, or YAML whose escapes the fix would break, or a YAML block scalar, gets the finding without a fix.
 
 ### `glosslint/comment`
 
