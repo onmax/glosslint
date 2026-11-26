@@ -1,6 +1,6 @@
 {
   "name": "glosslint",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lint product terms against a corpus of words to use and avoid, with what each one means, in ESLint, x18n and a CLI",
   "keywords": [
     "case-police",
