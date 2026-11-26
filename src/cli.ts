@@ -7,7 +7,7 @@ import { cac } from "cac";
 import { escapePath, glob, isDynamicPattern } from "tinyglobby";
 import pkg from "../package.json" with { type: "json" };
 import { formatFindings, toJson } from "./format.ts";
-import { type ComarkProp, maskComark } from "./comark.ts";
+import { type ComarkProp, LINK_TARGET, maskComark } from "./comark.ts";
 import { DEFAULT_GLOSSARY, GLOSSARY_PROBLEMS, readGlossary } from "./glossary.ts";
 import type { GlossaryProblem } from "./glossary.ts";
 import { kindOf } from "./kind.ts";
@@ -267,8 +267,6 @@ const FENCE = /^[ \t]*((?:>[ \t]?)*)[ \t]*((?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~
 const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 // A code span never crosses a blank line, written with LF or CRLF.
 const INLINE_CODE = /(?<!`)(`+)(?!`)(?:(?!\r?\n[ \t]*\r?\n)[\s\S])*?[^`]\1(?!`)/g;
-const LINK_TARGET =
-  /(?<=\])\((?:[^()\s]|\([^()\s]*\))*(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?\s*\)/g;
 const LINK_REFERENCE = /(?<=\])\[[^\]\n]*\]/g;
 const REFERENCE_DEFINITION = /^ {0,3}\[[^\]\n]+\]:[ \t]*\S.*$/gm;
 const AUTOLINK = /<(?:[a-z][a-z\d+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+)>/gi;
@@ -318,7 +316,7 @@ function maskMarkdownParts(
       lines[index] = blank(line);
     }
   }
-  out = lines.join("\n").replace(HTML_COMMENT, blank);
+  out = lines.join("\n").replace(HTML_COMMENT, blank).replace(INLINE_CODE, blank);
   // MDX reads `{...}` as code and has no Comark syntax.
   let props: ComarkProp[] = [];
   if (!options.mdx) {
@@ -326,7 +324,6 @@ function maskMarkdownParts(
     out = comark.lines.join("\n");
     props = comark.props;
   }
-  out = out.replace(INLINE_CODE, blank);
   out = out.replace(REFERENCE_DEFINITION, blank);
   out = out.replace(LINK_TARGET, blank);
   out = out.replace(LINK_REFERENCE, blank);
@@ -349,8 +346,8 @@ interface Block {
   start: number;
   end: number;
   kind: TextKind;
-  /** Read from the source rather than the masked text, as a Comark prop value is. */
-  source?: boolean;
+  /** The text to check, when it isn't the masked text at these offsets, as for a Comark prop. */
+  text?: string;
 }
 
 /** Splits text into the pieces checked one at a time: headings, table cells, list items and paragraphs. */
@@ -434,13 +431,13 @@ export function checkFileText(
     ...props.map((prop) => ({
       start: prop.start,
       end: prop.end,
-      kind: kindOf({ text: text.slice(prop.start, prop.end), name: prop.name, shown: true }),
-      source: true,
+      kind: kindOf({ text: prop.text, name: prop.name, shown: true }),
+      text: prop.text,
     })),
   ].sort((a, b) => a.start - b.start);
   for (const block of all) {
-    const read = block.source ? text : masked;
-    for (const finding of matcher.check(read.slice(block.start, block.end), block.kind)) {
+    const read = block.text ?? masked.slice(block.start, block.end);
+    for (const finding of matcher.check(read, block.kind)) {
       const start = block.start + finding.start;
       const end = block.start + finding.end;
       const line = lineOf(start);
@@ -458,7 +455,8 @@ export function checkFileText(
       );
     }
   }
-  return findings;
+  // A prop's findings can fall between two findings of the prose around it.
+  return findings.sort((a, b) => a.start - b.start);
 }
 
 function toCliFinding(

@@ -304,6 +304,7 @@ describe("Comark components", () => {
     const text = [
       '::hub{to="/docs/rack" color="bay" .crate #rack}',
       "#bay",
+      '#crate{unwrap="p" color="rack"}',
       ":::hub{icon=i-lucide-rack}",
       "---",
       "icon: rack",
@@ -315,6 +316,7 @@ describe("Comark components", () => {
       "::",
     ].join("\n");
     expect(where(text)).toEqual([]);
+    expect(where("::card[Read [map](rack).]\n::\n")).toEqual([]);
   });
 
   it("checks text props and the body, at their place in the source", () => {
@@ -369,8 +371,75 @@ describe("Comark components", () => {
     expect(where('::hub{to="x\n').map(([, , text]) => text)).toEqual(["hub"]);
   });
 
+  it("reads inline components inside a line: the text in brackets and text props, not the markup", () => {
+    expect(where('See :badge[status]{title="Rack guide"} beside a hub.\n')).toEqual([
+      [1, 27, "Rack", "Dock"],
+      [1, 49, "hub", "station"],
+    ]);
+    expect(where('## Racks :badge[New hub]{color="hub" title="A rack"}\n')).toEqual([
+      [1, 4, "Racks", "Docks"],
+      [1, 21, "hub", "station"],
+      [1, 47, "rack", "dock"],
+    ]);
+    expect(where('| Rack | :badge[hub]{color="rack"} | :hub{to="/rack"} |\n')).toEqual([
+      [1, 3, "Rack", "Dock"],
+      [1, 17, "hub", "station"],
+    ]);
+  });
+
+  it("reads a link's text and text attributes, not its other attributes", () => {
+    expect(where('See the [rack map](/map){target="hub" title="Hub list"}.\n')).toEqual([
+      [1, 10, "rack", "dock"],
+      [1, 46, "Hub", "Station"],
+    ]);
+  });
+
+  it("leaves code spans and colons that start no component as prose", () => {
+    expect(where('Use `:hub[rack]{to="hub"}` here.\n')).toEqual([]);
+    expect(
+      where("Note: hub :smile: at 10:30, std::hub{x} and a:hub{x}.\n").map(([, column, text]) => [
+        column,
+        text,
+      ]),
+    ).toEqual([
+      [7, "hub"],
+      [34, "hub"],
+      [47, "hub"],
+    ]);
+  });
+
+  it("rescans a component's bracket text, also when the component fills the line", () => {
+    expect(where(':card[:hub[hub]{to="#rack"}]\n')).toEqual([[1, 12, "hub", "station"]]);
+    expect(where(':badge[:icon{color="hub"}]\n')).toEqual([]);
+    expect(where('::card[See :icon{color="hub"}]\n::\n')).toEqual([]);
+  });
+
+  it("checks an opener's bracket text apart from the body", () => {
+    const sentence = "Day Pass rides are cheaper.";
+    const plain = where(`${sentence}\n`);
+    expect(where(`::card[Intro]\n${sentence}\n::\n`)).toEqual(
+      plain.map(([, ...rest]) => [2, ...rest]),
+    );
+  });
+
+  it("reads `{attrs}` only after a `]` or a link, and skips link targets", () => {
+    expect(where("Adjust the (optional){rack guide}.\n")).toEqual([[1, 23, "rack", "dock"]]);
+    expect(where("Call map(){return the rack}.\n")).toEqual([[1, 23, "rack", "dock"]]);
+    expect(where("[map](/q?mode=:badge[hub]{color=red})\n")).toEqual([]);
+    expect(where(`[map](/map "Try :badge[hub]{title='Rack guide'}")\n`)).toEqual([]);
+    expect(where(`[Map](/map){title="Use :badge[Status]{title='Rack guide'} now"}\n`)).toHaveLength(
+      1,
+    );
+  });
+
+  it("reads a quoted YAML value without its comment, and skips `className`", () => {
+    expect(where('::card\n---\ntitle: "Buy a day pass." # annual\n---\n::\n')).toEqual([]);
+    expect(where('::div{className="Rack Box"}\n::\n')).toEqual([]);
+  });
+
   it("keeps offsets in CRLF files", () => {
-    const lf = '::card{title="Rack guide"}\n---\ntitle: A hub\n---\nA rack.\n::\n';
+    const lf =
+      '::card{title="Rack guide"}\n---\ntitle: A hub\n---\nA rack :badge[hub]{title="Hub"}.\n::\n';
     const crlf = lf.replace(/\n/g, "\r\n");
     expect(maskMarkdown(lf)).toHaveLength(lf.length);
     expect(maskMarkdown(crlf)).toBe(maskMarkdown(lf).replace(/\n/g, "\r\n"));
