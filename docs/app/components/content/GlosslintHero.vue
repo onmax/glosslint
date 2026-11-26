@@ -101,6 +101,7 @@ const boardStyle = computed(() => pivot.value && {
 
 function loosen(side: Side) {
   if (out[side] || fallen.value) return
+  finishDrive(side)
   turns[side]++
   // The last turn shows before the nail lets go.
   if (turns[side] >= turnsToDrop) setTimeout(() => drop(side), prefersReducedMotion() ? 0 : 200)
@@ -234,11 +235,14 @@ async function fall() {
   const x = rect.left - left + toNail[0]! - turned[0]!
   const y = rect.top - (window.innerHeight - height) + toNail[1]! - turned[1]!
   const duration = Math.min(1400, Math.max(650, 480 + Math.sqrt(Math.abs(y)) * 22))
+  // It hits the floor, squashes flat about its bottom edge, bounces once, stretching as it leaves, and lands again.
   el.animate([
-    { translate: `${x}px ${y}px`, rotate: `${angle.value}deg`, easing: 'cubic-bezier(.45,0,.9,.55)' },
-    { offset: 0.74, translate: '0 0', rotate: '1.6deg', easing: 'cubic-bezier(.2,.7,.3,1)' },
-    { offset: 0.86, translate: `0 ${-8 * scale - 4}px`, rotate: '-2.4deg', easing: 'cubic-bezier(.6,0,.9,.5)' },
-    { translate: '0 0', rotate: '-1.2deg' },
+    { translate: `${x}px ${y}px`, rotate: `${angle.value}deg`, scale: '1', easing: 'cubic-bezier(.45,0,.9,.55)' },
+    { offset: 0.62, translate: '0 0', rotate: '1.6deg', scale: '1', easing: 'cubic-bezier(.2,.7,.4,1)' },
+    { offset: 0.7, translate: '0 0', rotate: '0.8deg', scale: '1.05 0.88', easing: 'cubic-bezier(.3,.6,.4,1)' },
+    { offset: 0.82, translate: `0 ${-8 * scale - 4}px`, rotate: '-2.4deg', scale: '0.98 1.03', easing: 'cubic-bezier(.6,0,.9,.5)' },
+    { offset: 0.91, translate: '0 0', rotate: '-1.5deg', scale: '1.02 0.97', easing: 'cubic-bezier(.2,.7,.4,1)' },
+    { translate: '0 0', rotate: '-1.2deg', scale: '1' },
   ], { duration })
 }
 
@@ -253,9 +257,87 @@ async function hangBack(fromKeyboard = false) {
   angle.value = 0
   state.value = 'hung-dark'
   announcement.value = 'The sign is back on its nails, still dark. Plug the cable back into its right edge to light it.'
-  if (!fromKeyboard) return
   await nextTick()
-  liveWire.value?.focus()
+  driveNailsIn()
+  if (fromKeyboard) liveWire.value?.focus()
+}
+
+// ---- Hanging back: the nails fly in and screw home, left then right, each with a jolt of the board and a puff of
+// brick dust as it seats. Under reduced motion they are just there. A click on a nail finishes its drive. ----
+
+const drive = { duration: 560, stagger: 280, turns: 2, seatAt: 0.72 }
+let driveTimers: ReturnType<typeof setTimeout>[] = []
+
+function driveNailsIn() {
+  driveTimers.forEach(clearTimeout)
+  driveTimers = []
+  if (prefersReducedMotion()) return
+  const wallWidth = wall.value?.offsetWidth ?? 800
+  const lift = Math.max(18, wallWidth * 0.045)
+  sides.forEach((side, index) => {
+    const button = nailButtons[side]
+    const slot = button?.querySelector<SVGElement>('.gl-nail-slot')
+    if (!button || !slot) return
+    const delay = index * drive.stagger
+    const base = nails[side].slot
+    // In from above and outside the board, big as if close to the eye, then pressed flat to the wall.
+    const from = side === 'left' ? -1 : 1
+    const timing = { duration: drive.duration, delay, fill: 'backwards' as const }
+    button.animate([
+      { opacity: 0, scale: '2.1', translate: `calc(-50% + ${from * lift * 0.6}px) calc(-50% - ${lift}px)`, easing: 'cubic-bezier(.3,.7,.5,1)' },
+      { offset: 0.22, opacity: 1 },
+      { offset: drive.seatAt, scale: '0.92', translate: '-50% -50%', easing: 'cubic-bezier(.3,1.4,.5,1)' },
+      { opacity: 1, scale: '1', translate: '-50% -50%' },
+    ], timing)
+    // About two full turns, the reverse of pulling it, overshooting a little and settling back.
+    slot.animate([
+      { rotate: `${base - drive.turns * 360}deg`, easing: 'cubic-bezier(.25,.6,.45,1)' },
+      { offset: drive.seatAt, rotate: `${base + 12}deg`, easing: 'ease-in-out' },
+      { offset: 0.86, rotate: `${base - 5}deg`, easing: 'ease-in-out' },
+      { rotate: `${base}deg` },
+    ], timing)
+    driveTimers.push(setTimeout(() => seat(side), delay + drive.duration * drive.seatAt))
+  })
+}
+
+// A nail seats: the board jolts, and dust puffs out from under its head.
+function seat(side: Side) {
+  const button = nailButtons[side]
+  if (!button || !wall.value || state.value === 'fallen') return
+  const tilt = side === 'left' ? 0.18 : -0.18
+  board.value?.animate([
+    { translate: '0 0', rotate: '0deg' },
+    { offset: 0.3, translate: '0 2px', rotate: `${tilt}deg` },
+    { offset: 0.65, translate: '0 -0.6px', rotate: `${-tilt * 0.4}deg` },
+    { translate: '0 0', rotate: '0deg' },
+  ], { duration: 180, easing: 'ease-out' })
+  const size = button.offsetWidth
+  const puff = document.createElement('span')
+  puff.className = 'gl-dust'
+  puff.setAttribute('aria-hidden', 'true')
+  puff.style.left = button.style.left
+  puff.style.top = button.style.top
+  wall.value.append(puff)
+  const motes = 7
+  const done = Array.from({ length: motes }, (_, i) => {
+    const mote = document.createElement('span')
+    puff.append(mote)
+    const a = (i / motes) * Math.PI * 2 + Math.random() * 0.6
+    const r = size * (0.7 + Math.random() * 0.6)
+    const d = 2 + Math.random() * 3
+    Object.assign(mote.style, { width: `${d}px`, height: `${d}px`, margin: `${-d / 2}px` })
+    return mote.animate([
+      { opacity: 0.9, translate: `${Math.cos(a) * size * 0.35}px ${Math.sin(a) * size * 0.35}px`, scale: '0.6' },
+      { opacity: 0, translate: `${Math.cos(a) * r}px ${Math.sin(a) * r + size * 0.3}px`, scale: '1.6' },
+    ], { duration: 420 + Math.random() * 200, easing: 'cubic-bezier(.2,.7,.4,1)' }).finished
+  })
+  Promise.allSettled(done).then(() => puff.remove())
+}
+
+// A click on a nail mid-drive turns it from where it ends up, so the drive finishes first.
+function finishDrive(side: Side) {
+  const button = nailButtons[side]
+  button?.getAnimations({ subtree: true }).forEach(animation => animation.finish())
 }
 
 // A spark at the grommet as the cable goes back in; the sign's own ignite follows it.
@@ -303,6 +385,7 @@ onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   cancelAnimationFrame(frame)
+  driveTimers.forEach(clearTimeout)
 })
 </script>
 
@@ -518,6 +601,7 @@ onBeforeUnmount(() => {
   --gl-outlet-edge: #263044;
   --gl-outlet-socket: #0c111b;
   --gl-outlet-slot: #020306;
+  --gl-dust: rgb(190 204 226 / 70%);
   position: relative;
   isolation: isolate;
   aspect-ratio: 800 / 480;
@@ -529,6 +613,7 @@ onBeforeUnmount(() => {
   --gl-outlet-edge: #c6cfdb;
   --gl-outlet-socket: #e3e8ef;
   --gl-outlet-slot: #3b4452;
+  --gl-dust: rgb(120 108 96 / 60%);
 }
 
 /* Painted brick behind the sign, lit where the sign lights it and fading into the page. */
@@ -679,6 +764,19 @@ onBeforeUnmount(() => {
   z-index: 60;
   aspect-ratio: 1;
   pointer-events: none;
+}
+
+/* Brick dust puffed out as a nail seats. The hero adds it from script, so it isn't scoped. */
+:global(.gl-dust) {
+  position: absolute;
+  pointer-events: none;
+}
+
+:global(.gl-dust > span) {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--gl-dust);
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

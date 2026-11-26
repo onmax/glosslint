@@ -9,9 +9,14 @@ const props = defineProps<{
   wasLit?: boolean
 }>()
 
-// The gas sputters out only when the power goes, not when a sign starts dark or stays dark.
+// The gas sputters out only when the power goes, not when a sign starts dark or stays dark. Power back on, it catches,
+// drops out once, and holds.
 const dying = ref(!props.lit && props.wasLit)
-watch(() => props.lit, (lit, was) => { dying.value = !lit && !!was })
+const relit = ref(false)
+watch(() => props.lit, (lit, was) => {
+  dying.value = !lit && !!was
+  relit.value = !!lit && !was
+})
 
 type Tube = 'cyan' | 'mint'
 
@@ -77,7 +82,7 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
 </script>
 
 <template>
-  <svg viewBox="0 0 760 400" width="760" height="400" role="img" :aria-label="label" :class="['gl-sign', { 'is-lit': props.lit, 'is-dying': dying }]">
+  <svg viewBox="0 0 760 400" width="760" height="400" role="img" :aria-label="label" :class="['gl-sign', { 'is-lit': props.lit, 'is-dying': dying, 'is-relit': relit }]">
     <defs>
       <linearGradient :id="id('board')" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#101624" />
@@ -280,6 +285,11 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
     animation: gl-sign-ignite 1.6s linear 0.2s both;
   }
 
+  /* Plugged back in, the gas catches, drops out once, and holds: faster than the first ignite. */
+  .gl-sign.is-relit.is-lit :is(.gl-sign-lit, .gl-sign-pools) {
+    animation: gl-sign-relight 0.62s linear both;
+  }
+
   /* Switched off, the gas sputters out. */
   .gl-sign.is-dying .gl-sign-lit {
     animation: gl-sign-die 1.2s linear both;
@@ -318,6 +328,14 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
   26%, 46% { opacity: 1; }
   52% { opacity: 0.6; }
   58%, 100% { opacity: 1; }
+}
+
+/* On for a few frames, out for a tenth of a second, then on for good. */
+@keyframes gl-sign-relight {
+  0% { opacity: 0.1; }
+  8%, 20% { opacity: 1; }
+  26%, 44% { opacity: 0.04; }
+  50%, 100% { opacity: 1; }
 }
 
 /* Out for about a tenth of a second, back, then half-lit for another tenth half a second later. */

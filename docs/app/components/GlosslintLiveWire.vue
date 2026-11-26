@@ -8,7 +8,10 @@
 // - `from`, in wall units, is where the cable ran to when it snapped: the stub starts pointing there and drops.
 // - `length` is the stub's length in CSS px. It doesn't stretch: a dragged end stops at the length from the plug.
 // - `socket`, in wall units, is where the hung board takes the cable, passed only while there is one to plug into. A
-//   held end near it arcs across the gap in the sign's cyan.
+//   held end that comes within 40px of it wiggles for a moment, as if feeling for the hole, then arcs across the gap
+//   in the sign's cyan.
+// - The cord is heavy: a held end trails the pointer through a damped spring, and let go it swings on and settles.
+//   The rope never stretches.
 // - The wire canvas carries `data-state` (`live`, or `held` while dragged), `data-len` (the rope's measured length in
 //   CSS px), `data-tip="x,y"` (the torn end in the canvas's CSS px) and `data-frames` (frames drawn since mount).
 // - Sparks, the tip's flicker and the arc go on a second canvas, `canvas.gl-sparks`, of the same box, which is empty
@@ -16,7 +19,8 @@
 // - `.gl-wire-end` is a 44px button on the torn end. Dragging it emits `release` with the end's viewport point when
 //   it's let go; Enter or Space on it emits `plug`. The hero decides whether either plugs the cable in.
 // - `focus()` focuses the end.
-// - Under reduced motion it draws once and on each drag move, with no sway, no sparks and no arc.
+// - Under reduced motion it draws once and on each drag move, with no sway, no sparks, no arc, and the end right
+//   under the pointer.
 // - Its loop stops while the stub is off screen or the tab is hidden, and the canvases are capped at 2x pixel density.
 
 const props = withDefaults(defineProps<{
@@ -55,6 +59,9 @@ const count = 14
 interface Knot { x: number, y: number, px: number, py: number }
 let knots: Knot[] = []
 let target: { x: number, y: number } | undefined
+// The hand on a held end: it follows the pointer on a damped spring, so the end lags a fast pull and overshoots a
+// little, and the rope carries that speed on when it is let go.
+let hand: { x: number, y: number, vx: number, vy: number } | undefined
 let frames = 0
 let reduced = false
 
@@ -70,14 +77,22 @@ function init() {
     const d = Math.hypot(dx, dy) || 1
     dir = [dx / d, dy / d]
   }
-  // Torn out under tension, the cord whips: the end flicks sideways, away from the board, harder the further out.
-  const whip = reduced ? 0 : 14
+  // Torn out under tension, the cord whips: the end flicks sideways, away from the board, harder the further out, and
+  // the stretched cord springs back toward the plug, so it buckles.
+  const whip = reduced ? 0 : 26
+  const recoil = reduced ? 0 : 11
   const side = dir[1]! < 0 ? 1 : -1
   knots = Array.from({ length: count }, (_, i) => {
     const x = centre() + dir[0]! * segment() * i
     const y = centre() + dir[1]! * segment() * i
-    const kick = whip * (i / (count - 1)) ** 2
-    return { x, y, px: x + dir[1]! * side * kick, py: y - dir[0]! * side * kick + kick * 0.4 }
+    const f = i / (count - 1)
+    const kick = whip * f ** 2
+    return {
+      x,
+      y,
+      px: x + dir[1]! * side * kick + dir[0]! * recoil * f,
+      py: y - dir[0]! * side * kick + dir[1]! * recoil * f + kick * 0.4,
+    }
   })
 }
 
@@ -91,20 +106,85 @@ function reach(point: { x: number, y: number }) {
   return d <= max ? point : { x: c + dx / d * max, y: c + dy / d * max }
 }
 
+// The hand's spring: its natural frequency in rad/s and its damping ratio. Under 1, a fast pull overshoots a little.
+const handOmega = 24
+const handDamping = 0.55
+// Speed the cord loses per second, as a rate. Heavy rubber: a swing dies out in about a second and a half.
+const drag = 4.5
+
+function moveHand(dt: number) {
+  const goal = reach(target!)
+  if (!hand || reduced) {
+    hand = { ...goal, vx: 0, vy: 0 }
+    return
+  }
+  // Semi-implicit Euler, in small steps so a long frame can't throw the spring off.
+  const steps = Math.ceil(dt / (1 / 120))
+  const h = dt / steps
+  for (let n = 0; n < steps; n++) {
+    hand.vx += (handOmega ** 2 * (goal.x - hand.x) - 2 * handDamping * handOmega * hand.vx) * h
+    hand.vy += (handOmega ** 2 * (goal.y - hand.y) - 2 * handDamping * handOmega * hand.vy) * h
+    hand.x += hand.vx * h
+    hand.y += hand.vy * h
+  }
+  Object.assign(hand, reach(hand))
+}
+
+// ---- Feeling for the socket: within `searchIn` px the end wiggles across the line to it for `searchFor` seconds,
+// and only then does the arc jump. Pulled back past `searchOut` px, it searches again next time. ----
+
+const searchIn = 40
+const searchOut = 56
+const searchFor = 0.22
+let search: 'away' | 'feeling' | 'found' = 'away'
+let searchStart = 0
+
+function socketPoint() {
+  return props.socket && fromWall(props.socket)
+}
+
+function feel(point: { x: number, y: number }, t: number) {
+  const socket = socketPoint()
+  if (!socket || reduced) {
+    search = 'away'
+    return point
+  }
+  const dx = socket.x - point.x
+  const dy = socket.y - point.y
+  const d = Math.hypot(dx, dy) || 1
+  if (d > searchOut) search = 'away'
+  else if (d <= searchIn && search === 'away') {
+    search = 'feeling'
+    searchStart = t
+  }
+  if (search === 'feeling' && t - searchStart >= searchFor) search = 'found'
+  if (search !== 'feeling') return point
+  // About two quick shakes at 9 Hz, 4px either side, easing off as it finds the hole.
+  const since = t - searchStart
+  const sideways = Math.sin(since * 9 * 2 * Math.PI) * 4 * (1 - since / searchFor * 0.5)
+  return reach({ x: point.x - dy / d * sideways, y: point.y + dx / d * sideways })
+}
+
 function step(dt: number, t: number) {
-  // A heavy rubber cord: it settles slowly and sways on a long, lazy beat.
+  // A heavy rubber cord: it swings slowly, settles, and sways on a long, lazy beat.
   const gravity = 950
   const sway = reduced ? 0 : Math.sin(t * 0.55) * 30 + Math.sin(t * 1.25 + 1) * 9
+  const keep = Math.exp(-drag * dt)
   for (let i = 1; i < count; i++) {
     const knot = knots[i]!
-    const vx = (knot.x - knot.px) * 0.978
-    const vy = (knot.y - knot.py) * 0.978
+    const vx = (knot.x - knot.px) * keep
+    const vy = (knot.y - knot.py) * keep
     knot.px = knot.x
     knot.py = knot.y
     knot.x += vx + sway * (i / count) * dt * dt
     knot.y += vy + gravity * dt * dt
   }
-  const held = target && reach(target)
+  if (target) moveHand(dt)
+  else {
+    hand = undefined
+    search = 'away'
+  }
+  const held = hand && feel({ x: hand.x, y: hand.y }, t)
   const length = segment()
   for (let pass = 0; pass < 24; pass++) {
     Object.assign(knots[0]!, { x: centre(), y: centre() })
@@ -439,12 +519,13 @@ function fromWall(point: [number, number]) {
   return { x: centre() + (point[0] - props.anchor[0]) * k, y: centre() + (point[1] - props.anchor[1]) * k }
 }
 
-// How close a held end is to the socket: 0 out of reach, 1 on it.
+// How close a held end that has found the socket is to it: 0 when there is no arc, from 0.2 at the edge of the search
+// to 1 on it.
 function nearness() {
-  if (!props.socket || !target) return 0
-  const socket = fromWall(props.socket)
+  const socket = socketPoint()
+  if (!socket || !target || search !== 'found') return 0
   const tip = knots[count - 1]!
-  return Math.min(1, Math.max(0, 1 - (Math.hypot(socket.x - tip.x, socket.y - tip.y) - 20) / 70))
+  return Math.min(1, Math.max(0.2, 1 - (Math.hypot(socket.x - tip.x, socket.y - tip.y) - 10) / 30))
 }
 
 // The gap arcs more often, and thicker, the closer the end comes; between arcs it drops out for a frame or two.
@@ -628,6 +709,8 @@ function onDown(event: PointerEvent) {
   end.value!.setPointerCapture(event.pointerId)
   pointerId = event.pointerId
   state.value = 'held'
+  const tip = knots[count - 1]!
+  hand = { x: tip.x, y: tip.y, vx: 0, vy: 0 }
   target = pointAt(event)
   if (reduced) settle()
   event.preventDefault()
