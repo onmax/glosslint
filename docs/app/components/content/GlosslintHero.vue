@@ -124,9 +124,9 @@ function startNailFall(el: Element | null, nail: { id: number, y: number }) {
   const distance = window.innerHeight - nail.y + 60
   const drift = (Math.random() - 0.5) * 60
   el.animate([
-    { translate: '0 0', rotate: '0deg', scale: 1, easing: 'cubic-bezier(.3,.9,.6,1)' },
-    { offset: 0.12, translate: `${drift * 0.1}px -6px`, rotate: '-30deg', scale: 1.25, easing: 'cubic-bezier(.5,0,.95,.6)' },
-    { translate: `${drift}px ${distance}px`, rotate: `${drift > 0 ? 400 : -400}deg`, scale: 1.15 },
+    { translate: '0 0', rotate: '0deg', easing: 'cubic-bezier(.3,.9,.6,1)' },
+    { offset: 0.12, translate: `${drift * 0.1}px -6px`, rotate: '-30deg', easing: 'cubic-bezier(.5,0,.95,.6)' },
+    { translate: `${drift}px ${distance}px`, rotate: `${drift > 0 ? 400 : -400}deg` },
   ], { duration: Math.min(1200, 420 + Math.sqrt(distance) * 18) }).onfinish = done
 }
 
@@ -314,7 +314,7 @@ onBeforeUnmount(() => {
         >
           <svg viewBox="-18 -18 36 36" aria-hidden="true">
             <circle cx="0.6" cy="1.8" r="7.8" fill="#000" :opacity="0.4 + turns[side] * 0.05" :transform="`translate(${turns[side] * 0.25} ${turns[side] * 0.4})`" />
-            <g :style="{ scale: 1 + turns[side] * 0.025 }" class="gl-nail-head">
+            <g>
               <circle r="7.5" class="gl-nail-metal" />
               <circle r="7.5" fill="none" stroke="#05070c" stroke-opacity="0.85" />
               <path d="M -4.6 0 L 4.6 0" class="gl-nail-slot" :style="{ rotate: `${nails[side].slot - turns[side] * degreesPerTurn}deg` }" />
@@ -533,15 +533,11 @@ onBeforeUnmount(() => {
   outline-offset: -2px;
 }
 
-.gl-nail-head {
-  transition: scale 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
-}
-
 .gl-nail-slot {
   stroke: #0a0d14;
   stroke-width: 1.5;
   stroke-linecap: round;
-  transition: rotate 0.22s cubic-bezier(0.3, 1.6, 0.5, 1);
+  transition: rotate 0.22s ease-out;
 }
 
 /* Metal with a highlight at the top left. A gradient id would be shared by every nail, so this is a CSS gradient. */
