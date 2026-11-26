@@ -4,8 +4,8 @@
 //
 // The sign hangs on two nails. Each click on a nail turns it a third of the way round; a nail turned six times falls
 // out. With one nail out the sign swings and hangs from the other, and with both out it falls to the bottom edge of the
-// window, unplugged, with a spark at the outlet. "Hang it back up" sends a cloud with a fishing rod to hook the sign and
-// lift it back onto the wall.
+// window, still lit: its plug stays in the outlet and the cable follows it down. "Hang it back up" sends a cloud with a
+// fishing rod to hook the sign and lift it back onto the wall.
 
 const slots = useSlots()
 
@@ -50,14 +50,13 @@ const out = reactive<Record<Side, boolean>>({ left: false, right: false })
 const pivot = ref<Side>()
 const angle = ref(0)
 const fallen = ref(false)
-const fallenLit = ref(true)
 const fallenBox = ref({ left: 0, width: 0 })
-const sparking = ref(false)
 const announcement = ref('')
 
 const wall = ref<HTMLElement>()
 const board = ref<HTMLElement>()
 const fallenSign = ref<HTMLElement>()
+const grommet = ref<HTMLElement>()
 const nailButtons = reactive<Partial<Record<Side, HTMLButtonElement>>>({})
 const restoreButton = ref<{ $el: HTMLElement }>()
 
@@ -111,7 +110,7 @@ async function drop(side: Side) {
   }
   else {
     await fall()
-    announcement.value = 'Both nails are out. The sign fell to the bottom of the window and came unplugged.'
+    announcement.value = 'Both nails are out. The sign fell to the bottom of the window, still plugged in.'
     await nextTick()
     restoreButton.value?.$el.focus()
   }
@@ -170,17 +169,11 @@ function placeFallen() {
 async function fall() {
   cancelAnimationFrame(frame)
   const { rect, width, left } = placeFallen()
-  fallenLit.value = true
   fallen.value = true
   await nextTick()
   const el = fallenSign.value
   if (!el) return
-  // Pulled from the wall, the plug sparks and the tubes go out.
-  requestAnimationFrame(() => { fallenLit.value = false })
-  if (!prefersReducedMotion()) {
-    sparking.value = true
-    setTimeout(() => { sparking.value = false }, 900)
-  }
+  followCable()
 
   if (prefersReducedMotion()) {
     el.animate([{ opacity: 0, translate: '0 -16px' }, { opacity: 1, translate: '0 0' }], { duration: 200, easing: 'ease-out' })
@@ -206,11 +199,30 @@ async function fall() {
   ], { duration })
 }
 
+// On the floor, the cable runs from the grommet up the right of the outlet and over into the plug, which never leaves
+// the socket. It is redrawn each frame, so it follows the sign as it falls, as the page scrolls, and as the cloud lifts it.
+const fallenCable = ref<{ d: string, width: number }>()
+let cableFrame = 0
+
+function followCable() {
+  const end = grommet.value?.getBoundingClientRect()
+  const rect = wall.value?.getBoundingClientRect()
+  if (!end || !rect) return
+  const s = rect.width / 800
+  const [px, py] = [rect.left + 782 * s, rect.top + 420 * s]
+  const [gx, gy] = [end.left, end.top]
+  const point = (x: number, y: number) => `${x.toFixed(1)} ${y.toFixed(1)}`
+  fallenCable.value = {
+    d: `M ${point(gx, gy)} C ${point(gx + 40 * s, gy + 4 * s)}, ${point(px + 36 * s, py + 60 * s)}, ${point(px + 30 * s, py - 4 * s)}`
+      + ` S ${point(px, py - 40 * s)}, ${point(px, py)}`,
+    width: 5 * s,
+  }
+  cableFrame = requestAnimationFrame(followCable)
+}
+
 // ---- The rescue: a cloud flies in, lowers a hook onto the fallen sign, and reels it up onto the wall. ----
 
 const rescuing = ref(false)
-// Remounting the sign on the wall lights its tubes again.
-const signKey = ref(0)
 const liftStyle = ref<Record<string, string>>()
 const cloud = ref<{ x: number, y: number, size: number, tilt: number, tip: [number, number], hook?: [number, number] }>()
 
@@ -230,8 +242,9 @@ function rehang() {
   pivot.value = undefined
   angle.value = 0
   fallen.value = false
+  cancelAnimationFrame(cableFrame)
+  fallenCable.value = undefined
   liftStyle.value = undefined
-  signKey.value++
 }
 
 async function finishRescue() {
@@ -341,15 +354,12 @@ async function hangBack() {
   frame = requestAnimationFrame(step)
 }
 
-// Rays out of the socket, and bits of hot metal that fly off and drop.
-const sparkRays = [-2.6, -2.05, -1.55, -1.1, -0.6, 0.25, 2.9, 3.5]
-const sparkBits = [[-38, 34], [-26, 52], [-12, 60], [-46, 12], [-30, -18], [-8, -30], [10, 44]]
-
 const onResize = () => fallen.value && !rescuing.value && placeFallen()
 onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   cancelAnimationFrame(frame)
+  cancelAnimationFrame(cableFrame)
 })
 </script>
 
@@ -414,32 +424,15 @@ onBeforeUnmount(() => {
             <rect x="2.6" y="-3.4" width="2" height="6" rx="1" class="gl-outlet-slot" />
           </g>
         </g>
-        <!-- The spark as the plug comes out of the top socket. -->
-        <g v-if="sparking" class="gl-spark" transform="translate(782 428)">
-          <circle r="9" class="gl-spark-flash" />
-          <path
-            v-for="ray in sparkRays"
-            :key="ray"
-            :d="`M 0 0 L ${Math.cos(ray) * 26} ${Math.sin(ray) * 26}`"
-            class="gl-spark-ray"
-          />
-          <circle
-            v-for="(bit, index) in sparkBits"
-            :key="index"
-            r="1.6"
-            class="gl-spark-bit"
-            :style="{ '--dx': `${bit[0]}px`, '--dy': `${bit[1]}px`, animationDelay: `${index * 25}ms` }"
-          />
-        </g>
       </svg>
 
       <div ref="board" class="gl-board" :style="boardStyle">
-        <GlosslintSign :key="signKey" lit />
+        <GlosslintSign lit />
       </div>
 
-      <!-- The cable into its plug, in front of the wall. It stays with the sign when the sign falls. -->
-      <svg v-if="!fallen" class="gl-wall-layer" viewBox="0 0 800 480" aria-hidden="true">
-        <g fill="none" stroke-linecap="round">
+      <!-- The cable into its plug, in front of the wall. Once the sign falls, the cable is drawn from the floor instead. -->
+      <svg class="gl-wall-layer" viewBox="0 0 800 480" aria-hidden="true">
+        <g v-if="!fallen" fill="none" stroke-linecap="round">
           <path :d="cable" stroke="#1c2433" stroke-width="5" />
           <path :d="cable" stroke="#fff" stroke-opacity="0.08" stroke-width="1" transform="translate(-1 -1)" />
         </g>
@@ -487,13 +480,20 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- The fallen sign lies on the bottom edge of the window, behind the page, so text and links stay on top. -->
+    <svg v-if="fallen && fallenCable" :class="['gl-fallen-cable', { 'is-lifting': liftStyle }]" aria-hidden="true">
+      <g fill="none" stroke-linecap="round">
+        <path :d="fallenCable.d" stroke="#1c2433" :stroke-width="fallenCable.width" />
+        <path :d="fallenCable.d" stroke="#fff" stroke-opacity="0.08" stroke-width="1" transform="translate(-1 -1)" />
+      </g>
+    </svg>
     <div
       v-if="fallen"
       ref="fallenSign"
       :class="['gl-fallen', { 'is-lifting': liftStyle }]"
       :style="[{ left: `${fallenBox.left}px`, width: `${fallenBox.width}px` }, liftStyle]"
     >
-      <GlosslintSign :lit="fallenLit" unplugged />
+      <GlosslintSign lit />
+      <span ref="grommet" class="gl-grommet" />
     </div>
 
     <!-- The rescue cloud: a puffed-up tube of neon in a hard hat, fishing the sign off the floor. -->
@@ -763,50 +763,6 @@ onBeforeUnmount(() => {
 
 /* ---- After the fall ---- */
 
-.gl-spark {
-  filter: drop-shadow(0 0 3px #fff3b0) drop-shadow(0 0 10px #ffb020) drop-shadow(0 0 22px #ff7a00);
-}
-
-.gl-spark-flash {
-  fill: #fffbe6;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: gl-spark-flash 0.55s ease-out both;
-}
-
-.gl-spark-ray {
-  stroke: #fff6c8;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 26;
-  animation: gl-spark-ray 0.4s cubic-bezier(0.2, 0, 0, 1) both;
-}
-
-.gl-spark-bit {
-  fill: #ffe08a;
-  animation: gl-spark-bit 0.8s cubic-bezier(0.3, 0.6, 0.6, 1) both;
-}
-
-@keyframes gl-spark-flash {
-  0% { opacity: 1; scale: 0.4; }
-  20% { opacity: 1; scale: 1.6; }
-  35% { opacity: 0.3; scale: 1; }
-  50% { opacity: 0.9; scale: 1.3; }
-  100% { opacity: 0; scale: 0.6; }
-}
-
-@keyframes gl-spark-ray {
-  0% { stroke-dashoffset: 26; opacity: 1; }
-  60% { stroke-dashoffset: 0; opacity: 1; }
-  100% { stroke-dashoffset: -26; opacity: 0; }
-}
-
-@keyframes gl-spark-bit {
-  0% { translate: 0 0; opacity: 1; }
-  80% { opacity: 1; }
-  100% { translate: var(--dx) var(--dy); opacity: 0; }
-}
-
 .gl-fallen {
   position: fixed;
   bottom: 0;
@@ -820,8 +776,31 @@ onBeforeUnmount(() => {
   filter: drop-shadow(0 -2px 10px rgb(0 0 0 / 35%));
 }
 
+/* Still plugged in, the copy on the floor stays lit instead of striking its tubes again. */
+.gl-fallen :deep(.gl-sign-lit) {
+  animation: none;
+}
+
+/* Where the cable leaves the board, in its 760 × 400 units. */
+.gl-grommet {
+  position: absolute;
+  top: calc(284 / 400 * 100%);
+  left: calc(764 / 760 * 100%);
+}
+
+.gl-fallen-cable {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
 /* Hooked, the sign rises over the page on its way back to the wall. */
-.gl-fallen.is-lifting {
+.gl-fallen.is-lifting,
+.gl-fallen-cable.is-lifting {
   z-index: 60;
 }
 
@@ -989,7 +968,9 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 35%, var(--ui-border)), 0 0 14px -6px color-mix(in oklab, var(--ui-primary) 70%, transparent);
 }
 
-.gl-hero-panel > :deep(*) {
+/* The docs give code frames a block margin and a lit top edge; inside this frame the switch's border is the only line
+   above the code. */
+.gl-hero-tabs .gl-hero-panel > :deep(*) {
   margin-block: 0;
 }
 
@@ -1000,7 +981,7 @@ onBeforeUnmount(() => {
   box-shadow: none;
 }
 
-.gl-hero-panel :deep(.ct)::before {
+.gl-hero-tabs .gl-hero-panel :deep(:is(.ck, .ct))::before {
   display: none;
 }
 

@@ -3,10 +3,8 @@
 // the window after both nails are pulled. Board units: the backplate is 760 × 400.
 
 const props = defineProps<{
-  // Off once the cable is pulled: the glass stays, the gas goes dark.
+  // Off, the glass stays and the gas goes dark.
   lit?: boolean
-  // The cable with its loose plug, drawn beside a fallen sign.
-  unplugged?: boolean
 }>()
 
 type Tube = 'cyan' | 'mint'
@@ -230,17 +228,6 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
       <text x="518" y="334" text-anchor="middle" class="gl-sign-mono" fill="#effff8">eBike dock</text>
     </g>
 
-    <!-- Pulled out of the wall: the cable from the grommet to its plug, lying on the floor beside the board. -->
-    <g v-if="props.unplugged" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M 764 284 C 800 290, 792 392, 830 396" stroke="#1c2433" stroke-width="5" />
-      <path d="M 764 283 C 799 289, 791 390, 830 394.4" stroke="#fff" stroke-opacity="0.08" stroke-width="1" />
-      <g transform="translate(828 388)">
-        <rect width="22" height="12" rx="2.5" fill="#1a202c" stroke="#05070c" stroke-opacity="0.7" />
-        <rect x="2" y="1.5" width="16" height="1.6" rx="0.8" fill="#fff" fill-opacity="0.1" />
-        <rect x="22" y="2.4" width="7" height="2.2" rx="0.6" fill="#a7b0bd" />
-        <rect x="22" y="7.4" width="7" height="2.2" rx="0.6" fill="#a7b0bd" />
-      </g>
-    </g>
   </svg>
 </template>
 
@@ -287,7 +274,7 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
     animation: gl-sign-ignite 1.6s linear 0.2s both;
   }
 
-  /* Pulled from the wall, the gas sputters out. */
+  /* Switched off, the gas sputters out. */
   .gl-sign:not(.is-lit) .gl-sign-lit {
     animation: gl-sign-die 1.2s linear both;
   }
