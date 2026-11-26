@@ -686,6 +686,12 @@ onBeforeUnmount(() => {
   margin-block: 0;
 }
 
+/* The agent prompt is prose for copying, so it wraps instead of scrolling out of the box. */
+.gl-hero-panel :deep(pre) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .glosslint-hero-links {
   display: flex;
   flex-wrap: wrap;

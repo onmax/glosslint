@@ -1,6 +1,6 @@
 ---
 title: Introduction to glosslint
-description: Learn how glosslint checks product terms from .agents/glossary.md across ESLint, Oxlint, x18n and Markdown docs, plus its three finding codes.
+description: How glosslint checks your product terms from .agents/glossary.md in code, translations and docs.
 navigation.order: 1
 navigation.title: Introduction
 icon: i-lucide-book-open
