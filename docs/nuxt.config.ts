@@ -13,6 +13,8 @@ const generated = new URL('.generated/public/', root)
 // The brand files, from where the README shows them, so the site and the README can't drift apart.
 const brand = ['banner.svg', 'logo.svg', 'favicon.svg']
 
+const nodePath = (id: string) => id === 'node:path' ? fileURLToPath(new URL('app/playground/node-path.ts', root)) : undefined
+
 export default defineNuxtConfig({
   modules: [
     'vite-hub/nuxt',
@@ -48,6 +50,7 @@ export default defineNuxtConfig({
         { label: 'Guide', to: '/guide' },
         { label: 'Integrations', to: '/integrations' },
         { label: 'Reference', to: '/reference' },
+        { label: 'Playground', to: '/playground', icon: 'i-lucide-play' },
       ],
     },
     github: { repo: 'onmax/glosslint', dir: 'docs/content' },
@@ -103,6 +106,18 @@ export default defineNuxtConfig({
       subsets: ['latin', 'latin-ext'],
       global: true,
     })),
+  },
+  vite: {
+    // The playground runs ESLint's Linter in the browser, which needs `path.sep` and `path.extname` from node:path.
+    // The dev optimizer pre-bundles ESLint with its own plugins, so it gets the shim too.
+    plugins: [{
+      name: 'glosslint-playground-node-path',
+      enforce: 'pre',
+      resolveId: (id, _importer, options) => options?.ssr ? undefined : nodePath(id),
+    }],
+    optimizeDeps: {
+      rolldownOptions: { plugins: [{ name: 'glosslint-playground-node-path', resolveId: nodePath }] },
+    },
   },
   compatibilityDate: '2026-11-01',
 })
