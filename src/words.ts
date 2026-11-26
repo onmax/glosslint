@@ -83,7 +83,8 @@ const PLACEHOLDER =
 const ICU_HEAD = /\{\s*[\p{L}\p{N}_$.-]+\s*,\s*(?:plural|select|selectordinal)\s*,/gu;
 const ICU_BRANCH = /(?:=\d+|[\p{L}\p{N}_]+)\s*\{|[{}#]/gu;
 const URL =
-  /\b[a-z][a-z\d+.-]*:\/\/[^\s<>"'`)\]]*|\bwww\.[^\s<>"'`)\]]+|\bmailto:[^\s<>"'`)\]]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+/giu;
+  /\b[a-z][a-z\d+.-]*:\/\/[^\s<>"'`)\]]*|\bwww\.[^\s<>"'`)\]]+|\bmailto:[^\s<>"'`)\]]+/giu;
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu;
 const BACKTICKS = /(`+)[\s\S]*?\1/gu;
 /** An npm scoped package, such as `@nuxt/kit`, also after a Markdown escape (`\\@nuxt/kit`). */
 const SCOPED_PACKAGE =
@@ -137,10 +138,11 @@ function isKept(key: string, keep: ReadonlySet<string>): boolean {
  */
 export function mask(text: string, keep: ReadonlySet<string> = new Set()): string {
   let out = blankAll(text, BACKTICKS);
-  // Before URLs, whose email pattern would take the `nuxt@1.2.3` of `nuxt/nuxt@1.2.3`.
+  out = blankAll(out, URL);
+  // Before emails, which would take the `nuxt@1.2.3` of `nuxt/nuxt@1.2.3`.
   out = blankAll(out, REPO_REF);
   out = blankAll(out, SCOPED_PACKAGE);
-  out = blankAll(out, URL);
+  out = blankAll(out, EMAIL);
   out = blankAll(out, PATH);
   if (out.search(ICU_HEAD) !== -1) {
     const icu = maskIcu(out);

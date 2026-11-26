@@ -343,6 +343,14 @@ function allowPattern(phrase: string): RegExp {
 }
 
 /** Compiles a corpus for matching. Build it once and reuse it. */
+/** A lowercase word against a slash, as in `nuxt/nuxt` or `nuxt/modules`, names a repository or path. */
+function againstSlash(text: string, hit: { start: number; end: number }): boolean {
+  return (
+    !/\p{Lu}/u.test(text.slice(hit.start, hit.end)) &&
+    (text[hit.start - 1] === "/" || text[hit.end] === "/")
+  );
+}
+
 export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Matcher {
   const terms = new Map<string, Entry>();
   const abbrs = new Map<string, Entry>();
@@ -475,9 +483,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       );
     }
     if (shouted) return undefined;
-    // A lowercase word against a slash, as in `nuxt/nuxt` or `nuxt/modules`, names a repository or path.
-    if (!/\p{Lu}/u.test(surface) && (text[hit.start - 1] === "/" || text[hit.end] === "/"))
-      return undefined;
+    if (againstSlash(text, hit)) return undefined;
     const want = exact ? entry.canonical : contextWant;
     const where = exact || contextWant === undefined ? "" : ` in ${kind}s`;
     if (want === undefined || surface.replace(/\s+/g, " ") === want) return undefined;
@@ -598,7 +604,11 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         continue;
       }
       const style = styleOf(hit.value.term, kind);
-      if (hit.value.mode === "context" && (style === "title" || style === "upper"))
+      if (
+        hit.value.mode === "context" &&
+        !againstSlash(text, hit) &&
+        (style === "title" || style === "upper")
+      )
         styled = { term: hit.value.term, style };
       index = hit.next;
     }

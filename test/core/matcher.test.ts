@@ -316,6 +316,14 @@ describe("masks (decision 8)", () => {
 
   it("still reports an avoid word against a slash", () => {
     expect(hits("Find a rack/dock nearby")).toEqual(["AVOID rack -> dock"]);
+    expect(hits("See https://registry.npmjs.org/@nuxt/kit?tag=rack")).toEqual([]);
+  });
+
+  it("gives a lowercase repository slug no whole-label finding", () => {
+    const nuxt = createMatcher(
+      defineCorpus({ terms: [{ term: "Nuxt", case: "context" }], wholeLabel: true }),
+    );
+    expect(hits("nuxt/modules", "label", nuxt)).toEqual([]);
   });
 
   it("checks the words of ICU branches", () => {
