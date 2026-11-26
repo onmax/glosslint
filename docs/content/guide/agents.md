@@ -1,11 +1,11 @@
 ---
 title: Coding agents
-description: Export your glossary for coding agents, follow the five-step editing workflow by fix.kind, and install the glosslint agent skill.
+description: Export your glossary for coding agents and follow the five-step editing workflow by fix.kind.
 navigation.order: 10
 icon: i-lucide-bot
 ---
 
-This page shows how to give coding agents your glosslint glossary, the five-step workflow an agent follows when editing text or the corpus, and how to install the glosslint agent skill from this site.
+This page shows how to give coding agents your glosslint glossary and the five-step workflow an agent follows when editing text or the corpus.
 
 ## Set up a project for coding agents
 
@@ -62,12 +62,6 @@ Dock
 
 See [Findings](/reference/findings) for the JSON output of `glosslint check --format json` and every field on a finding, and [CLI](/integrations/cli) for all commands and exit codes.
 
-## Agent skill and Markdown docs
-
-This site serves an agent skill that teaches coding agents how to work with glosslint. Install the `glosslint` skill with:
-
-```sh
-npx skills add https://glosslint.onmax.me/
-```
+## Markdown docs
 
 Every page on this site also has a raw Markdown copy at `/raw/<page>.md`, such as `/raw/guide/agents.md`, plus a full index at `/llms.txt` that agents and tools can fetch without parsing HTML.

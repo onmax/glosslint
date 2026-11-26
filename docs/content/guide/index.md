@@ -55,4 +55,4 @@ Every example in these docs uses an invented bike-share app with terms like `Doc
 - [Glossary table](/guide/glossary-table): load terms from a Markdown table with `fromGlossaryTable` and map custom column headers.
 - [Presets](/guide/presets): extend the built-in `tech` and `inclusive` presets and override or allow individual terms.
 - [case-police](/guide/case-police): see how glosslint uses the case-police dictionaries in the `tech` preset.
-- [Coding agents](/guide/agents): generate `.agents/terms.md` for `AGENTS.md`, follow the five-step agent workflow, and install the glosslint skill.
+- [Coding agents](/guide/agents): generate `.agents/terms.md` for `AGENTS.md` and follow the five-step agent workflow.

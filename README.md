@@ -75,7 +75,7 @@ npx glosslint check docs/guide
 
 ## For agents
 
-Write your glossary for coding agents with `glosslint print > .agents/terms.md` and link it from `AGENTS.md`. When an agent is unsure which word to use, `glosslint explain "<word>"` prints the term, its meaning, its nuance and the words to avoid. `npx skills add https://glosslint.onmax.me/` installs the glosslint agent skill, and [For agents](https://glosslint.onmax.me/guide/agents) explains how to apply findings by `fix.kind`.
+Write your glossary for coding agents with `glosslint print > .agents/terms.md` and link it from `AGENTS.md`. When an agent is unsure which word to use, `glosslint explain "<word>"` prints the term, its meaning, its nuance and the words to avoid. [For agents](https://glosslint.onmax.me/guide/agents) explains how to apply findings by `fix.kind`.
 
 ## License
 
