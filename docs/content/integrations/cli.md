@@ -1,48 +1,51 @@
 ---
 title: Command line
-description: Run glosslint from the terminal to check Markdown and MDX docs, test corpus examples, print a glossary, and explain terms.
-navigation.order: 3
+description: Run the glosslint CLI to check Markdown docs, lint and fix .agents/glossary.md with doctor, test examples, print corpora, and explain words.
+navigation.order: 5
 icon: i-lucide-terminal
 ---
 
-Use the glosslint CLI to check files that ESLint does not read, such as Markdown and MDX docs, test your corpus examples in CI, export a Markdown glossary for coding agents, and look up terms from the terminal.
+Use the glosslint CLI to check Markdown and text files, validate and repair `.agents/glossary.md` with `doctor`, test term examples in CI, print a merged corpus, and look up terms from the terminal.
 
-## Config discovery and flags
+## Corpus discovery and flags
 
-Run `glosslint` from the folder that holds `glosslint.config.ts`, or point to another file with `--config <path>`. Without `--config`, the CLI looks for these files in order:
+For `check`, `test`, `print`, and `explain`, the CLI loads your corpus in this order:
 
-1. `glosslint.config.ts`
-2. `glosslint.config.mts`
-3. `glosslint.config.js`
-4. `glosslint.config.mjs`
+1. `--config <path>`
+2. `--glossary <path>`
+3. `glosslint.config.ts`, `.mts`, `.js`, or `.mjs` in the current folder
+4. `.agents/glossary.md` in the current folder
 
-Every command accepts `--config <path>`. The `check` and `test` commands also accept `--color`, which is on by default when writing to a terminal unless `NO_COLOR` is set.
+Passing both `--config` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. Finding neither a config nor `.agents/glossary.md` exits `2` with `GLOSSLINT_C009`.
 
-| Command                               | What it does                                                   |
-| ------------------------------------- | -------------------------------------------------------------- |
-| `glosslint [check] [...paths]`        | Check Markdown and text files. `check` is the default command. |
-| `glosslint test`                      | Check every term's good and bad examples.                      |
-| `glosslint print [--format md\|json]` | Print the corpus as a Markdown glossary or as JSON.            |
-| `glosslint explain <query>`           | Show what the corpus says about a word or phrase.              |
+`glosslint doctor` reads only the glossary file (`.agents/glossary.md` or `--glossary <path>`), never a JS/TS config. `check`, `test`, and `doctor` also accept `--color`, which is on by default when writing to a terminal unless `NO_COLOR` is set.
+
+| Command | What it does |
+| --- | --- |
+| `glosslint [check] [...paths]` | Check Markdown, MDX, and text files. `check` is the default command. |
+| `glosslint doctor [--glossary <path>] [--fix]` | Check `.agents/glossary.md` for format, value, and example problems, and rewrite fixable ones with `--fix`. |
+| `glosslint test` | Check every term's good and bad examples across the loaded corpus. |
+| `glosslint print [--format md\|json]` | Print the corpus as a Markdown glossary or as JSON. |
+| `glosslint explain <query>` | Show what the corpus says about a word or phrase. |
 
 > [!NOTE]
-> There is no `--fix`. The CLI only reports findings. To autofix spelling and casing in code and YAML locales, use [ESLint](/integrations/eslint).
+> `glosslint check` has no `--fix` and never edits checked docs. Use `glosslint doctor --fix` to repair `.agents/glossary.md`, and [ESLint](/integrations/eslint) or [Oxlint](/integrations/oxlint) to autofix code.
 
 ## Exit codes
 
-| Exit code | Meaning                                                                                        |
-| --------- | ---------------------------------------------------------------------------------------------- |
-| `0`       | No findings, every example passes, or `explain` found a term.                                  |
-| `1`       | `check` found something, a `test` example failed, or `explain` found no term.                  |
-| `2`       | The config failed to load or is wrong, or the command line is wrong. The error goes to stderr. |
+| Exit code | Meaning |
+| --- | --- |
+| `0` | No findings, no `doctor` problems left, every `test` example passes, or `explain` found a term. |
+| `1` | `check` found something, `doctor` has problems remaining, a `test` example failed, or `explain` found no term. |
+| `2` | The glossary or config is missing or invalid, or the command line is wrong. The error goes to stderr. |
 
-See [Config errors](/reference/config-errors) for every error code that causes exit code `2`.
+See [Config and glossary errors](/reference/config-errors) for every error code.
 
 ## check
 
 `check` is the default command. It reads files, folders, and glob patterns. With no path, it reads the current folder.
 
-When given a folder, `check` reads `.md`, `.mdx`, and `.txt` files while skipping `node_modules` and `.git`. Pass `--ext md,mdx` to change which extensions it reads in folders. Pass `--format json` to print machine-readable output; see [Findings](/reference/findings) for the JSON schema.
+When given a folder, `check` reads `.md`, `.mdx`, and `.txt` files while skipping `node_modules` and `.git`. The glossary file loaded directly (`.agents/glossary.md` or `--glossary <path>`) is always skipped, even if you name it or check its parent folder. Pass `--ext md,mdx` to change which extensions it reads in folders. Pass `--format json` to print machine-readable output; see [Findings](/reference/findings) for the JSON schema.
 
 In Markdown files, `check` skips frontmatter, fenced and inline code, HTML comments and tags, link targets, and reference definitions. In MDX files, it also skips `import` and `export` lines. It reads headings as labels, each table cell on its own with the first row as headers, and paragraphs and list items as sentences.
 
@@ -71,7 +74,7 @@ npx glosslint check docs/guide
 [GLOSSLINT_AVOID] "rack" in docs/guide/riding.md:3:56
 ├▶ why: Racks are unpowered.
 ├▶ fix: Use "dock": "Unlock a bike at any station, then return it to a free dock when you finish."
-├▶ term: Dock, a powered stand where one bike is locked.
+╰▶ term: Dock, a powered stand where one bike is locked.
 ╰▶ see: https://example.com/docs/docks
 
 [GLOSSLINT_TERM] "e-bike" in docs/guide/riding.md:4:15
@@ -81,11 +84,63 @@ npx glosslint check docs/guide
 6 findings in 2 of 2 files.
 ```
 
-The heading "Buying a day pass" is a label, so Day Pass takes Title Case there. In the next line it sits inside a sentence, so it takes lowercase. "Check out our" and "roof rack" are in `allow`, and the CLI never reads the code block. Apple Pay comes from the tech preset and "Manned" from the inclusive preset.
+The heading "Buying a day pass" is a label, so Day Pass takes Title Case there. In the next line it sits inside a sentence, so it takes lowercase. "Check out our" and "roof rack" are in `Allow:`, and the CLI never reads the code block. Apple Pay comes from `Extends: tech` and "Manned" from `inclusive`.
+
+## doctor
+
+`doctor` lints `.agents/glossary.md` (or `--glossary <path>`) against the [glossary file format](/guide/glossary) (`GLOSSLINT_G001` to `GLOSSLINT_G008`) and tests every term's `Good` and `Bad` examples against the file's own corpus (`GLOSSLINT_G009`). Pass `--format json` to print `{ problems, summary }`.
+
+On a clean file such as `examples/basic/.agents/glossary.md`, `doctor` exits `0`:
+
+```sh
+npx glosslint doctor
+```
+
+```txt
+No problems in .agents/glossary.md.
+```
+
+When the file has problems, `doctor` prints each one with its code, file and line number, term (when inside one), and fix, then exits `1`:
+
+```txt
+[GLOSSLINT_G001] .agents/glossary.md:1: The title is "Words", not "Glossary".
+╰▶ fix: Retitle it "# Glossary".
+
+[GLOSSLINT_G002] .agents/glossary.md:4: "description" is another name for "What".
+├▶ term: Dock
+╰▶ fix: Rename it to "What".
+
+[GLOSSLINT_G008] .agents/glossary.md:5: "station" is an avoid word of "Dock" and a term of its own.
+╰▶ fix: Remove it from the Avoid list of "Dock", or remove the term "station".
+
+[GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
+├▶ term: Dock
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links" or "Case", or reword the line so it does not start with "Note:".
+
+[GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
+├▶ term: Dock
+╰▶ fix: Use "exact", "spelling" or "context".
+
+[GLOSSLINT_G003] .agents/glossary.md:11: A blank line before this line.
+╰▶ fix: Remove it: a term's heading and its fields go on consecutive lines.
+
+[GLOSSLINT_G005] .agents/glossary.md:14: "station" is written twice: "Station" is the same term.
+╰▶ fix: Merge the two sections into one.
+
+[GLOSSLINT_G007] .agents/glossary.md:16: The parentheses in "## Day Pass (day ticket)" hold more than abbreviations.
+├▶ term: Day Pass
+╰▶ fix: Keep only abbreviations in parentheses, such as `## Day Pass (DP)`, and move the rest to `How`.
+
+8 problems in .agents/glossary.md.
+```
+
+Pass `--fix` to rewrite fixable problems (`GLOSSLINT_G001` to `GLOSSLINT_G003`) into canonical form while keeping term order, introduction prose, and field text. If any problem from `GLOSSLINT_G004` to `GLOSSLINT_G008` is present, `--fix` leaves the file untouched so it never drops text and exits `1`. Running `doctor --fix` a second time on a clean file changes no byte.
+
+See [Config and glossary errors](/reference/config-errors#glossary-problem-codes) for every `GLOSSLINT_G00x` code.
 
 ## test
 
-`test` checks every term's `examples` field, defined in [Defining terms](/guide/terms). Every `good` string must pass with no findings for that term, and every `bad` string must give a finding for that term. Run it in CI and after editing the corpus.
+`test` checks every term's `Good` and `Bad` examples across the loaded corpus, including presets and any `defineCorpus` additions. Every `Good` string must pass with no findings for that term, and every `Bad` string must give a finding for that term. Run it in CI and after editing your glossary or config.
 
 ```sh
 npx glosslint test | tail -n 3
@@ -111,15 +166,15 @@ A failing term shows why it failed and what to change:
 
 ## print
 
-`print` writes the corpus as a Markdown glossary, with one section per term that says more than its spelling and one "Spelling" line for the rest. Pass `--format json` to write `{ terms, allow }` instead.
+`print` writes the loaded corpus as a Markdown summary (one section per term that says more than its spelling and one "Spelling" line for the rest), or as JSON with `--format json` (`{ terms, allow }`).
 
-Redirect the Markdown output to a file that coding agents read, as described in [Coding agents](/guide/agents):
+Projects that keep their terms in `.agents/glossary.md` do not need `print` for coding agents, because agents read `.agents/glossary.md` directly. `print` is useful when your corpus is composed in `glosslint.config.ts` or when you want a JSON export.
 
 ```sh
-npx glosslint print > .agents/terms.md
+npx glosslint print
 ```
 
-The Dock section of that file:
+The Dock section of `print`'s Markdown output:
 
 ```txt
 ## Dock

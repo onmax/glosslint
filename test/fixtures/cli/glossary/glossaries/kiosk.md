@@ -1,0 +1,4 @@
+# Glossary
+
+## Kiosk
+Avoid: terminal

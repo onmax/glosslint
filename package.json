@@ -9,6 +9,8 @@
     "eslintplugin",
     "glossary",
     "lint",
+    "oxlint",
+    "oxlint-plugin",
     "terminology",
     "vocabulary",
     "writing",
@@ -39,6 +41,9 @@
       "eslint": [
         "./dist/eslint.d.mts"
       ],
+      "oxlint": [
+        "./dist/oxlint.d.mts"
+      ],
       "x18n": [
         "./dist/x18n.d.mts"
       ],
@@ -61,6 +66,10 @@
     "./eslint": {
       "types": "./dist/eslint.d.mts",
       "default": "./dist/eslint.mjs"
+    },
+    "./oxlint": {
+      "types": "./dist/oxlint.d.mts",
+      "default": "./dist/oxlint.mjs"
     },
     "./x18n": {
       "types": "./dist/x18n.d.mts",
@@ -103,6 +112,7 @@
     "case-police": "2.2.1",
     "eslint": "^10.15.0",
     "eslint-vitest-rule-tester": "^3.2.0",
+    "oxlint": "1.94.0",
     "publint": "^0.3.25",
     "tsrs": "7.1.0-beta.tsrs5",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
@@ -113,13 +123,17 @@
   },
   "peerDependencies": {
     "@x18n/core": ">=0.1.14",
-    "eslint": ">=9.15.0"
+    "eslint": ">=9.15.0",
+    "oxlint": ">=1.94.0"
   },
   "peerDependenciesMeta": {
     "@x18n/core": {
       "optional": true
     },
     "eslint": {
+      "optional": true
+    },
+    "oxlint": {
       "optional": true
     }
   },

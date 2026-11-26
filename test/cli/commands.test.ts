@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { loadCorpus } from "../../src/cli.ts";
 import { bikeDir, brokenDir, run } from "./run.ts";
@@ -140,14 +139,7 @@ describe("config errors", () => {
 `);
   });
 
-  it("exits 2 when there is no config", async () => {
-    for (const args of [[], ["test"], ["print"], ["explain", "dock"]]) {
-      const { code, stderr } = await run(args, join(bikeDir, "docs"));
-      expect(code).toBe(2);
-      expect(stderr).toMatch(
-        /^\[GLOSSLINT_C009\] No glosslint\.config\.ts, \.mts, \.js or \.mjs in the current folder\./,
-      );
-    }
+  it("exits 2 when --config names no file", async () => {
     const { stderr } = await run(["--config", "missing.ts"]);
     expect(stderr).toContain('[GLOSSLINT_C009] The config "missing.ts" does not exist.');
   });

@@ -11,9 +11,43 @@
 
 [![docs](https://comark-ui.onmax.me/badge.svg?label=docs&value=glosslint.onmax.me)](https://glosslint.onmax.me)
 
-glosslint checks that your product's words are spelled, cased and chosen the way your glossary says. You keep one corpus of terms, each with its meaning and the words to avoid. glosslint reports problems in code through ESLint, in translations through x18n, and in Markdown docs through its CLI. Every finding carries the reason and meaning, so people and coding agents learn the vocabulary as they work.
+glosslint checks your product's vocabulary against one Markdown file, `.agents/glossary.md`. People and coding agents read that file directly, while ESLint, Oxlint, x18n and the CLI enforce it on code, translations and docs. Every finding carries the reason and meaning alongside the fix.
 
-[Docs](https://glosslint.onmax.me) · [Installation](https://glosslint.onmax.me/guide/installation) · [The corpus](https://glosslint.onmax.me/guide/corpus) · [ESLint](https://glosslint.onmax.me/integrations/eslint) · [x18n](https://glosslint.onmax.me/integrations/x18n) · [CLI](https://glosslint.onmax.me/integrations/cli) · [For agents](https://glosslint.onmax.me/guide/agents)
+[Docs](https://glosslint.onmax.me) · [Installation](https://glosslint.onmax.me/guide/installation) · [The glossary file](https://glosslint.onmax.me/guide/glossary) · [ESLint](https://glosslint.onmax.me/integrations/eslint) · [Oxlint](https://glosslint.onmax.me/integrations/oxlint) · [x18n](https://glosslint.onmax.me/integrations/x18n) · [CLI](https://glosslint.onmax.me/integrations/cli) · [For agents](https://glosslint.onmax.me/guide/agents)
+
+## The glossary
+
+Write your product's terms in `.agents/glossary.md`. This excerpt comes from the bike-share app in [`examples/basic/.agents/glossary.md`](https://github.com/onmax/glosslint/blob/main/examples/basic/.agents/glossary.md):
+
+<!-- prettier-ignore -->
+```md
+# Glossary
+
+The words the rider app and the help center use.
+
+Extends: tech, inclusive
+Allow: check out our, roof rack
+
+## Dock
+What: A powered stand where one bike is locked.
+How: A station is a group of docks.
+Avoid:
+- rack: Racks are unpowered.
+- bay
+Good:
+- Return the bike to any dock
+Bad:
+- Return the bike to any rack
+Links:
+- [Docks](https://example.com/docs/docks)
+
+## eBike
+
+## Day Pass (DP)
+Case: context
+```
+
+`eBike` gets `Case: exact` automatically because of its inner capital. `Day Pass (DP)` sets the abbreviation `DP` and enforces Title Case in labels and lowercase in sentences. Every runner reads `.agents/glossary.md` by default; `defineCorpus` in `glosslint.config.ts` is available when you need fields such as `skip`, `forms` or `translations`.
 
 ## Install
 
@@ -21,43 +55,17 @@ glosslint checks that your product's words are spelled, cased and chosen the way
 pnpm add -D glosslint
 ```
 
-glosslint needs Node 22.18 or later, because it loads `glosslint.config.ts` with Node's own `import()` and type stripping. ESLint 9.15 or later and `@x18n/core` are optional peer dependencies. Install the ones you use.
+glosslint requires Node 22.18 or later. ESLint (`>=9.15.0`), Oxlint (`>=1.94.0`) and `@x18n/core` (`>=0.1.14`) are optional peer dependencies. Install only the ones you use.
 
-## Example
+## One finding
 
-This example comes from the bike-share app in [`examples/basic`](https://github.com/onmax/glosslint/tree/main/examples/basic).
-
-```diff
-  # locales/en.yml
-- hint: Return your e-bike to any rack.
-+ hint: Return your eBike to any dock.
-```
-
-Define your terms in `glosslint.config.ts`:
-
-```ts
-import { defineCorpus } from "glosslint";
-
-export default defineCorpus({
-  terms: [
-    {
-      term: "Dock",
-      description: "A powered stand where one bike is locked.",
-      nuance: "A station is a group of docks.",
-      avoid: [{ word: "rack", why: "Racks are unpowered." }, "bay"],
-      examples: { good: ["Return the bike to any dock"], bad: ["Return the bike to any rack"] },
-      links: [{ title: "Docks", url: "https://example.com/docs/docks" }],
-    },
-    { term: "eBike", case: "exact" },
-  ],
-});
-```
-
-Run the CLI on Markdown docs. Here is one finding from `examples/basic`:
+Run the CLI on Markdown docs:
 
 ```sh
 npx glosslint check docs/guide
 ```
+
+Here is one finding from `examples/basic`:
 
 ```txt
 [GLOSSLINT_AVOID] "rack" in docs/guide/riding.md:3:56
@@ -69,13 +77,22 @@ npx glosslint check docs/guide
 
 ## Where it checks
 
-- [ESLint](https://glosslint.onmax.me/integrations/eslint) checks strings, comments and declared identifiers in JavaScript, TypeScript and Vue, plus YAML locale values.
-- [x18n](https://glosslint.onmax.me/integrations/x18n) checks the source locale's messages and hard-coded strings, and `toX18nGlossary` turns the corpus into x18n's glossary.
-- [The CLI](https://glosslint.onmax.me/integrations/cli) checks Markdown, MDX and text files, tests term examples, prints the corpus and explains words.
+- [ESLint](https://glosslint.onmax.me/integrations/eslint): `glosslint()` reads `.agents/glossary.md` with no options and checks strings, comments and identifiers in JavaScript, TypeScript and Vue templates, plus YAML locale values.
+- [Oxlint](https://glosslint.onmax.me/integrations/oxlint): add `"glosslint/oxlint"` to `jsPlugins` in `.oxlintrc.json` to run the four rules on JavaScript, TypeScript and Vue `<script>` blocks (Oxlint JS plugins are alpha).
+- [x18n](https://glosslint.onmax.me/integrations/x18n): check source-locale messages and hard-coded strings, and pass the corpus to `toX18nGlossary` for x18n's glossary.
+- [CLI](https://glosslint.onmax.me/integrations/cli): checks Markdown, MDX and text files, tests term examples, prints corpora and explains words from the terminal.
+
+## Doctor
+
+`glosslint doctor` checks `.agents/glossary.md` for format mistakes, bad values, duplicate terms and failing `Good`/`Bad` examples. Pass `--fix` to rewrite fixable layout, heading and field-name issues into canonical form without dropping text:
+
+```sh
+npx glosslint doctor --fix
+```
 
 ## For agents
 
-Write your glossary for coding agents with `glosslint print > .agents/terms.md` and link it from `AGENTS.md`. When an agent is unsure which word to use, `glosslint explain "<word>"` prints the term, its meaning, its nuance and the words to avoid. [For agents](https://glosslint.onmax.me/guide/agents) explains how to apply findings by `fix.kind`.
+Coding agents read `.agents/glossary.md` directly, so link it from `AGENTS.md`. When an agent is unsure which word to use, `glosslint explain "<word>"` prints the term, its meaning, its usage notes and the words to avoid. [For agents](https://glosslint.onmax.me/guide/agents) covers the editing loop by `fix.kind`.
 
 ## License
 

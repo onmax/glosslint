@@ -123,6 +123,25 @@ describe("explain", () => {
     expect(explain(bike, "scooter")).toBe('No term in the corpus matches "scooter".');
   });
 
+  it("prints the term's why after its nuance", () => {
+    const corpus = defineCorpus({
+      terms: [
+        {
+          term: "Dock",
+          description: "A powered stand.",
+          nuance: "A station is a group of docks.",
+          why: 'Riders read "dock" on the stand',
+          avoid: ["bay"],
+        },
+      ],
+    });
+    expect(explain(corpus, "dock")).toBe(`Dock
+  A powered stand.
+  A station is a group of docks.
+  Riders read "dock" on the stand.
+  Avoid: bay.`);
+  });
+
   it("starts a reason written in lowercase with a capital, keeping a first word with capitals", () => {
     const corpus = defineCorpus({
       terms: [

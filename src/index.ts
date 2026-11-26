@@ -5,8 +5,8 @@ export type { FormatOptions } from "./format.ts";
 export { kindOf } from "./kind.ts";
 export { check, createMatcher } from "./matcher.ts";
 export type { MatcherOptions } from "./matcher.ts";
-export { fromGlossaryTable } from "./table.ts";
-export type { GlossaryTableColumns } from "./table.ts";
+export { fromGlossary, readGlossary } from "./glossary.ts";
+export type { GlossaryProblem } from "./glossary.ts";
 export { explain, printCorpus, testCorpus, toX18nGlossary } from "./tools.ts";
 export type {
   Avoid,

@@ -1,7 +1,7 @@
 ---
 title: Findings format
 description: "Reference for glosslint findings: JSON and tree output formats, every field, the three finding codes, fix.kind rules, and matcher output."
-navigation.order: 1
+navigation.order: 2
 icon: i-lucide-list-checks
 ---
 
@@ -93,19 +93,19 @@ The [CLI](/integrations/cli) prints a summary line after the last finding, such 
 | `file`, `line`, `column` | Where the text starts. `line` and `column` count from 1.                                                                |
 | `start`, `end`           | Offsets of the text in the file.                                                                                        |
 | `text`                   | The reported text, as written.                                                                                          |
-| `message`                | The one-line message [ESLint](/integrations/eslint) prints.                                                             |
-| `why`                    | The avoid word's reason, or the term's nuance. Absent when there is neither.                                            |
+| `message`                | The one-line message [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint) print.                           |
+| `why`                    | The avoid word's reason, else the term's `why` (`Why:`), else the term's `nuance` (`How:`). Absent when none exist.     |
 | `fix.kind`               | What the fix may do. See [Fix kinds](#fix-kinds).                                                                       |
 | `fix.replace`            | The text that replaces `text`.                                                                                          |
 | `fix.result`             | The line as it reads once fixed.                                                                                        |
 | `term`                   | The term's `term`, `description` and `nuance`.                                                                          |
 | `see`                    | The term's first link.                                                                                                  |
 
-`fix` is omitted when a finding cannot be replaced safely in place, such as a match that spans a line break. In [ESLint](/integrations/eslint), strings whose escapes the fix would break and YAML block scalars also report without a fix.
+`fix` is omitted when a finding cannot be replaced safely in place, such as a match that spans a line break. In [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint), strings whose escapes the fix would break (and YAML block scalars in ESLint) also report without a fix.
 
 ## Finding codes
 
-Every finding carries one of three stable codes. In [ESLint](/integrations/eslint), the code is also the rule diagnostic's `messageId`.
+Every finding carries one of three stable codes. In [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint), the code is also the rule diagnostic's `messageId`.
 
 | Code              | Reported when                                                                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -117,12 +117,12 @@ Every finding carries one of three stable codes. In [ESLint](/integrations/eslin
 
 `fix.kind` tells tools, editors, and [coding agents](/guide/agents) what is safe to change automatically:
 
-- `autofix`: a spelling or casing fix. It is safe to apply without asking. [ESLint](/integrations/eslint) and [x18n](/integrations/x18n) offer it as a suggestion instead when only the text's shape decided its kind, as described in [Casing rules](/guide/casing).
+- `autofix`: a spelling or casing fix. It is safe to apply without asking. [ESLint](/integrations/eslint), [Oxlint](/integrations/oxlint), and [x18n](/integrations/x18n) offer it as a suggestion instead when only the text's shape decided its kind, as described in [Casing rules](/guide/casing).
 - `suggestion`: the term to use instead of an avoid word. Someone has to check that the meaning fits.
 - `rename`: a new name for an identifier. It touches every caller, so nothing applies it alone.
 
 > [!NOTE]
-> The [CLI](/integrations/cli) never modifies files. It reports `fix.kind`, `fix.replace`, and `fix.result` so you or an agent can apply changes yourself.
+> `glosslint check` never modifies files. It reports `fix.kind`, `fix.replace`, and `fix.result` so you or an agent can apply changes yourself.
 
 ## Findings in JavaScript
 

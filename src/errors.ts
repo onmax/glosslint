@@ -1,6 +1,6 @@
 /** A problem in the corpus or the config, with what to change. */
 export class GlosslintConfigError extends Error {
-  /** A stable code, such as `GLOSSLINT_DUPLICATE_TERM`. */
+  /** A stable code, such as `GLOSSLINT_C005`. */
   readonly code: string;
   /** Why the config is wrong. */
   readonly why: string;

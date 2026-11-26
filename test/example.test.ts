@@ -1,15 +1,10 @@
-// examples/basic is the config the docs site shows. It imports glosslint by the package name, so the
-// mocks point those imports at src/ and the suite runs without a build.
+// examples/basic is the project the docs site shows: .agents/glossary.md and no config.
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { loadCorpus } from "../src/cli.ts";
 import { testCorpus } from "../src/tools.ts";
 import { run } from "./cli/run.ts";
-
-vi.mock("glosslint", () => import("../src/index.ts"));
-vi.mock("glosslint/presets/tech", () => import("../src/presets/tech.ts"));
-vi.mock("glosslint/presets/inclusive", () => import("../src/presets/inclusive.ts"));
 
 const exampleDir = fileURLToPath(new URL("../examples/basic/", import.meta.url));
 const contentDir = new URL("../docs/content/", import.meta.url);
@@ -26,8 +21,9 @@ const docs = [
 const cli = (...args: string[]) => run(args, exampleDir);
 
 describe("examples/basic", () => {
-  it("loads the presets, the glossary table and its own terms", async () => {
-    const { corpus } = await loadCorpus(exampleDir);
+  it("loads the presets and the terms of .agents/glossary.md", async () => {
+    const { corpus, from } = await loadCorpus(exampleDir);
+    expect(from).toBe("glossary");
     const names = corpus.terms.map((term) => term.term);
     for (const name of ["GitHub", "allowlist", "Station", "kiosk", "Dock", "Day Pass"])
       expect(names).toContain(name);

@@ -1,15 +1,35 @@
 ---
 title: JavaScript API
-description: "Reference for glosslint's JavaScript API: every package entry point, exported function signature, preset export, CLI binary, and TypeScript type."
-navigation.order: 3
+description: "Reference for glosslint's JavaScript API: every entry point including glosslint/oxlint, fromGlossary, readGlossary, functions, and types."
+navigation.order: 4
 icon: i-lucide-braces
 ---
 
-glosslint ships five JavaScript package entry points plus a CLI binary. Use this reference when you call the matcher, formatters, glossary-table reader, or corpus tools from Node scripts, custom linters, or build pipelines, or when you wire up [ESLint](/integrations/eslint) and [x18n](/integrations/x18n).
+glosslint ships six JavaScript package entry points plus a CLI binary. Use this reference when you load or lint a glossary file from code, call the matcher or formatters directly, or wire up [ESLint](/integrations/eslint), [Oxlint](/integrations/oxlint), and [x18n](/integrations/x18n).
 
 ## glosslint
 
-The main entry point exports corpus builders, the matcher, string kind classification, finding formatters, corpus utilities, `GlosslintConfigError`, `CONFIG_ERRORS`, and all core TypeScript types.
+The main entry point exports glossary file readers, `defineCorpus`, the matcher, string kind classification, finding formatters, corpus utilities, `GlosslintConfigError`, `CONFIG_ERRORS`, and all core TypeScript types.
+
+### fromGlossary
+
+```ts
+function fromGlossary(path?: string | URL): Corpus
+```
+
+Reads a glossary Markdown file synchronously and returns a validated flat `Corpus`. Defaults to `".agents/glossary.md"`; a string resolves from `process.cwd()`, and a `URL` resolves as a file URL. Throws `GlosslintConfigError` with `GLOSSLINT_C009` when the file is missing, or with the first `GLOSSLINT_G004` to `GLOSSLINT_G008` problem when the file cannot be loaded. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. See [The glossary file](/guide/glossary).
+
+### readGlossary
+
+```ts
+function readGlossary(text: string): {
+  problems: GlossaryProblem[];
+  corpus?: Corpus;
+  fixed?: string;
+}
+```
+
+Parses glossary Markdown text without touching disk. Returns every `GlossaryProblem` sorted by line number (including `GLOSSLINT_G009` for failing examples). `corpus` is defined when no `G004` to `G008` problem exists; `fixed` holds the canonical Markdown text when the file can be rewritten without dropping text and differs from `text`.
 
 ### defineCorpus
 
@@ -17,15 +37,7 @@ The main entry point exports corpus builders, the matcher, string kind classific
 function defineCorpus(input: CorpusInput): Corpus
 ```
 
-Validates every field in `input`, merges corpora listed in `extends` from left to right before applying `input.terms`, and returns a frozen flat `Corpus`. Throws `GlosslintConfigError` on an invalid corpus or term. See [The corpus](/guide/corpus) for merge order and field details.
-
-### fromGlossaryTable
-
-```ts
-function fromGlossaryTable(path: string | URL, columns?: GlossaryTableColumns): Corpus
-```
-
-Reads the file at `path` synchronously and turns the first Markdown table with a `Use` or `Term` column, or the custom header names in `columns`, into a `Corpus`. Throws `GlosslintConfigError` with `GLOSSLINT_NO_GLOSSARY_TABLE` if no matching table exists, or `GLOSSLINT_DUPLICATE_TERM` if the table lists the same term twice. See [Glossary tables](/guide/glossary-table).
+Validates every field in `input`, merges corpora listed in `extends` from left to right before applying `input.terms`, and returns a frozen flat `Corpus`. Throws `GlosslintConfigError` on an invalid corpus or term. See [defineCorpus](/guide/corpus) for merge order and field details.
 
 ### createMatcher
 
@@ -97,7 +109,7 @@ Formats `corpus` as a Markdown glossary (`"md"`) or pretty-printed JSON containi
 function explain(corpus: Corpus, query: string): string
 ```
 
-Looks up what `corpus` says about a word or phrase, matching terms, abbreviations, locale forms, avoid words, matcher findings, or mentions, and formats each match with its description, nuance, avoid list, examples, links, and related terms. Returns `No term in the corpus matches "<query>".` when nothing matches.
+Looks up what `corpus` says about a word or phrase, matching terms, abbreviations, locale forms, avoid words, matcher findings, or mentions, and formats each match with its description, nuance, `why`, avoid list, examples, links, and related terms. Returns `No term in the corpus matches "<query>".` when nothing matches.
 
 ### toX18nGlossary
 
@@ -119,7 +131,7 @@ class GlosslintConfigError extends Error {
 }
 ```
 
-Error class thrown by `defineCorpus` and `fromGlossaryTable` on an invalid corpus or glossary table. See [Config errors](/reference/config-errors) for every error code and fix.
+Error class thrown by `defineCorpus`, `fromGlossary`, and `glosslint/eslint` on an invalid corpus, missing or broken glossary file, or conflicting ESLint options. See [Config and glossary errors](/reference/config-errors) for every error code and fix.
 
 ### CONFIG_ERRORS
 
@@ -133,11 +145,13 @@ const CONFIG_ERRORS: {
   readonly badSkip: "GLOSSLINT_C006";
   readonly badType: "GLOSSLINT_C007";
   readonly notCorpus: "GLOSSLINT_C008";
+  readonly noGlossary: "GLOSSLINT_C009";
   readonly badCasing: "GLOSSLINT_C011";
+  readonly glossaryAndCorpus: "GLOSSLINT_C012";
 };
 ```
 
-Maps corpus validation error names to their stable `GlosslintConfigError` codes.
+Maps corpus and loader validation error names to their stable `GlosslintConfigError` codes.
 
 ## glosslint/eslint
 
@@ -146,10 +160,21 @@ Provides the ESLint flat config factory and its `GlosslintEslintOptions` type. R
 ### glosslint (ESLint)
 
 ```ts
-export default function glosslint(options: GlosslintEslintOptions): Linter.Config[]
+export default function glosslint(options?: GlosslintEslintOptions): Linter.Config[]
 ```
 
-Returns a single-element array containing an ESLint flat config object named `"glosslint"` with `glosslint/term`, `glosslint/avoid`, and `glosslint/comment` set to `"error"` and `glosslint/identifier` set to `"warn"`. It sets no parser, so your ESLint config supplies `typescript-eslint`, `vue-eslint-parser`, or `yaml-eslint-parser` for the files you lint.
+Returns a single-element array containing an ESLint flat config object named `"glosslint"` with `glosslint/term`, `glosslint/avoid`, and `glosslint/comment` set to `"error"` and `glosslint/identifier` set to `"warn"`. Uses `options.corpus` if passed, else loads `options.glossary` or `.agents/glossary.md` from `process.cwd()` once when the config is built. Passing both `glossary` and `corpus` throws `GLOSSLINT_C012`. It sets no parser, so your ESLint config supplies `typescript-eslint`, `vue-eslint-parser`, or `yaml-eslint-parser` for the files you lint.
+
+## glosslint/oxlint
+
+Provides the Oxlint JavaScript plugin default export and its `GlosslintOxlintPlugin` and `GlosslintOxlintSettings` types. Requires the optional peer dependency `oxlint` (`>=1.94.0`). Oxlint JS plugins are alpha in Oxlint 1.94. See [Oxlint](/integrations/oxlint).
+
+```ts
+declare const plugin: GlosslintOxlintPlugin;
+export default plugin;
+```
+
+Referenced by module specifier in `.oxlintrc.json` as `"jsPlugins": ["glosslint/oxlint"]`. Exposes `{ meta: { name: "glosslint" }, rules: { term, avoid, comment, identifier } }`. Reads `.agents/glossary.md` (or `settings.glosslint.glossary`) from `context.cwd` on the first file and caches the corpus for the process.
 
 ## glosslint/x18n
 
@@ -158,14 +183,14 @@ Provides the x18n plugin factory and its `GlosslintX18nOptions` type. Requires t
 ### glosslint (x18n)
 
 ```ts
-export default function glosslint(options: GlosslintX18nOptions): Plugin
+export default function glosslint(options?: GlosslintX18nOptions): Plugin
 ```
 
 Returns an `@x18n/core` plugin named `"glosslint"` that adds the checks `glosslint-term` (`"error"`), `glosslint-avoid` (`"warning"`), and `glosslint-case` (`"error"`) over source-locale messages and hard-coded strings. Importing this entry point also augments `@x18n/core`'s `CheckIds` interface with those three check IDs.
 
 ## glosslint/presets/tech
 
-Exports a default `Corpus` containing 477 product and technology names generated from case-police 2.2.1 (each an `exact` term with `skip: ["lower", "upper"]`) and 7 joined spellings in `allow`. Pass it inside `extends` when calling `defineCorpus`. See [Built-in presets](/guide/presets).
+Exports a default `Corpus` containing 477 product and technology names generated from case-police 2.2.1 (each an `exact` term with `skip: ["lower", "upper"]`) and 7 joined spellings in `allow`. In `.agents/glossary.md`, write `Extends: tech`; in `defineCorpus`, pass it inside `extends`. See [Built-in presets](/guide/presets).
 
 ```ts
 declare const corpus: Corpus;
@@ -174,7 +199,7 @@ export default corpus;
 
 ## glosslint/presets/inclusive
 
-Exports a default `Corpus` containing 37 inclusive-wording terms with reasons on each avoid word, inline examples, and an empty `allow` list. Pass it inside `extends` when calling `defineCorpus`. See [Built-in presets](/guide/presets).
+Exports a default `Corpus` containing 37 inclusive-wording terms with reasons on each avoid word, inline examples, and an empty `allow` list. In `.agents/glossary.md`, write `Extends: inclusive`; in `defineCorpus`, pass it inside `extends`. See [Built-in presets](/guide/presets).
 
 ```ts
 declare const corpus: Corpus;
@@ -185,11 +210,11 @@ export default corpus;
 
 The package registers one executable in `package.json` `bin`: `glosslint` (`./dist/cli.mjs`). It is not listed under `package.json` `exports`, so run it from your shell with `npx glosslint` or `pnpm exec glosslint`.
 
-It provides `glosslint [check] [...paths]` (default command), `glosslint test`, `glosslint print`, and `glosslint explain <query>`. See [CLI](/integrations/cli) for all flags and exit codes.
+It provides `glosslint [check] [...paths]` (default command), `glosslint doctor`, `glosslint test`, `glosslint print`, and `glosslint explain <query>`. See [CLI](/integrations/cli) for all flags and exit codes.
 
 ## Types
 
-Every type below is exported from `glosslint`, except `GlosslintEslintOptions` (from `glosslint/eslint`) and `GlosslintX18nOptions` (from `glosslint/x18n`).
+Every type below is exported from `glosslint`, except `GlosslintEslintOptions` (from `glosslint/eslint`), `GlosslintOxlintPlugin` and `GlosslintOxlintSettings` (from `glosslint/oxlint`), and `GlosslintX18nOptions` (from `glosslint/x18n`).
 
 - `Avoid`: Object form of an avoid entry, `{ word: string; why?: string }`.
 - `CaseMode`: How capitals are checked on a term: `"exact" | "spelling" | "context"`.
@@ -198,7 +223,7 @@ Every type below is exported from `glosslint`, except `GlosslintEslintOptions` (
 - `CasingKind`: Text kinds that accept a case style: `"label" | "header" | "sentence"`.
 - `CliFinding`: Finding returned by the CLI, adding `file`, `line`, `column`, `fix.result`, and `TermSummary` in place of the full `Term`.
 - `CliReport`: JSON structure printed by `glosslint check --format json` and returned by `toJson`, holding `{ findings, summary }`.
-- `Corpus`: Validated, flat corpus returned by `defineCorpus`, with `kind: "glosslint.corpus"`, `terms`, `allow`, optional `casing`, and optional `wholeLabel`.
+- `Corpus`: Validated, flat corpus returned by `fromGlossary` and `defineCorpus`, with `kind: "glosslint.corpus"`, `terms`, `allow`, optional `casing`, and optional `wholeLabel`.
 - `CorpusInput`: Configuration object accepted by `defineCorpus`, with optional `extends`, `terms`, `allow`, `casing`, and `wholeLabel`.
 - `CorpusTestFailure`: One failing term example from `testCorpus`, with `term`, `example`, `expected` (`"finding" | "none"`), and `findings`.
 - `Finding`: One match returned by `Matcher.check`, with `code`, `start`, `end`, `text`, `message`, full `term`, and optional `why`, `fix`, and `see`.
@@ -206,15 +231,17 @@ Every type below is exported from `glosslint`, except `GlosslintEslintOptions` (
 - `Fix`: Replacement attached to a finding, `{ kind: FixKind; replace: string }`.
 - `FixKind`: Action safety level of a fix: `"autofix" | "suggestion" | "rename"`.
 - `FormatOptions`: Options for `formatFinding` and `formatFindings`: `{ color?: boolean; files?: number }`.
-- `GlossaryTableColumns`: Optional custom column headers for `fromGlossaryTable`: `{ term?, avoid?, notes?, description?, links? }`.
-- `GlosslintEslintOptions`: Options for `glosslint/eslint`: `{ corpus, files?, ignoreCallees?, identifierAvoid?, kindOf? }`.
-- `GlosslintX18nOptions`: Options for `glosslint/x18n`: `{ corpus, sourceLocale?, kindOf? }`.
+- `GlossaryProblem`: One problem returned by `readGlossary`: `{ code: string; line: number; why: string; fix: string; fixable: boolean; term?: string }`.
+- `GlosslintEslintOptions`: Options for `glosslint/eslint`: `{ glossary?: string | URL; corpus?: Corpus; files?: string[]; ignoreCallees?: string[]; identifierAvoid?: boolean; kindOf?: KindOf }`.
+- `GlosslintOxlintPlugin`: Oxlint plugin object `{ meta: { name: "glosslint" }; rules: Record<"term" | "avoid" | "comment" | "identifier", OxlintRule> }`.
+- `GlosslintOxlintSettings`: Shape of `settings.glosslint` in `.oxlintrc.json`: `{ glossary?: string; ignoreCallees?: string[]; identifierAvoid?: boolean }`.
+- `GlosslintX18nOptions`: Options for `glosslint/x18n`: `{ glossary?: string | URL; corpus?: Corpus; sourceLocale?: string; kindOf?: KindOf }`, all optional; `glossary` and `corpus` exclude each other.
 - `KindOf`: Custom kind classifier `(site: KindSite) => TextKind | undefined`.
 - `KindSite`: String context passed to `kindOf`: `{ text: string; name?: string; file?: string; shown?: boolean }`.
 - `Link`: Reference link on a term, `{ title: string; url: string }`.
 - `Matcher`: Compiled corpus returned by `createMatcher`, exposing readonly `corpus` and `check(text, kind?)`.
 - `MatcherOptions`: Options for `createMatcher`: `{ identifierAvoid?: boolean }`.
-- `Term`: Corpus entry with required `term` and optional `description`, `nuance`, `abbr`, `avoid`, `examples`, `links`, `case`, `casing`, `skip`, `forms`, and `translations`.
+- `Term`: Corpus entry with required `term` and optional `description`, `nuance`, `why`, `abbr`, `avoid`, `examples`, `links`, `case`, `casing`, `skip`, `forms`, and `translations`.
 - `TermSummary`: `Pick<Term, "term" | "description" | "nuance">`, carried on each `CliFinding`.
 - `TextKind`: Context of a checked string: `"label" | "header" | "sentence" | "comment" | "identifier" | "unknown"`.
 - `X18nGlossaryEntry`: Entry produced by `toX18nGlossary` with `term` and optional `translations`, `forms`, `note`, and `doNotTranslate`.

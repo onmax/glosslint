@@ -9,7 +9,11 @@ import type {
   Resource,
   TextRange,
 } from "@x18n/core";
-import { describe, expect, it } from "vite-plus/test";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { defineCorpus } from "../src/corpus.ts";
+import { GlosslintConfigError } from "../src/errors.ts";
 import glosslint from "../src/x18n.ts";
 import { bike } from "./core/bike.ts";
 
@@ -394,5 +398,67 @@ describe("glosslint x18n plugin in an x18n project", () => {
         .diagnostics.filter((d) => d.code.startsWith("glosslint-"))
         .map((d) => [d.code, d.severity]),
     ).toEqual([["glosslint-avoid", "error"]]);
+  });
+});
+
+describe("glosslint x18n plugin with a glossary file", () => {
+  const fixtures = new URL("fixtures/glossary/", import.meta.url);
+  const inFolder = (path: string) =>
+    vi.spyOn(process, "cwd").mockReturnValue(resolve(fileURLToPath(new URL(path, fixtures))));
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const app = resource("locales/en.json", "en", {
+    "ride.end": "Leave it at the rack or the hub.",
+  });
+  const ctx = (): CheckContext => {
+    const ctx: Partial<CheckContext> = {
+      sourceLocale: "en",
+      locales: ["en"],
+      resources: [app.resource],
+      options: {},
+      messages: () => app.messages,
+      text: () => app.text,
+      hardStrings: () => [],
+    };
+    return ctx as CheckContext;
+  };
+  const avoided = (plugin: Plugin) =>
+    run(plugin, ctx())["glosslint-avoid"]?.map((d) => d.message.split(".")[0]);
+
+  it("reads .agents/glossary.md from the current folder once, when the plugin is built", () => {
+    inFolder("project/");
+    const plugin = glosslint();
+    inFolder("./");
+    const [rack] = run(plugin, ctx())["glosslint-avoid"] ?? [];
+    expect(rack?.message).toContain("Racks are unpowered.");
+    expect(run(plugin, ctx())["glosslint-avoid"]).toHaveLength(1);
+  });
+
+  it("throws GLOSSLINT_C009 when built in a folder with no glossary", () => {
+    inFolder("./");
+    expect(() => glosslint()).toThrow(expect.objectContaining({ code: "GLOSSLINT_C009" }));
+  });
+
+  it("reads another glossary from `glossary`, as a path from the current folder or a URL", () => {
+    inFolder("./");
+    for (const glossary of ["other.md", new URL("other.md", fixtures)]) {
+      const findings = avoided(glosslint({ glossary }));
+      expect(findings).toHaveLength(1);
+      expect(findings?.[0]).toContain("hub");
+    }
+  });
+
+  it("throws GLOSSLINT_C012 when given both `glossary` and `corpus`", () => {
+    const corpus = defineCorpus({ terms: [{ term: "Station" }] });
+    let error: unknown;
+    try {
+      glosslint({ glossary: "other.md", corpus });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(GlosslintConfigError);
+    expect(error).toMatchObject({ code: "GLOSSLINT_C012" });
   });
 });

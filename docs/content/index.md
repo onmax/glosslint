@@ -1,6 +1,6 @@
 ---
 title: glosslint
-description: Check that your product's words are spelled, cased and chosen the way your glossary says across ESLint, x18n translations and Markdown docs.
+description: Keep one .agents/glossary.md file and enforce your product vocabulary in ESLint, Oxlint, x18n translations and Markdown docs.
 layout: home
 seo.title: glosslint · Lint your product vocabulary
 ---
@@ -8,37 +8,42 @@ seo.title: glosslint · Lint your product vocabulary
 ::glosslint-hero
 # Lint your product's words from one glossary
 
-glosslint checks that your product's words are spelled, cased and chosen the way your glossary says. You keep one corpus of terms, and glosslint reports problems in code, translations and Markdown docs with the reason and meaning on every finding.
+glosslint checks that your product's words are spelled, cased and chosen the way `.agents/glossary.md` says. People and coding agents read that file directly, while ESLint, Oxlint, x18n and the CLI report problems in code, translations and Markdown docs with the reason and meaning on every finding.
 ::
 
 :badge{source="github-actions" repository="onmax/glosslint" workflow="pkg-pr-new.yml" icon="github"} :badge[MIT]{label="license"}
 
-## One glossary across code, translations and docs
+## One file across code, translations and docs
 
-You keep one corpus in `glosslint.config.ts`, extended with a Markdown glossary table or the built-in tech and inclusive presets when you want them. Three runners read that corpus:
+Write your product's terms in `.agents/glossary.md`, and extend the built-in `tech` and `inclusive` presets on one line when you want them. Four runners read that file by default:
 
 - [ESLint](/integrations/eslint) checks string literals, template literals, Vue templates and static attributes, YAML locale values, comments, and declared identifier names in JavaScript and TypeScript.
-- [x18n](/integrations/x18n) checks your source locale's messages and hard-coded strings, and `toX18nGlossary` turns your corpus into x18n's glossary so translators and machine translation see the same terms.
-- [CLI](/integrations/cli) checks Markdown, MDX and text files, runs tests against each term's good and bad examples, prints the corpus as Markdown or JSON, and explains any word from the terminal.
+- [Oxlint](/integrations/oxlint) runs the same four rules as a JS plugin on JavaScript, TypeScript, and Vue `<script>` blocks.
+- [x18n](/integrations/x18n) checks your source locale's messages and hard-coded strings, and `toX18nGlossary` turns your corpus into x18n's glossary so translators see the same terms.
+- [CLI](/integrations/cli) checks Markdown, MDX and text files, lints and repairs `.agents/glossary.md` with `doctor`, runs `test` on term examples, and explains any word from the terminal.
+
+When you need fields the Markdown file does not carry, such as per-locale `translations`, `forms`, `skip`, per-term `casing` or `wholeLabel`, compose `.agents/glossary.md` inside `defineCorpus` in `glosslint.config.ts`.
 
 ## How it works
 
-One corpus feeds one matcher. ESLint, x18n and the CLI each send text to that matcher and report its findings in the format that fits the tool.
+`.agents/glossary.md` loads into one flat corpus and feeds one matcher. ESLint, Oxlint, x18n and the CLI each send text to that matcher and report its findings in the format that fits the tool.
 
 ```mermaid
 flowchart LR
-  corpus["glosslint.config.ts<br/>glossary table + presets"] --> matcher["Matcher"]
-  matcher --> eslint["ESLint<br/>code, YAML locales,<br/>comments, identifiers"]
+  glossary[".agents/glossary.md<br/>+ presets or defineCorpus"] --> matcher["Matcher"]
+  matcher --> eslint["ESLint<br/>JS, TS, Vue, YAML"]
+  matcher --> oxlint["Oxlint<br/>JS, TS"]
   matcher --> x18n["x18n<br/>translations"]
   matcher --> cli["CLI<br/>Markdown docs"]
   eslint --> findings["Findings<br/>why, fix, meaning<br/>for people and agents"]
+  oxlint --> findings
   x18n --> findings
   cli --> findings
 ```
 
 ## What a check catches
 
-Every example in these docs uses an invented bike-share app whose full setup lives in [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic). In that app, `eBike` is an exact term and `rack` is an avoid word for `Dock` because racks are unpowered.
+Every example in these docs uses an invented bike-share app whose full setup lives in [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic). In that app, `.agents/glossary.md` defines `eBike` as an exact term and `rack` as an avoid word for `Dock` because racks are unpowered.
 
 ```diff
   # locales/en.yml
@@ -48,11 +53,15 @@ Every example in these docs uses an invented bike-share app whose full setup liv
 
 glosslint reports `e-bike` as a spelling error with an autofix to `eBike`. It reports `rack` as an avoid word with a suggestion to use `dock`, the reason why, the definition of `Dock`, its nuance against `Station`, and a link to the docks page.
 
-## Findings built for people and coding agents
+## Built for people and coding agents
 
-Every finding carries the code, the location, the reason why, the term's description and nuance, a link for more reading, and a `fix` tagged by kind. Spelling and casing fixes are marked `autofix` when the text's kind is known. Avoid words are marked `suggestion` so a person or agent reads the meaning before changing the wording. Identifier splits are marked `rename` and never applied on their own because a rename touches every caller.
+Because the source of truth is `.agents/glossary.md`, coding agents read the exact file your linters enforce. Every finding carries the code, location, reason why, term description and nuance, a documentation link, and a `fix` tagged by kind:
 
-Read [Findings](/reference/findings) for the full JSON shape and fix rules, or [Coding agents](/guide/agents) to wire your glossary into `AGENTS.md` and an agent editing loop.
+- `autofix` applies spelling and casing fixes when the text kind is known.
+- `suggestion` marks avoid words so a person or agent reads the meaning before changing the wording.
+- `rename` marks identifier splits and is never applied automatically because a rename touches every caller.
+
+Read [The glossary file](/guide/glossary) to learn the Markdown format, [Findings](/reference/findings) for the full JSON shape, or [Coding agents](/guide/agents) to link `.agents/glossary.md` from `AGENTS.md`.
 
 ## Install
 
@@ -60,6 +69,6 @@ Read [Findings](/reference/findings) for the full JSON shape and fix rules, or [
 pnpm add -D glosslint
 ```
 
-glosslint needs Node 22.18 or later, because it loads `glosslint.config.ts` with Node's own `import()` and type stripping. ESLint 9.15 or later and `@x18n/core` are optional peer dependencies, so install only the ones you use.
+glosslint needs Node 22.18 or later. ESLint (`>=9.15.0`), Oxlint (`>=1.94.0`) and `@x18n/core` (`>=0.1.14`) are optional peer dependencies, so install only the ones you use.
 
-Follow [Installation](/guide/installation) for npm, yarn and bun commands and a first setup, or start with the [Guide](/guide) to see how the corpus works.
+Follow [Installation](/guide/installation) for npm, yarn and bun commands and a first `.agents/glossary.md` setup, or start with the [Guide](/guide).

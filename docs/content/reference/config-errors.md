@@ -1,15 +1,16 @@
 ---
-title: Config errors
-description: "Reference for glosslint config errors: GlosslintConfigError fields, exit code 2, all error codes, and fixes for GLOSSLINT_C001 to GLOSSLINT_C011."
-navigation.order: 2
+title: Config and glossary errors
+navigation.title: Config errors
+description: "Reference for glosslint config and glossary errors: GlosslintConfigError, GLOSSLINT_C001 to C012, GLOSSLINT_G001 to G009, and fixes."
+navigation.order: 3
 icon: i-lucide-shield-alert
 ---
 
-glosslint validates your [corpus](/guide/corpus) as soon as the config loads, so typos and wrong field types fail immediately with a stable code, a reason, and a fix. Read this reference when `defineCorpus`, `fromGlossaryTable`, or the CLI rejects your config file or command line.
+glosslint validates [`.agents/glossary.md`](/guide/glossary) and [`defineCorpus`](/guide/corpus) as soon as they load, so typos, bad fields, and invalid glossary entries fail with a stable code, a reason, and a fix. Read this reference when `fromGlossary`, `readGlossary`, `defineCorpus`, `glosslint/eslint`, or the CLI reports a config or glossary problem.
 
 ## Error output and exit code
 
-A wrong config fails at load time with a code, the reason, and the fix. The [CLI](/integrations/cli) prints the error to stderr in tree format and exits `2`:
+A wrong config or broken glossary file fails at load time with a code, the reason, and the fix. The [CLI](/integrations/cli) prints load and usage errors to stderr in tree format and exits `2`:
 
 ```txt
 [GLOSSLINT_C001] Unknown field "avoids" in term "Dock".
@@ -17,41 +18,146 @@ A wrong config fails at load time with a code, the reason, and the fix. The [CLI
 ╰▶ config: bad.config.ts
 ```
 
-Exit code `2` distinguishes configuration and command-line errors from lint findings or failing term tests, which exit `1`.
+Exit code `2` separates configuration, glossary-loading, and command-line errors from lint findings, `doctor` problems, or failing term tests, which exit `1`.
 
 ## GlosslintConfigError
 
-In code, `defineCorpus` and `fromGlossaryTable` throw a `GlosslintConfigError`, a subclass of `Error`, with four fields:
+In code, `defineCorpus`, `fromGlossary`, and `glosslint/eslint` throw a `GlosslintConfigError`, a subclass of `Error`, with four fields:
 
-- `code`: the stable error code, such as `"GLOSSLINT_C001"` or `"GLOSSLINT_DUPLICATE_TERM"`.
-- `why`: why the config or glossary table is wrong.
+- `code`: the stable error code, such as `"GLOSSLINT_C001"`, `"GLOSSLINT_C009"`, or `"GLOSSLINT_G004"`.
+- `why`: why the config, glossary file, or ESLint option is wrong.
 - `fix`: what to change.
 - `term`: the term name when the problem sits inside a single term, omitted otherwise.
 
 The error's `message` is `why`, with ` (term "<term>")` appended when `term` is set.
 
-`CONFIG_ERRORS`, exported from `glosslint`, maps corpus validation names to their codes: `GLOSSLINT_C001` through `GLOSSLINT_C008`, plus `GLOSSLINT_C011`. The CLI reports `GLOSSLINT_C009`, `GLOSSLINT_C010`, and `GLOSSLINT_USAGE` when loading a config or parsing arguments. See [JavaScript API](/reference/api) for the class and constant definitions.
+`CONFIG_ERRORS`, exported from `glosslint`, maps corpus and loader error names to their codes (`GLOSSLINT_C001` through `GLOSSLINT_C009`, `GLOSSLINT_C011`, and `GLOSSLINT_C012`). The CLI also reports `GLOSSLINT_C010` when importing a config throws and `GLOSSLINT_USAGE` when command-line flags or paths are wrong. See [JavaScript API](/reference/api).
 
 ## All error codes
 
-| Code                          | Meaning                                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------- |
-| `GLOSSLINT_C001`              | Unknown field. The fix names the closest field when there is one.                       |
-| `GLOSSLINT_C002`              | A term has no `term`, or it holds no letters or digits.                                 |
-| `GLOSSLINT_C003`              | `case` is not `exact`, `spelling` or `context`.                                         |
-| `GLOSSLINT_C004`              | An avoid word is the term itself. To require one casing, use `case: "exact"`.           |
-| `GLOSSLINT_C005`              | Two of your terms have the same key.                                                    |
-| `GLOSSLINT_C006`              | `skip` holds something other than `lower` or `upper`.                                   |
-| `GLOSSLINT_C007`              | A field has the wrong type, such as `abbr: "DP"`.                                       |
-| `GLOSSLINT_C008`              | An `extends` entry is not a corpus, or the config's default export is not one.          |
-| `GLOSSLINT_C009`              | The CLI found no config, or `--config` names a file that does not exist.                |
-| `GLOSSLINT_C010`              | The config threw while loading, such as on a syntax error.                              |
-| `GLOSSLINT_C011`              | `casing` names a kind other than `label`, `header` or `sentence`, or an unknown style.  |
-| `GLOSSLINT_NO_GLOSSARY_TABLE` | `fromGlossaryTable` found no table with a term column.                                  |
-| `GLOSSLINT_DUPLICATE_TERM`    | `fromGlossaryTable` read the same term twice.                                           |
-| `GLOSSLINT_USAGE`             | The command line is wrong, such as an unknown `--format` or a path that does not exist. |
+| Code | Meaning |
+| --- | --- |
+| `GLOSSLINT_C001` | Unknown field in `defineCorpus`. The fix names the closest field when there is one. |
+| `GLOSSLINT_C002` | A term has no `term`, or it holds no letters or digits. |
+| `GLOSSLINT_C003` | `case` is not `exact`, `spelling`, or `context`. |
+| `GLOSSLINT_C004` | An avoid word is the term itself. To require one casing, use `case: "exact"`. |
+| `GLOSSLINT_C005` | Two terms in the same `defineCorpus` call have the same key. |
+| `GLOSSLINT_C006` | `skip` holds something other than `lower` or `upper`. |
+| `GLOSSLINT_C007` | A field has the wrong type, such as `abbr: "DP"`. |
+| `GLOSSLINT_C008` | An `extends` entry is not a corpus, or the config's default export is not one. |
+| `GLOSSLINT_C009` | No glossary file or config was found, or `--glossary` / `--config` names a missing file. |
+| `GLOSSLINT_C010` | The config threw while loading, such as on a syntax error. |
+| `GLOSSLINT_C011` | `casing` names a kind other than `label`, `header`, or `sentence`, or an unknown style. |
+| `GLOSSLINT_C012` | `glosslint()` in ESLint or x18n received both `glossary` and `corpus`. |
+| `GLOSSLINT_G001` | Missing `# Glossary` H1, or an H1 with another title. Fixable with `doctor --fix`. |
+| `GLOSSLINT_G002` | Field name in another case, a known alias, or a close typo. Fixable with `doctor --fix`. |
+| `GLOSSLINT_G003` | Glossary layout problem (bullets, bare URL, field order, blank lines, endings). Fixable with `doctor --fix`. |
+| `GLOSSLINT_G004` | Unknown field, misplaced field, second H1, or disallowed block (stray text, table, fence, H3+). |
+| `GLOSSLINT_G005` | Duplicate term or duplicate field in the glossary file. |
+| `GLOSSLINT_G006` | Invalid or empty field value in the glossary file (`Case`, `Casing`, `Extends`, `Avoid`, `Links`). |
+| `GLOSSLINT_G007` | Term heading has no words, or parentheses hold something other than abbreviations. |
+| `GLOSSLINT_G008` | An avoid word matches the term itself or another term defined in the same glossary file. |
+| `GLOSSLINT_G009` | A `Good` example was reported or a `Bad` example was not reported in `doctor` / `readGlossary`. |
+| `GLOSSLINT_USAGE` | The command line is wrong, such as both `--config` and `--glossary`, an unknown `--format`, or a missing path. |
 
-For table header rules and duplicate-row handling on `GLOSSLINT_NO_GLOSSARY_TABLE` and `GLOSSLINT_DUPLICATE_TERM`, see [Glossary tables](/guide/glossary-table).
+## Glossary problem codes
+
+`readGlossary` returns every `GLOSSLINT_G001` to `GLOSSLINT_G009` problem as a `GlossaryProblem` (`{ code, line, why, fix, fixable, term? }`), and `glosslint doctor` prints them.
+
+- **`G001` to `G003` (`fixable: true`):** `glosslint doctor --fix` rewrites them in canonical form. `fromGlossary`, ESLint, Oxlint, and `glosslint check` still load a file that has only `G001` to `G003` problems as its fixed form would load.
+- **`G004` to `G008` (`fixable: false`):** Only a person can fix them. `fromGlossary` and the CLI throw `GlosslintConfigError` (exit `2`) with the first blocking problem's code, `path:line`, and fix. `doctor --fix` leaves the file untouched when one is present so it never drops text.
+- **`G009` (`fixable: false`):** Failing `Good` or `Bad` example, checked against the corpus produced by the glossary file alone. `doctor` reports it and exits `1`; `fromGlossary` and `check` ignore it.
+
+### GLOSSLINT_G001
+
+The file does not start with `# Glossary`, or starts with an H1 holding another title.
+
+```md
+# Bike words
+```
+
+Fix: retitle it `# Glossary`, or run `npx glosslint doctor --fix`.
+
+### GLOSSLINT_G002
+
+A field name uses the wrong case (`what:`), a known alias (`Description` or `Meaning` for `What`; `Notes` or `Nuance` for `How`; `See`, `Related`, or `Related links` for `Links`), or a typo close to a valid field name (`Avod:` for `Avoid:`).
+
+```md
+## Dock
+Description: A powered stand where one bike is locked.
+```
+
+Fix: rename it to the canonical field name (`What:`), or run `npx glosslint doctor --fix`.
+
+### GLOSSLINT_G003
+
+The file differs from canonical layout: a blank line follows a term's heading or separates two fields, a list uses `*` or `+` bullets, blank lines split a list, a comma list field has entries both on its line and in a list below, a `-`-only field (`Good`, `Bad`, `Links`) has an entry on its line, a link is a bare URL (rewritten to `[url](url)`), fields are out of canonical order, or blank lines, CRLF endings, trailing spaces, or the final newline do not match canonical form.
+
+Fix: run `npx glosslint doctor --fix`.
+
+### GLOSSLINT_G004
+
+The file contains an unknown field name (such as `Note:`), a term field written before the first `##` heading, a corpus field written inside a term, a second `#` heading, or content the glossary format has no place for: text before a term's first field or after a list or value field, a list after a text or value field, a Markdown table, a code fence, or a sub-heading (`###` to `######`).
+
+```md
+## Dock
+Note: Only powered stands count.
+```
+
+Fix: move the text into an accepted field such as `How:`, reword the line so it does not start with `Word:`, or remove the unsupported block.
+
+### GLOSSLINT_G005
+
+The same term (by normalized key) or the same field appears twice in the same section.
+
+```md
+## Station
+
+## station
+```
+
+Fix: merge the two sections or duplicate fields into one.
+
+### GLOSSLINT_G006
+
+A field or list item is empty, or holds an invalid value:
+
+- `Extends` names something other than `tech` or `inclusive`
+- `Case` is not `exact`, `spelling`, or `context`
+- `Casing` is not a `<kind> <style>` pair (`label`, `header`, `sentence` with `title`, `sentence`, `lower`, `upper`, `as-written`)
+- `Avoid` has an item with no letters or digits
+- `Links` has an item that is neither `[title](http(s)://...)` nor a bare http/https URL
+
+Fix: replace the value with a valid one, or remove the empty field.
+
+### GLOSSLINT_G007
+
+A `##` term heading has no words (`## ---`), or its parentheses hold something other than abbreviations (single words that are one uppercase letter or contain an uppercase letter after the first character, such as `DP`, `D`, or `eB`).
+
+```md
+## Day Pass (day ticket)
+```
+
+Fix: keep only abbreviations in parentheses (`## Day Pass (DP)`) and move explanations to `How:`.
+
+### GLOSSLINT_G008
+
+An `Avoid` item matches the term itself or another term defined in the same glossary file.
+
+```md
+## Dock
+Avoid: station
+
+## Station
+```
+
+Fix: remove the word from `Avoid`, remove the conflicting term, or use `Case: exact` if you meant to enforce capitalization on the term itself.
+
+### GLOSSLINT_G009
+
+A `Good` example was reported for its term, or a `Bad` example was not reported for its term, when checked against the corpus built from the glossary file alone.
+
+Fix: narrow the avoid word or adjust the example so `Good` passes and `Bad` triggers a finding.
 
 ## Corpus and config codes
 
@@ -67,7 +173,7 @@ For table header rules and duplicate-row handling on `GLOSSLINT_NO_GLOSSARY_TABL
 { term: "Dock", avoid: ["rack"] }
 ```
 
-See [The corpus](/guide/corpus) and [Defining terms](/guide/terms) for all accepted field names.
+See [defineCorpus](/guide/corpus) and [Defining terms](/guide/terms) for all accepted field names.
 
 ### GLOSSLINT_C002
 
@@ -148,7 +254,7 @@ terms: [{ term: "Day Pass" }]
 
 ### GLOSSLINT_C008
 
-`defineCorpus` throws `GLOSSLINT_C008` when an entry in `extends` is not a corpus created by `defineCorpus`, `fromGlossaryTable`, or a preset. The CLI also reports `GLOSSLINT_C008` when a config file's default export is not a corpus.
+`defineCorpus` throws `GLOSSLINT_C008` when an entry in `extends` is not a corpus created by `defineCorpus`, `fromGlossary`, or a preset. The CLI also reports `GLOSSLINT_C008` when a config file's default export is not a corpus.
 
 ```ts
 // Triggers GLOSSLINT_C008: Entry 1 of "extends" is not a corpus.
@@ -156,9 +262,9 @@ export default defineCorpus({
   extends: [{ terms: [{ term: "Dock" }] }],
 });
 
-// Fix: pass a preset, fromGlossaryTable(...), or defineCorpus(...)
+// Fix: pass a preset, fromGlossary(...), or defineCorpus(...)
 export default defineCorpus({
-  extends: [defineCorpus({ terms: [{ term: "Dock" }] })],
+  extends: [fromGlossary()],
 });
 ```
 
@@ -166,14 +272,14 @@ If the CLI reports `<file> does not export a corpus as its default export.`, end
 
 ### GLOSSLINT_C009
 
-The CLI reports `GLOSSLINT_C009` when the current folder has no `glosslint.config.ts`, `.mts`, `.js`, or `.mjs`, or when `--config <path>` points to a file that does not exist.
+`fromGlossary` throws `GLOSSLINT_C009` when `.agents/glossary.md` (or the path given to it) does not exist. The CLI reports `GLOSSLINT_C009` when neither `.agents/glossary.md` nor `glosslint.config.{ts,mts,js,mjs}` exists in the current folder, or when `--glossary` or `--config` points to a missing file.
 
 ```sh
-# Triggers GLOSSLINT_C009: The config "missing.config.ts" does not exist.
-npx glosslint check --config missing.config.ts
+# Triggers GLOSSLINT_C009: The glossary "missing.md" does not exist.
+npx glosslint check --glossary missing.md
 
-# Fix: pass an existing config path, or run from the folder with glosslint.config.ts
-npx glosslint check --config glosslint.config.ts
+# Fix: create .agents/glossary.md or pass an existing path
+npx glosslint check --glossary .agents/glossary.md
 ```
 
 ### GLOSSLINT_C010
@@ -200,4 +306,16 @@ export default defineCorpus({ extends: [tech] });
 
 // Fix: use a valid kind and case style
 { term: "Day Pass", casing: { header: "upper" } }
+```
+
+### GLOSSLINT_C012
+
+`glosslint/eslint` throws `GLOSSLINT_C012` when `glosslint()` receives both `glossary` and `corpus`.
+
+```ts
+// Triggers GLOSSLINT_C012: glosslint() takes `glossary` or `corpus`, not both.
+glosslint({ glossary: "docs/glossary.md", corpus });
+
+// Fix: pass one of them, or load the file inside defineCorpus({ extends: [fromGlossary(...)] })
+glosslint({ corpus });
 ```

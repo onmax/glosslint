@@ -216,6 +216,32 @@ describe("AVOID", () => {
     );
   });
 
+  it("takes why from the avoid word's reason, else the term's why, else its nuance", () => {
+    const corpus = defineCorpus({
+      terms: [
+        {
+          term: "Dock",
+          nuance: "A station is a group of docks.",
+          why: 'Riders read "dock" on the stand.',
+          avoid: [{ word: "rack", why: "Racks are unpowered." }, "bay"],
+        },
+        { term: "Station", nuance: "A group of docks.", avoid: ["hub"] },
+      ],
+    });
+    const why = (text: string) => createMatcher(corpus).check(text)[0]?.why;
+    expect(why("a rack")).toBe("Racks are unpowered.");
+    expect(why("a bay")).toBe('Riders read "dock" on the stand.');
+    expect(why("a hub")).toBe("A group of docks.");
+    expect(createMatcher(corpus).check("a bay")[0]?.message).toBe(
+      'Use "dock" instead of "bay". Riders read "dock" on the stand. A station is a group of docks.',
+    );
+    const identifier = createMatcher(corpus, { identifierAvoid: true }).check(
+      "bayCount",
+      "identifier",
+    );
+    expect(identifier[0]?.why).toBe('Riders read "dock" on the stand.');
+  });
+
   it("falls back to the nuance as why when the avoid word has no reason", () => {
     expect(matcher.check("a bay")[0]).toMatchObject({ why: "A station is a group of docks." });
     expect(matcher.check("a bay")[0]?.message).toBe(

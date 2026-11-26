@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { extname, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
@@ -7,6 +7,8 @@ import { cac } from "cac";
 import { escapePath, glob, isDynamicPattern } from "tinyglobby";
 import pkg from "../package.json" with { type: "json" };
 import { formatFindings, toJson } from "./format.ts";
+import { DEFAULT_GLOSSARY, GLOSSARY_PROBLEMS, readGlossary } from "./glossary.ts";
+import type { GlossaryProblem } from "./glossary.ts";
 import { kindOf } from "./kind.ts";
 import { createMatcher } from "./matcher.ts";
 import { explain, explainMatches, printCorpus, testCorpus } from "./tools.ts";
@@ -35,6 +37,8 @@ export interface CliIo {
 export interface CommandOptions {
   /** The config file. Default: `glosslint.config.{ts,mts,js,mjs}` in `cwd`. */
   config?: string;
+  /** The glossary file, read when there is no `config`. Default: `.agents/glossary.md` in `cwd`. */
+  glossary?: string;
   /** Color the output. Default: `io.color`. */
   color?: boolean;
 }
@@ -51,6 +55,30 @@ export interface CheckOptions extends CommandOptions {
 export interface PrintOptions extends CommandOptions {
   /** `md` (default) or `json`. */
   format?: string;
+}
+
+/** Options of `glosslint doctor`. */
+export interface DoctorOptions {
+  /** The glossary file. Default: `.agents/glossary.md` in `cwd`. */
+  glossary?: string;
+  /** Rewrite the file in canonical form when that drops no text. */
+  fix?: boolean;
+  /** `text` (default) or `json`. */
+  format?: string;
+  /** Color the output. Default: `io.color`. */
+  color?: boolean;
+}
+
+/** One problem of the glossary, as `glosslint doctor --format json` prints it. */
+export interface DoctorProblem extends GlossaryProblem {
+  /** The glossary, relative to `cwd`. */
+  file: string;
+}
+
+/** The JSON `glosslint doctor` prints: the problems left, and how many `--fix` fixed. */
+export interface DoctorReport {
+  problems: DoctorProblem[];
+  summary: { file: string; problems: number; fixable: number; fixed: number };
 }
 
 /** Codes of the errors the CLI prints itself, next to the corpus's `GLOSSLINT_C00x`. */
@@ -76,13 +104,15 @@ class CliError extends Error {
   readonly code: string;
   readonly why: string;
   readonly fix: string;
+  readonly term?: string;
   readonly config?: string;
 
-  constructor(options: { code: string; why: string; fix: string; config?: string }) {
+  constructor(options: { code: string; why: string; fix: string; term?: string; config?: string }) {
     super(options.why);
     this.code = options.code;
     this.why = options.why;
     this.fix = options.fix;
+    if (options.term !== undefined) this.term = options.term;
     if (options.config !== undefined) this.config = options.config;
   }
 }
@@ -123,29 +153,85 @@ function displayPath(cwd: string, file: string): string {
   return toPosix(relative(cwd, file)) || ".";
 }
 
-/** Finds and imports the config, and returns its default export, which must be a corpus. */
+/** What `loadCorpus` read: a config, or a glossary file it then never checks. */
+export interface LoadedCorpus {
+  corpus: Corpus;
+  /** The absolute path of the file read. */
+  file: string;
+  from: "config" | "glossary";
+}
+
+/**
+ * Finds the corpus: `config`, else `glossary`, else `glosslint.config.{ts,mts,js,mjs}` in `cwd`, else
+ * `.agents/glossary.md` in `cwd`.
+ */
 export async function loadCorpus(
   cwd: string,
-  config?: string,
-): Promise<{ corpus: Corpus; file: string }> {
-  let file: string | undefined;
-  if (config !== undefined) {
-    file = resolve(cwd, config);
-    if (!existsSync(file))
-      throw new CliError({
-        code: CLI_ERRORS.noConfig,
-        why: `The config "${config}" does not exist.`,
-        fix: "Check the path given to --config.",
-      });
-  } else {
-    file = CONFIG_FILES.map((name) => resolve(cwd, name)).find((path) => existsSync(path));
-    if (!file)
-      throw new CliError({
-        code: CLI_ERRORS.noConfig,
-        why: "No glosslint.config.ts, .mts, .js or .mjs in the current folder.",
-        fix: "Create glosslint.config.ts with `export default defineCorpus({ … })`, or pass --config <path>.",
-      });
-  }
+  options: { config?: string; glossary?: string } = {},
+): Promise<LoadedCorpus> {
+  const { config, glossary } = options;
+  if (config !== undefined && glossary !== undefined)
+    throw usage(
+      "--config and --glossary both name the corpus.",
+      "Pass one of them: --glossary for a glossary file, --config for a config.",
+    );
+  if (config !== undefined) return importConfig(cwd, resolve(cwd, config), config);
+  if (glossary !== undefined) return loadGlossary(cwd, glossary, true);
+  const found = CONFIG_FILES.map((name) => resolve(cwd, name)).find((path) => existsSync(path));
+  if (found) return importConfig(cwd, found);
+  if (existsSync(resolve(cwd, DEFAULT_GLOSSARY))) return loadGlossary(cwd, DEFAULT_GLOSSARY, false);
+  throw new CliError({
+    code: CLI_ERRORS.noConfig,
+    why: `No ${DEFAULT_GLOSSARY} and no glosslint.config.ts, .mts, .js or .mjs in the current folder.`,
+    fix: `Create ${DEFAULT_GLOSSARY} with \`# Glossary\` and a \`## Term\` section per term, or pass --glossary <path> or --config <path>.`,
+  });
+}
+
+/** `G004` to `G008`: the problems only a person can fix, which leave no corpus. */
+function leavesNoCorpus(problem: GlossaryProblem): boolean {
+  return !problem.fixable && problem.code !== GLOSSARY_PROBLEMS.failingExample;
+}
+
+function missingGlossary(cwd: string, file: string, given: boolean): CliError {
+  const shown = displayPath(cwd, file);
+  return new CliError({
+    code: CLI_ERRORS.noConfig,
+    why: given ? `The glossary "${shown}" does not exist.` : `No glossary at ${shown}.`,
+    fix: given
+      ? "Check the path given to --glossary."
+      : `Create ${shown} with \`# Glossary\` and a \`## Term\` section per term, or pass --glossary <path>.`,
+  });
+}
+
+/** Reads a glossary file as a corpus, or throws its first problem that leaves no corpus. */
+function loadGlossary(cwd: string, path: string, given: boolean): LoadedCorpus {
+  const file = resolve(cwd, path);
+  if (!existsSync(file)) throw missingGlossary(cwd, file, given);
+  const { problems, corpus } = readGlossary(readFileSync(file, "utf8"));
+  if (corpus) return { corpus, file, from: "glossary" };
+  const blocking = problems.filter(leavesNoCorpus);
+  const first = blocking[0]!;
+  const doctor = given ? `glosslint doctor --glossary ${path}` : "glosslint doctor";
+  const more =
+    blocking.length > 1
+      ? ` ${count(blocking.length - 1, "more problem")}: run \`${doctor}\` to list them.`
+      : "";
+  throw new CliError({
+    code: first.code,
+    why: `${displayPath(cwd, file)}:${first.line}: ${first.why}`,
+    fix: `${first.fix}${more}`,
+    ...(first.term === undefined ? {} : { term: first.term }),
+  });
+}
+
+/** Imports a config and returns its default export, which must be a corpus. */
+async function importConfig(cwd: string, file: string, given?: string): Promise<LoadedCorpus> {
+  if (given !== undefined && !existsSync(file))
+    throw new CliError({
+      code: CLI_ERRORS.noConfig,
+      why: `The config "${given}" does not exist.`,
+      fix: "Check the path given to --config.",
+    });
   const shown = displayPath(cwd, file);
   let loaded: { default?: unknown };
   try {
@@ -166,7 +252,7 @@ export async function loadCorpus(
       fix: "End the config with `export default defineCorpus({ … })`.",
       config: shown,
     });
-  return { corpus: loaded.default, file };
+  return { corpus: loaded.default, file, from: "config" };
 }
 
 /** Blanks a span with spaces, keeping line breaks, so every offset and line stays where it was. */
@@ -439,9 +525,12 @@ export async function runCheck(
   if (format !== "text" && format !== "json")
     throw usage(`--format is "${format}".`, "Use --format text or --format json.");
   const extensions = parseExtensions(options.ext);
-  const { corpus } = await loadCorpus(io.cwd, options.config);
-  const matcher = createMatcher(corpus);
-  const files = await collectFiles(paths, io.cwd, extensions);
+  const loaded = await loadCorpus(io.cwd, options);
+  const matcher = createMatcher(loaded.corpus);
+  // The glossary names every avoid word, so checking it would only report the glossary itself.
+  const files = (await collectFiles(paths, io.cwd, extensions)).filter(
+    (file) => loaded.from !== "glossary" || file !== loaded.file,
+  );
   const findings: CliFinding[] = [];
   for (const file of files) {
     const extension = extname(file).toLowerCase();
@@ -498,7 +587,7 @@ const count = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" :
 
 /** `glosslint test`: checks every term's good and bad examples. Exits 1 when one fails. */
 export async function runTest(options: CommandOptions, io: CliIo): Promise<number> {
-  const { corpus } = await loadCorpus(io.cwd, options.config);
+  const { corpus } = await loadCorpus(io.cwd, options);
   const color = useColor(options, io);
   const tested = corpus.terms.filter(
     (term) => (term.examples?.good?.length ?? 0) + (term.examples?.bad?.length ?? 0) > 0,
@@ -535,7 +624,7 @@ export async function runPrint(options: PrintOptions, io: CliIo): Promise<number
   const format = options.format ?? "md";
   if (format !== "md" && format !== "json")
     throw usage(`--format is "${format}".`, "Use --format md or --format json.");
-  const { corpus } = await loadCorpus(io.cwd, options.config);
+  const { corpus } = await loadCorpus(io.cwd, options);
   io.stdout(printCorpus(corpus, format));
   return 0;
 }
@@ -546,9 +635,71 @@ export async function runExplain(
   options: CommandOptions,
   io: CliIo,
 ): Promise<number> {
-  const { corpus } = await loadCorpus(io.cwd, options.config);
+  const { corpus } = await loadCorpus(io.cwd, options);
   io.stdout(`${explain(corpus, query)}\n`);
   return explainMatches(corpus, query).length > 0 ? 0 : 1;
+}
+
+function formatProblem(problem: DoctorProblem, color: boolean): string {
+  const lines: Array<[string, string]> = [["fix", problem.fix]];
+  if (problem.term && !problem.why.includes(`"${problem.term}"`))
+    lines.unshift(["term", problem.term]);
+  const branches = lines.map(([label, text], index) => {
+    const branch = index === lines.length - 1 ? "╰▶" : "├▶";
+    return `${paint(color, "2", branch)} ${paint(color, "1", `${label}:`)} ${text}`;
+  });
+  const where = paint(color, "36", `${problem.file}:${problem.line}`);
+  return [
+    `${paint(color, "1;31", `[${problem.code}]`)} ${where}: ${problem.why}`,
+    ...branches,
+  ].join("\n");
+}
+
+/**
+ * `glosslint doctor`: reports the problems of the glossary file, and with `fix` rewrites it in canonical
+ * form when no problem would drop text. Exits 0 with no problems left, 1 with problems, 2 with no file.
+ */
+export async function runDoctor(options: DoctorOptions, io: CliIo): Promise<number> {
+  const format = options.format ?? "text";
+  if (format !== "text" && format !== "json")
+    throw usage(`--format is "${format}".`, "Use --format text or --format json.");
+  const file = resolve(io.cwd, options.glossary ?? DEFAULT_GLOSSARY);
+  if (!existsSync(file)) throw missingGlossary(io.cwd, file, options.glossary !== undefined);
+  const shown = displayPath(io.cwd, file);
+  let result = readGlossary(readFileSync(file, "utf8"));
+  let fixed = 0;
+  if (options.fix && result.fixed !== undefined) {
+    fixed = result.problems.filter((problem) => problem.fixable).length;
+    writeFileSync(file, result.fixed);
+    result = readGlossary(result.fixed);
+  }
+  const problems = result.problems.map((problem) => ({ file: shown, ...problem }));
+  const fixable = problems.filter((problem) => problem.fixable).length;
+  if (format === "json") {
+    const report: DoctorReport = {
+      problems,
+      summary: { file: shown, problems: problems.length, fixable, fixed },
+    };
+    io.stdout(`${JSON.stringify(report, null, 2)}\n`);
+    return problems.length > 0 ? 1 : 0;
+  }
+  const color = useColor(options, io);
+  const summary: string[] = [];
+  if (fixed > 0) summary.push(`Fixed ${count(fixed, "problem")} in ${shown}.`);
+  if (problems.length === 0) {
+    if (fixed === 0) summary.push(`No problems in ${shown}.`);
+  } else if (fixed > 0) summary.push(`${count(problems.length, "problem")} left.`);
+  else {
+    const canFix = result.fixed !== undefined ? `, ${fixable} fixable with --fix` : "";
+    summary.push(`${count(problems.length, "problem")} in ${shown}${canFix}.`);
+    if (options.fix && fixable > 0)
+      summary.push(
+        "The file is unchanged: --fix would drop text, so fix the other problems first.",
+      );
+  }
+  const blocks = problems.map((problem) => formatProblem(problem, color));
+  io.stdout(`${[...blocks, summary.join(" ")].join("\n\n")}\n`);
+  return problems.length > 0 ? 1 : 0;
 }
 
 /** Prints a config or usage error as a tree on stderr. */
@@ -581,11 +732,13 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
   let run: (() => Promise<number>) | undefined;
   let color = io.color ?? false;
   const configOption = "Config file (default: glosslint.config.{ts,mts,js,mjs})";
+  const glossaryOption = `Glossary file, read when there is no config (default: ${DEFAULT_GLOSSARY})`;
   const colorOption = "Color the output (default: when writing to a terminal)";
 
   cli
     .command("[...paths]", "Check Markdown and text files against the corpus")
     .alias("check")
+    .option("--glossary <path>", glossaryOption)
     .option("--config <path>", configOption)
     .option("--format <format>", "Output format: text or json", { default: "text" })
     .option("--ext <list>", "Extensions read in folders, comma-separated (default: md,mdx,txt)")
@@ -596,6 +749,7 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
 
   cli
     .command("test", "Check every term's good and bad examples")
+    .option("--glossary <path>", glossaryOption)
     .option("--config <path>", configOption)
     .option("--color", colorOption)
     .action((options: CommandOptions) => {
@@ -604,6 +758,7 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
 
   cli
     .command("print", "Print the corpus as a Markdown glossary or JSON")
+    .option("--glossary <path>", glossaryOption)
     .option("--config <path>", configOption)
     .option("--format <format>", "Output format: md or json", { default: "md" })
     .action((options: PrintOptions) => {
@@ -612,9 +767,20 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
 
   cli
     .command("explain <query>", "Show what the corpus says about a word or phrase")
+    .option("--glossary <path>", glossaryOption)
     .option("--config <path>", configOption)
     .action((query: string, options: CommandOptions) => {
       run = () => runExplain(String(query), options, io);
+    });
+
+  cli
+    .command("doctor", "Report the glossary file's problems, and fix the ones it can with --fix")
+    .option("--glossary <path>", `Glossary file (default: ${DEFAULT_GLOSSARY})`)
+    .option("--fix", "Rewrite the file in canonical form, unless that would drop text")
+    .option("--format <format>", "Output format: text or json", { default: "text" })
+    .option("--color", colorOption)
+    .action((options: DoctorOptions) => {
+      run = () => runDoctor(options, io);
     });
 
   cli.help();

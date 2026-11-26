@@ -1,49 +1,38 @@
 ---
 title: Coding agents
-description: Export your glossary for coding agents and follow the five-step editing workflow by fix.kind.
+description: Let coding agents read .agents/glossary.md directly, follow the editing workflow by fix.kind, and run glosslint doctor.
 navigation.order: 10
 icon: i-lucide-bot
 ---
 
-This page shows how to give coding agents your glosslint glossary and the five-step workflow an agent follows when editing text or the corpus.
+This page shows how coding agents read `.agents/glossary.md` directly and the workflow an agent follows when editing text or the glossary.
 
 ## Set up a project for coding agents
 
-To set a project up for coding agents, put the glossary where they read it. `glosslint print` writes your corpus as a Markdown glossary, with one section per term that says more than its spelling and one "Spelling" line for the rest.
+Because your vocabulary lives in [`.agents/glossary.md`](/guide/glossary), coding agents read the exact file that ESLint, Oxlint, x18n, and the CLI enforce. No separate generated file is needed. Link `.agents/glossary.md` from `AGENTS.md` so every agent reads it before writing copy, labels, comments, or docs:
 
-```sh
-npx glosslint print > .agents/terms.md
+```md [AGENTS.md]
+## Vocabulary
+
+Read `.agents/glossary.md` before writing UI copy, comments, or docs. Run `npx glosslint doctor --fix` after editing it.
 ```
 
-For the bike-share corpus, the `Dock` section of `.agents/terms.md` looks like this:
-
-```txt
-## Dock
-A powered stand where one bike is locked.
-- A station is a group of docks.
-- Don't write: rack (racks are unpowered), bay.
-- Good: "Return the bike to any dock". Bad: "Return the bike to any rack".
-- See: [Docks](https://example.com/docs/docks).
-```
-
-Link `.agents/terms.md` from `AGENTS.md`, or paste the sections you care about into `AGENTS.md` itself. Rerun `npx glosslint print > .agents/terms.md` whenever the corpus changes so the file stays in sync with `glosslint.config.ts`.
-
-If your project already keeps a Markdown glossary table that `fromGlossaryTable` reads, link that table from `AGENTS.md` instead of generating a second file. See [Glossary table](/guide/glossary-table) for the table format and [CLI](/integrations/cli) for `glosslint print` options.
+If your project defines extra terms or overrides in `glosslint.config.ts` with [`defineCorpus`](/guide/corpus), you can still run `npx glosslint print` to export the merged corpus as Markdown or JSON. See [CLI](/integrations/cli#print).
 
 ## Workflow for coding agents
 
-If you are an agent working in a project that uses glosslint, follow these five steps:
+When an agent works in a project that uses glosslint, follow these five steps:
 
-1. Read the glossary before you write user-facing text.
-2. When you are unsure which word to use, run `glosslint explain "<word>"` first. It prints the term, what it means, the nuance and the words to avoid.
-3. After editing, run the project's lint, and `glosslint check --format json` on the docs you touched.
+1. Read `.agents/glossary.md` before writing user-facing text.
+2. When you are unsure which word to use, run `glosslint explain "<word>"` first. It prints the term, what it means, its nuance, why the project uses it, and the words to avoid.
+3. After editing, run the project's linter ([ESLint](/integrations/eslint) or [Oxlint](/integrations/oxlint)) and `glosslint check --format json` on the docs you touched.
 4. Apply findings by `fix.kind`:
    - `autofix`: apply it as given.
-   - `suggestion`: read the term's `nuance` and the finding's `why`, then pick the word that fits the meaning. The suggested term is often right. Not always.
+   - `suggestion`: read the finding's `why` and the term's `nuance`, then pick the word that fits the meaning. The suggested term is often right, but not always.
    - `rename`: do not apply it alone. Rename every caller in the same change, or report it.
-5. After editing the corpus, run `glosslint test`.
+5. After editing `.agents/glossary.md`, run `glosslint doctor --fix` to normalize the layout and check every `Good` and `Bad` example. If the project also has `glosslint.config.ts`, run `glosslint test`.
 
-When you run `glosslint explain` in step 2, it matches the term itself, an abbreviation, a form, an avoid word, a misspelling, or a mention. If no term matches, it exits `1`.
+When you run `glosslint explain` in step 2, it matches the term itself, an abbreviation, a locale form, an avoid word, a misspelling, or a mention. If no term matches, it exits `1`.
 
 ```sh
 npx glosslint explain rack

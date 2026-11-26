@@ -27,6 +27,7 @@ function isBare(term: Term): boolean {
   return (
     !term.description &&
     !term.nuance &&
+    !term.why &&
     !term.avoid?.length &&
     !term.examples?.good?.length &&
     !term.examples?.bad?.length &&
@@ -101,7 +102,11 @@ function spellingName(term: Term): string {
 function markdownEntry(term: Term): string {
   const lines = [`## ${term.term}`];
   if (term.description) lines.push(sentence(term.description));
-  const bullets = [term.nuance && sentence(term.nuance), ...writingLines(term)];
+  const bullets = [
+    term.nuance && sentence(term.nuance),
+    term.why && sentence(term.why),
+    ...writingLines(term),
+  ];
   const avoid = avoidList(term);
   if (avoid) bullets.push(`Don't write: ${avoid}`);
   bullets.push(examplesLine(term));
@@ -223,6 +228,7 @@ function explainEntry(corpus: Corpus, match: ExplainMatch): string {
     match.note,
     term.description && sentence(term.description),
     term.nuance && sentence(term.nuance),
+    term.why && sentence(term.why),
     ...writingLines(term),
   ];
   const avoid = avoidList(term);

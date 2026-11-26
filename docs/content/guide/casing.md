@@ -1,17 +1,17 @@
 ---
 title: Casing rules
 description: How glosslint checks capitals with exact, spelling and context terms, and how case styles set the casing of labels, headers and sentences.
-navigation.order: 5
+navigation.order: 6
 icon: i-lucide-case-sensitive
 ---
 
-Product terms follow different capitalisation rules depending on what they are. Brands like `eBike` stay fixed everywhere, plain nouns like `Checkout` only care about word splits, and UI concepts like `Day Pass` change case between buttons and sentences. Set `case` and `casing` on your [corpus](/guide/corpus) or individual [terms](/guide/terms) to match how your team writes.
+Product terms follow different capitalisation rules depending on what they are. Brands like `eBike` stay fixed everywhere, plain nouns like `Checkout` only care about word splits, and UI concepts like `Day Pass` change case between buttons and sentences. Set `Case:` and `Casing:` in [`.agents/glossary.md`](/guide/glossary), or use [`defineCorpus`](/guide/corpus) for per-term `casing` and `wholeLabel`.
 
 ## Case modes
 
-Set `case` on a term to choose how glosslint checks its capitals. If you set `casing` on a term without `case`, it becomes a `context` term.
+Set `Case:` on a term in `.agents/glossary.md` (or `case` in `defineCorpus`) to choose how glosslint checks its capitals. In `.agents/glossary.md`, a term name with a capital right after a letter (`eBike`, `SOS`) defaults to `exact` unless `Case:` says otherwise. In `defineCorpus`, setting `casing` on a term without `case` makes it a `context` term.
 
-| `case`     | What is reported                                                                                                                                                                                                                    |
+| Mode       | What is reported                                                                                                                                                                                                                    |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `spelling` | The default. Only splits and hyphens: "Check-out" and "check out" are spelled "Checkout". Capitals are free. The fix keeps the writer's capitals, so "check-out" becomes "checkout".                                                |
 | `exact`    | One form everywhere. "E-bike" and "Ebike" are both reported, and the fix is always "eBike".                                                                                                                                         |
@@ -28,7 +28,7 @@ To check a `context` term, glosslint needs to know whether a string is a label, 
 - **Length and stop limit.** Both headers and labels need at most seven words and no closing period.
 - **Sentences.** A string is a sentence when its name holds a word such as `description`, `tooltip`, `text`, `message`, `hint`, or `help`, or when it ends in `.`, `!`, or `?`.
 - **Everything else.** In anything else, comments included, `context` terms get no casing check.
-- **Vue templates.** Text takes its kind from its element: a `<template #header>` slot is a header, and `<h2>` is a label.
+- **Vue templates.** In [ESLint](/integrations/eslint), text takes its kind from its element: a `<template #header>` slot is a header, and `<h2>` is a label.
 
 ### Shape fallback and fix kind
 
@@ -45,7 +45,7 @@ In Markdown checked by the [CLI](/integrations/cli), headings are labels, a tabl
 
 ### Overriding with kindOf
 
-The [ESLint](/integrations/eslint) config and the [x18n](/integrations/x18n) plugin both take a `kindOf` option that decides first. It receives `{ text, name, file, shown }`, where `name` is the key, attribute, or element and `shown` says the text is shown as it is. Return `"label"`, `"header"`, `"sentence"`, or `undefined` to leave the string to glosslint. Because your callback's answer counts as certain, its fixes are autofixes:
+The [ESLint](/integrations/eslint) config and the [x18n](/integrations/x18n) plugin both take a `kindOf` option that decides first ([Oxlint](/integrations/oxlint) does not support `kindOf` because its settings are JSON). It receives `{ text, name, file, shown }`, where `name` is the key, attribute, or element and `shown` says the text is shown as it is. Return `"label"`, `"header"`, `"sentence"`, or `undefined` to leave the string to glosslint. Because your callback's answer counts as certain, its fixes are autofixes:
 
 ```ts
 kindOf: ({ name, file }) => (file?.includes("/charts/") && name === "text" ? "label" : undefined),
@@ -56,7 +56,7 @@ kindOf: ({ name, file }) => (file?.includes("/charts/") && name === "text" ? "la
 
 ## Case styles
 
-`casing` sets how `context` terms are written in labels, headers, and sentences. Set it on the corpus for every `context` term, and on a term for that term alone.
+`Casing:` in `.agents/glossary.md` (or `casing` in `defineCorpus`) sets how `context` terms are written in labels, headers, and sentences. Per-term `casing` overrides are set in `defineCorpus`.
 
 | Style        | Day Pass is written                                                             |
 | ------------ | ------------------------------------------------------------------------------- |
@@ -66,31 +66,46 @@ kindOf: ({ name, file }) => (file?.includes("/charts/") && name === "text" ? "la
 | `upper`      | `DAY PASS`                                                                      |
 | `as-written` | As the term is written in the corpus.                                           |
 
-A header takes the label style unless `casing.header` sets its own. Words with an inner capital, such as `eBike`, keep it in every style except `upper`.
+A header takes the label style unless `header` sets its own. Words with an inner capital, such as `eBike`, keep it in every style except `upper`.
 
-### Whole-label casing
+### Setting styles in `.agents/glossary.md`
 
-By default only the term itself is checked, so the label `"Day pass price"` becomes `"Day Pass price"`. With `wholeLabel: true` on the corpus, a label or header that holds a `context` term follows the term's style as a whole when that style is `title` or `upper`: `"Day pass price"` becomes `"Day Pass Price"`, in one fix that also holds the term's own fix.
+List `<kind> <style>` pairs in the corpus `Casing:` field above the first term:
+
+```md [.agents/glossary.md]
+# Glossary
+
+Casing: header upper
+
+## Day Pass (DP)
+Case: context
+```
+
+With this file, the AG Grid column `{ headerName: "Day pass" }` is reported with the fix `DAY PASS`, and a button `"Buy a day pass"` still becomes `"Buy a Day Pass"`. In an `upper` header any term written all in capitals passes, abbreviations and `exact` terms too, so `DP` and `EBIKE` are not reported there.
+
+### Per-term styles and `wholeLabel` in `defineCorpus`
+
+By default only the term itself is checked, so the label `"Day pass price"` becomes `"Day Pass price"`. With `wholeLabel: true` in `defineCorpus`, a label or header that holds a `context` term follows the term's style as a whole when that style is `title` or `upper`: `"Day pass price"` becomes `"Day Pass Price"`, in one fix that also holds the term's own fix.
 
 When checking a whole label in `title` style:
 
 - Small words such as `"a"` and `"of"` stay lowercase unless they start the label or follow a dash or colon.
 - Text in parentheses keeps its case.
 
-### Configuring styles per kind
+Extend `.agents/glossary.md` in `glosslint.config.ts` when you need per-term `casing` or `wholeLabel`:
 
 ```ts [glosslint.config.ts]
+import { defineCorpus, fromGlossary } from "glosslint";
+
 export default defineCorpus({
-  casing: { header: "upper" },
+  extends: [fromGlossary()],
   terms: [
-    { term: "Day Pass", abbr: ["DP"], case: "context" },
     // "Ride history" in labels, "ride history" in sentences, "RIDE HISTORY" in headers.
     { term: "Ride history", casing: { label: "as-written" } },
   ],
+  wholeLabel: true,
 });
 ```
-
-With this corpus, the AG Grid column `{ headerName: "Day pass" }` is reported with the fix `DAY PASS`, and a button `"Buy a day pass"` still becomes `"Buy a Day Pass"`. In an `upper` header any term written all in capitals passes, abbreviations and `exact` terms too, so `DP` and `EBIKE` are not reported there.
 
 ### Lowercase abbreviations
 

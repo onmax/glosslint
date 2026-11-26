@@ -1,11 +1,11 @@
 ---
 title: Installation
-description: Install glosslint, check the Node 22.18 and optional peer requirements, write your first glosslint.config.ts, and run check and test.
+description: Install glosslint, check Node 22.18 and peer requirements, create .agents/glossary.md, and run your first check and doctor commands.
 navigation.order: 2
 icon: i-lucide-download
 ---
 
-This page walks you through installing glosslint, checking its runtime and peer requirements, writing a small `glosslint.config.ts`, and running the CLI for the first time.
+This page walks you through installing glosslint, checking its runtime and peer requirements, writing a starter `.agents/glossary.md`, and running the CLI for the first time.
 
 ## Install the package
 
@@ -31,39 +31,54 @@ bun add -d glosslint
 
 ## Requirements
 
-glosslint needs Node 22.18 or later, because it loads `glosslint.config.ts` with Node's own `import()` and type stripping. You do not need a bundler or TypeScript loader to run the CLI against a `.ts` config file.
+glosslint needs Node 22.18 or later, which includes native type stripping when loading optional `glosslint.config.ts` files.
 
-ESLint 9.15 or later and `@x18n/core` are optional peer dependencies. Install only the ones you use. If you only run the CLI on Markdown docs, you need neither peer.
+ESLint (`>=9.15.0`), Oxlint (`>=1.94.0`), and `@x18n/core` (`>=0.1.14`) are optional peer dependencies. Install only the ones you use. If you only run the CLI on Markdown docs, you need no peer dependencies.
 
 ## First setup
 
-Create a corpus file at the root of your repository, then run the CLI to check your docs and test your term examples.
+Create `.agents/glossary.md`, check that its format and examples are clean, and run `glosslint check` on your docs.
 
 ::steps
-### Write `glosslint.config.ts`
+### Write `.agents/glossary.md`
 
-Create `glosslint.config.ts` at the project root. This starter corpus defines two terms from the bike-share app, `Dock` and `eBike`, and allows `"roof rack"` so that second meaning of `rack` is never reported.
+Create `.agents/glossary.md` in your repository. This starter file defines two terms from the bike-share app, `Dock` and `eBike`, and allows `"roof rack"` so that second meaning of `rack` is never reported.
 
-```ts [glosslint.config.ts]
-import { defineCorpus } from "glosslint";
+```md [.agents/glossary.md]
+# Glossary
 
-export default defineCorpus({
-  terms: [
-    {
-      term: "Dock",
-      description: "A powered stand where one bike is locked.",
-      nuance: "A station is a group of docks.",
-      avoid: [{ word: "rack", why: "Racks are unpowered." }, "bay"],
-      examples: { good: ["Return the bike to any dock"], bad: ["Return the bike to any rack"] },
-      links: [{ title: "Docks", url: "https://example.com/docs/docks" }],
-    },
-    { term: "eBike", case: "exact" },
-  ],
-  allow: ["roof rack"],
-});
+The words the rider app and the help center use.
+
+Allow: roof rack
+
+## Dock
+What: A powered stand where one bike is locked.
+How: A station is a group of docks.
+Why: Riders read "dock" on the stand itself.
+Avoid:
+- rack: Racks are unpowered.
+- bay
+Good:
+- Return the bike to any dock
+Bad:
+- Return the bike to any rack
+Links:
+- [Docks](https://example.com/docs/docks)
+
+## eBike
 ```
 
-`defineCorpus` checks every field when the config loads and throws a `GlosslintConfigError` on a mistake, as listed in [Config errors](/reference/config-errors). It returns a flat corpus that ESLint, x18n and the CLI all read.
+`eBike` automatically gets `Case: exact` because of its inner capital. See [The glossary file](/guide/glossary) for every corpus and term field.
+
+### Validate the glossary with `doctor`
+
+Run `glosslint doctor` to check the glossary file's syntax, values, and `Good`/`Bad` examples:
+
+```sh
+npx glosslint doctor
+```
+
+Pass `--fix` to rewrite fixable layout, heading, or field-name issues into canonical form. Run `glosslint doctor` in CI and whenever you edit `.agents/glossary.md`.
 
 ### Check your Markdown docs
 
@@ -73,22 +88,12 @@ Run `glosslint check` on your docs folder:
 npx glosslint check docs
 ```
 
-In a folder, `check` reads `.md`, `.mdx` and `.txt` files while skipping `node_modules` and `.git`. In Markdown it skips frontmatter, fenced and inline code, HTML comments and tags, link targets and reference definitions. It exits `0` when there are no findings, `1` when it finds something, and `2` when the config or command line is wrong.
-
-### Test your corpus examples
-
-Run `glosslint test` to verify every term's `examples`:
-
-```sh
-npx glosslint test
-```
-
-Every `good` string must pass, and every `bad` string must produce a finding for that term. Run `glosslint test` in CI and whenever you edit `glosslint.config.ts`.
+In a folder, `check` reads `.md`, `.mdx`, and `.txt` files while skipping `node_modules`, `.git`, and `.agents/glossary.md` itself. In Markdown it skips frontmatter, fenced and inline code, HTML comments and tags, link targets, and reference definitions. It exits `0` when there are no findings, `1` when it finds something, and `2` when the glossary, config, or command line has an error.
 ::
 
 ## Example output
 
-To see all three finding codes together, [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic) extends this setup with `Checkout`, `Day Pass`, a Markdown glossary table, and the tech and inclusive presets. Running `check` on `docs/guide` skips `docs/glossary.md`, whose avoid column would report itself, and prints:
+To see all three finding codes together, [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic) keeps `.agents/glossary.md` with `Station`, `Rider`, `Ride`, `Week Pass (WP)`, `kiosk`, `Dock`, `Checkout`, `eBike`, `Day Pass (DP)`, and the `tech` and `inclusive` presets, with no TypeScript config file. Running `check` on `docs/guide` prints:
 
 ```sh
 npx glosslint check docs/guide
@@ -125,7 +130,7 @@ npx glosslint check docs/guide
 6 findings in 2 of 2 files.
 ```
 
-And testing that corpus prints each tested term and a summary count:
+Running `glosslint test` checks every term's `Good` and `Bad` examples, including those from the `inclusive` preset:
 
 ```sh
 npx glosslint test | tail -n 3
@@ -139,7 +144,8 @@ npx glosslint test | tail -n 3
 
 ## Next
 
-- [The corpus](/guide/corpus): add presets, load a Markdown glossary table, and configure casing and `allow` lists.
-- [ESLint](/integrations/eslint): lint strings, Vue templates, YAML locales, comments and identifiers in your codebase.
-- [x18n](/integrations/x18n): check source locale messages and share your corpus with x18n's glossary.
-- [CLI](/integrations/cli): explore `check`, `test`, `print` and `explain`, plus flags and exit codes.
+- [The glossary file](/guide/glossary): every field, syntax detail, and how `glosslint doctor --fix` works.
+- [ESLint](/integrations/eslint): lint JavaScript, TypeScript, Vue templates, YAML locales, comments, and identifiers with `glosslint()`.
+- [Oxlint](/integrations/oxlint): run the four rules as an Oxlint JS plugin on JavaScript and TypeScript.
+- [x18n](/integrations/x18n): check source locale messages and share your glossary with x18n.
+- [CLI](/integrations/cli): explore `check`, `doctor`, `test`, `print`, and `explain`, plus flags and exit codes.

@@ -7,6 +7,7 @@ const TERM_FIELDS = [
   "term",
   "description",
   "nuance",
+  "why",
   "abbr",
   "avoid",
   "examples",
@@ -35,12 +36,14 @@ export const CONFIG_ERRORS = {
   badSkip: "GLOSSLINT_C006",
   badType: "GLOSSLINT_C007",
   notCorpus: "GLOSSLINT_C008",
+  noGlossary: "GLOSSLINT_C009",
   badCasing: "GLOSSLINT_C011",
+  glossaryAndCorpus: "GLOSSLINT_C012",
 } as const;
 
 type Fail = (code: string, why: string, fix: string) => never;
 
-function distance(a: string, b: string): number {
+export function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, index) => index);
   for (let i = 1; i <= a.length; i++) {
     let diagonal = row[0]!;
@@ -54,7 +57,8 @@ function distance(a: string, b: string): number {
   return row[b.length]!;
 }
 
-function nearest(name: string, fields: readonly string[]): string | undefined {
+/** The field nearest to `name` by edit distance, when it is close enough to be a typo. */
+export function nearest(name: string, fields: readonly string[]): string | undefined {
   let best: string | undefined;
   let bestDistance = Infinity;
   for (const field of fields) {
@@ -154,7 +158,7 @@ function checkTerm(input: unknown, index: number): Term {
         : `The term "${name}" has no letters or digits.`,
       `Add the words to use, such as { term: "Dock" }.`,
     );
-  for (const field of ["description", "nuance"] as const) {
+  for (const field of ["description", "nuance", "why"] as const) {
     if (term[field] !== undefined && typeof term[field] !== "string")
       fail(
         CONFIG_ERRORS.badType,
@@ -332,7 +336,7 @@ export function defineCorpus(input: CorpusInput): Corpus {
       fail(
         CONFIG_ERRORS.notCorpus,
         `Entry ${index + 1} of "extends" is not a corpus.`,
-        `Pass a preset, fromGlossaryTable(…) or the result of defineCorpus(…).`,
+        `Pass a preset, fromGlossary(…) or the result of defineCorpus(…).`,
       );
     for (const term of corpus.terms) setLast(merged, termKey(term.term), term);
     allow.push(...corpus.allow);
