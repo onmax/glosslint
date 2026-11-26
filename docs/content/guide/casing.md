@@ -1,21 +1,34 @@
 ---
 title: Casing rules
-description: Configure exact, spelling, and context casing modes, text-kind detection, kindOf, case styles, and wholeLabel.
+description: Pick exact, spelling, or context casing per term, see how glosslint tells labels from sentences, and set case styles per kind of text.
 navigation.order: 5
 icon: i-lucide-case-sensitive
 ---
 
-Set `Case:` on a term in [`.agents/glossary.md`](/guide/glossary) to control capital checks, and `Casing:` to set styles for labels, headers, and sentences. Per-term `casing` and `wholeLabel` live in [`defineCorpus`](/guide/corpus).
+Use the default `spelling` mode for most terms, `exact` for names that keep one form, and `context` when capitals change between labels and sentences. Set `Case:` per term in [`.agents/glossary.md`](/guide/glossary), and `Casing:` at the top to style `context` terms in labels, headers, and sentences. In `glosslint.config.ts`, [`defineCorpus`](/guide/corpus) takes `case`, per-term `casing`, and `wholeLabel`.
 
 ## Case modes
 
-| Mode | What is reported |
-| --- | --- |
-| `spelling` | Default. Splits and hyphens only: `"Check-out"` becomes `"Checkout"`, `"check-out"` becomes `"checkout"`. Capitals stay as written. |
-| `exact` | One form everywhere: `"E-bike"` and `"Ebike"` both become `"eBike"`. Inferred in `.agents/glossary.md` for names with an inner capital (`eBike`, `SOS`). |
-| `context` | Title Case in labels (`"Buy a Day Pass"`), lowercase in sentences (`"Buy a day pass at the kiosk."`). Setting per-term `casing` without `case` in `defineCorpus` implies `context`. |
+| Mode | Pick this when | Example |
+| --- | --- | --- |
+| `spelling` | Default. Only word splits and hyphens matter. Capitals stay as written. | `"Check-out"` → `"Checkout"`, `"check-out"` → `"checkout"` |
+| `exact` | One form must appear everywhere. | `"E-bike"` and `"Ebike"` → `"eBike"` |
+| `context` | Capitals depend on where the text is: Title Case in labels, lowercase in sentences. | `"Buy a day pass"` → `"Buy a Day Pass"` on a button; `"Buy a day pass at the kiosk."` in a sentence |
 
-Lowercase abbreviations always pass: `"dp"` passes, `"Dp"` is reported.
+```md [.agents/glossary.md]
+# Glossary
+
+## Checkout
+Case: spelling
+
+## eBike
+Case: exact
+
+## Day Pass (DP)
+Case: context
+```
+
+Omit `Case:` when you want `spelling`. In `.agents/glossary.md`, names with a capital after the first letter (`eBike`, `SOS`) pick `exact` without a `Case:` line. In `defineCorpus`, setting `casing` without `case` makes a term `context`. glosslint always checks abbreviations like `DP` as `exact`, except all-lowercase forms pass: `"dp"` passes, `"Dp"` is reported.
 
 ## How context picks text kind
 

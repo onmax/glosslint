@@ -50,11 +50,20 @@ Markdown docs, doctor, test, and explain
 
 Every [finding](/reference/findings) carries the reason, the term's meaning, and a typed fix for people and [agents](/guide/agents).
 
-```diff
-  # locales/en.yml
+::code-group
+```md [.agents/glossary.md]
+## Dock
+Avoid:
+- rack: Racks are unpowered.
+
+## eBike
+```
+
+```diff [locales/en.yml]
 - hint: Return your e-bike to any rack.
 + hint: Return your eBike to any dock.
 ```
+::
 
 - `autofix` applies spelling and casing fixes like `e-bike` to `eBike`.
 - `suggestion` flags avoid words like `rack` to `dock` with the reason and meaning.

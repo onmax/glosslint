@@ -1,6 +1,6 @@
 ---
 title: defineCorpus
-description: Layer glosslint.config.ts on top of .agents/glossary.md for skip, forms, translations, per-term casing, wholeLabel, and merging.
+description: Layer a config file on top of your glossary for skip lists, word forms, translations, per-term casing, and merging corpora.
 navigation.order: 4
 icon: i-lucide-book-marked
 ---

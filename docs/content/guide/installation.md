@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install glosslint, write a starter .agents/glossary.md, validate it with doctor, and run your first check.
+description: Install glosslint, write a starter glossary file, validate it with doctor, and run your first check.
 navigation.order: 2
 icon: i-lucide-download
 ---
@@ -9,7 +9,7 @@ icon: i-lucide-download
 pnpm add -D glosslint
 ```
 
-Requires Node 22.18 or later. ESLint, Oxlint, and `@x18n/core` are optional peer dependencies.
+Requires Node 22.18 or later.
 
 ## First setup
 
@@ -50,10 +50,3 @@ npx glosslint check docs
 
 Reads `.md`, `.mdx`, and `.txt` files while skipping `node_modules`, `.git`, `.agents/glossary.md`, frontmatter, and code. Exits `0` when clean, `1` on findings, and `2` on errors.
 ::
-
-## Next
-
-- [The glossary file](/guide/glossary): format rules and every field.
-- [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint): check code, comments, and identifiers.
-- [x18n](/integrations/x18n): check translations and export the glossary.
-- [CLI](/integrations/cli): commands, flags, and example output.

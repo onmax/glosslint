@@ -1,6 +1,6 @@
 ---
 title: Command line
-description: Run the glosslint CLI to check Markdown docs, lint and fix .agents/glossary.md with doctor, test examples, print corpora, and explain words.
+description: Run the glosslint CLI to check Markdown docs, lint and repair your glossary with doctor, test examples, print corpora, and explain words.
 navigation.order: 5
 icon: i-lucide-terminal
 ---

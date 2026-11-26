@@ -1,7 +1,7 @@
 ---
 title: Oxlint integration
 navigation.title: Oxlint
-description: Run glosslint's four rules as an Oxlint JS plugin on JavaScript, TypeScript, and Vue script blocks using .agents/glossary.md.
+description: Run glosslint's four rules as an Oxlint JS plugin on JavaScript, TypeScript, and Vue script blocks, using your glossary file.
 navigation.order: 3
 icon: i-lucide-zap
 ---

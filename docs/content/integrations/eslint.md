@@ -1,7 +1,7 @@
 ---
 title: ESLint integration
 navigation.title: ESLint
-description: Lint JavaScript, TypeScript, Vue templates, YAML and JSON locale files, comments and identifiers from .agents/glossary.md with ESLint flat config.
+description: Lint JavaScript, TypeScript, Vue templates, YAML and JSON locales, comments, and identifiers against your glossary with ESLint flat config.
 navigation.order: 2
 icon: i-lucide-file-code
 ---

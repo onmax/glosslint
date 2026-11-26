@@ -1,6 +1,6 @@
 ---
 title: Coding agents
-description: Link .agents/glossary.md from AGENTS.md, follow the fix.kind workflow, and use glosslint explain and doctor.
+description: Point coding agents at your glossary from their instructions file, follow each finding's fix kind, and use glosslint explain and doctor.
 navigation.order: 9
 icon: i-lucide-bot
 ---

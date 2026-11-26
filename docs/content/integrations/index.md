@@ -1,6 +1,6 @@
 ---
 title: Integrations overview
-description: Connect .agents/glossary.md to ESLint, Oxlint, x18n, and the CLI to check JavaScript, TypeScript, Vue, YAML and JSON locales, and Markdown docs.
+description: Connect your glossary to ESLint, Oxlint, x18n, and the CLI to check JavaScript, TypeScript, Vue, YAML and JSON locales, and Markdown docs.
 navigation.order: 1
 navigation.title: Overview
 icon: i-lucide-plug

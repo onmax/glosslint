@@ -1,6 +1,6 @@
 ---
 title: JavaScript API
-description: "Reference for glosslint's JavaScript API: every entry point including glosslint/oxlint, fromGlossary, readGlossary, functions, and types."
+description: "Reference for glosslint's JavaScript API: every entry point, including the Oxlint plugin and glossary readers, with functions and types."
 navigation.order: 4
 icon: i-lucide-braces
 ---

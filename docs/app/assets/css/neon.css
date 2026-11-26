@@ -373,10 +373,14 @@ html.vh-docs a[href] > :is(svg, .iconify) {
   margin-bottom: 0.875rem !important;
 }
 
+/* Each step number is a small lit sign, like the one on the home page: a near-black plate with the number as a cyan
+   tube. It stays dark in light mode too, since a glow only reads on a dark plate. */
 .docs-content .cs-step::before {
-  border-color: color-mix(in oklab, var(--gl-cyan) 55%, transparent);
-  color: var(--gl-cyan-text);
-  box-shadow: 0 0 12px -3px color-mix(in oklab, var(--gl-cyan) var(--gl-spill), transparent);
+  border-color: rgb(34 232 255 / 55%);
+  background: #070b12;
+  color: #b9f8ff;
+  text-shadow: 0 0 2px rgb(236 254 255 / 80%), 0 0 7px rgb(34 232 255 / 90%), 0 0 16px rgb(34 232 255 / 55%);
+  box-shadow: inset 0 0 8px rgb(34 232 255 / 18%), 0 0 0 1px rgb(34 232 255 / 18%), 0 0 10px rgb(34 232 255 / 45%), 0 0 26px -4px rgb(34 232 255 / 45%);
 }
 
 /* The rail between two steps is a dim track with a lit tube in it. While the page scrolls, the tube draws down each step
@@ -388,10 +392,13 @@ html.vh-docs a[href] > :is(svg, .iconify) {
   background: linear-gradient(var(--ui-border), var(--ui-border)) no-repeat calc(0.875rem - 0.5px) 2rem / 1px calc(100% - 2.25rem);
 }
 
+/* The tube between the signs: 2px of the home page's cyan to mint, lit in both modes. */
 .docs-content .cs-step::after {
-  background: linear-gradient(var(--gl-cyan), color-mix(in oklab, var(--gl-mint) 80%, transparent));
-  box-shadow: var(--gl-glow-tube);
-  opacity: 0.75;
+  inset-inline-start: calc(0.875rem - 1px);
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(#22e8ff, #2ef5a3);
+  box-shadow: 0 0 3px rgb(34 232 255 / 90%), 0 0 10px rgb(34 232 255 / 55%), 0 0 22px rgb(46 245 163 / 30%);
   transform-origin: top;
 }
 

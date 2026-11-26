@@ -1,6 +1,6 @@
 ---
 title: Findings format
-description: "Reference for glosslint findings: JSON and tree output formats, every field, the three finding codes, fix.kind rules, and matcher output."
+description: "Reference for glosslint findings: JSON and tree output, every field, the three finding codes, fix kinds, and matcher output."
 navigation.order: 2
 icon: i-lucide-list-checks
 ---

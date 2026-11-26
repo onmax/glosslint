@@ -1,7 +1,7 @@
 ---
 title: Config and glossary errors
 navigation.title: Config errors
-description: "Reference for glosslint config and glossary errors: GlosslintConfigError, GLOSSLINT_C001 to C012, GLOSSLINT_G001 to G009, and fixes."
+description: "Reference for glosslint config and glossary errors: the C001 to C012 and G001 to G009 codes, what triggers each, and how to fix it."
 navigation.order: 3
 icon: i-lucide-shield-alert
 ---

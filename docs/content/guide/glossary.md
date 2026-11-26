@@ -1,6 +1,6 @@
 ---
 title: The glossary file
-description: Format rules, corpus and term fields, avoid reasons, casing inference, and doctor --fix for .agents/glossary.md.
+description: Format rules, corpus and term fields, avoid reasons, casing inference, and how doctor repairs the glossary file.
 navigation.order: 3
 icon: i-lucide-file-text
 ---

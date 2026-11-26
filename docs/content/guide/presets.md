@@ -1,6 +1,6 @@
 ---
 title: Built-in presets
-description: Extend the tech (477 names) and inclusive (37 terms) presets in .agents/glossary.md or defineCorpus, and override or silence entries.
+description: Extend the tech (477 names) and inclusive (37 terms) presets from your glossary or config file, and override or silence entries.
 navigation.order: 7
 icon: i-lucide-layers
 ---
