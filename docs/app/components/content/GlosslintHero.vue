@@ -383,9 +383,12 @@ onBeforeUnmount(() => {
   }
 }
 
-/* On a phone the sign comes first and the copy follows. From 64rem they sit side by side, copy on the left. */
+/* On a phone the sign comes first and the copy follows. From 64rem they sit side by side, copy on the left.
+   On one nail the board swings out to about 19°, which carries it 15% of the wall past the wall's left edge (right
+   nail) or 10% past its right edge (left nail). The margins keep that swing inside the hero, which clips sideways. */
 .glosslint-hero-sign {
   order: -1;
+  margin-inline: 12% 8%;
 }
 
 @media (min-width: 64rem) {
@@ -395,8 +398,10 @@ onBeforeUnmount(() => {
     padding-block: 4.5rem 4rem;
   }
 
+  /* Swinging left, the board may reach into the gap beside the copy. */
   .glosslint-hero-sign {
     order: 0;
+    margin-inline: 4% 6%;
   }
 }
 
