@@ -304,6 +304,7 @@ describe("Comark components", () => {
     const text = [
       '::hub{to="/docs/rack" color="bay" .crate #rack}',
       "#bay",
+      '#crate{unwrap="p" color="rack"}',
       ":::hub{icon=i-lucide-rack}",
       "---",
       "icon: rack",

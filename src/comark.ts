@@ -15,7 +15,7 @@ export interface ComarkProp {
 const OPENER = /^[ \t]*(:{2,})[A-Za-z][\w-]*/;
 const BARE = /^[ \t]*:[A-Za-z][\w-]*[ \t]*\r?$/;
 const CLOSER = /^[ \t]*:{2,}[ \t]*\r?$/;
-const SLOT = /^[ \t]*#[A-Za-z][\w-]*[ \t]*\r?$/;
+const SLOT = /^[ \t]*#[A-Za-z][\w-]*/;
 const RULE = /^[ \t]*---[ \t]*\r?$/;
 const YAML_ENTRY = /^([ \t]*)([\w.-]+):[ \t]*(.*?)[ \t]*\r?$/;
 
@@ -238,10 +238,6 @@ export function maskComark(
       depth = Math.max(0, depth - 1);
       continue;
     }
-    if (depth > 0 && SLOT.test(line)) {
-      out[index] = blank(line);
-      continue;
-    }
     const at = (spans: Span[]) =>
       props.push(
         ...spans.map((span) => ({
@@ -251,6 +247,17 @@ export function maskComark(
           text: line.slice(span.start, span.end),
         })),
       );
+    // A slot line, such as `#title` or `#title{unwrap="p"}`, inside a component.
+    const slot = depth > 0 ? SLOT.exec(line) : null;
+    if (slot) {
+      const end = slot[0].length;
+      const attrs = line[end] === "{" ? readProps(line, end) : { end, props: [] };
+      if (attrs && line.slice(attrs.end).trim() === "") {
+        out[index] = blank(line);
+        at(attrs.props);
+        continue;
+      }
+    }
     const opener = OPENER.exec(line);
     const read = opener ? readComponent(line, opener[0].length) : undefined;
     if (!opener || !read || line.slice(read.end).trim() !== "") {
