@@ -7,7 +7,7 @@ import { createMatcher } from "../../src/matcher.ts";
 import type { CliReport } from "../../src/types.ts";
 import { defineCorpus } from "../../src/corpus.ts";
 import { bike, bikeTerms } from "../core/bike.ts";
-import { bikeDir, run } from "./run.ts";
+import { bikeDir, glossaryDir, run } from "./run.ts";
 
 describe("glosslint check", () => {
   it("prints the findings as a tree with a summary, and exits 1", async () => {
@@ -131,6 +131,18 @@ describe("glosslint check", () => {
     const unknown = await run(["--bogus"]);
     expect(unknown.code).toBe(2);
     expect(unknown.stderr).toContain("Unknown option `--bogus`.");
+  });
+
+  it("never checks the glossary it loaded, even when named or in a checked folder", async () => {
+    const none = { code: 0, stdout: "No findings in 0 files.\n", stderr: "" };
+    expect(await run([".agents"], glossaryDir)).toEqual(none);
+    expect(await run([".agents/glossary.md"], glossaryDir)).toEqual(none);
+    const kiosk = ["--glossary", "glossaries/kiosk.md"];
+    expect(await run(["glossaries/kiosk.md", ...kiosk], glossaryDir)).toEqual(none);
+    const { stdout } = await run(["glossaries", ...kiosk], glossaryDir);
+    expect(stdout).toBe("No findings in 1 file.\n");
+    // Another glossary is a file like any other.
+    expect((await run([".agents", ...kiosk], glossaryDir)).stdout).toBe("No findings in 1 file.\n");
   });
 
   it.skipIf(process.getuid?.() === 0)(
