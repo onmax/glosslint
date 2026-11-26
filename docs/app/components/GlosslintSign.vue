@@ -5,7 +5,13 @@
 const props = defineProps<{
   // Off, the glass stays and the gas goes dark.
   lit?: boolean
+  // Mounted dark the moment it lost power, as the fallen copy is: it sputters out instead of starting dark.
+  wasLit?: boolean
 }>()
+
+// The gas sputters out only when the power goes, not when a sign starts dark or stays dark.
+const dying = ref(!props.lit && props.wasLit)
+watch(() => props.lit, (lit, was) => { dying.value = !lit && !!was })
 
 type Tube = 'cyan' | 'mint'
 
@@ -71,7 +77,7 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
 </script>
 
 <template>
-  <svg viewBox="0 0 760 400" width="760" height="400" role="img" :aria-label="label" :class="['gl-sign', { 'is-lit': props.lit }]">
+  <svg viewBox="0 0 760 400" width="760" height="400" role="img" :aria-label="label" :class="['gl-sign', { 'is-lit': props.lit, 'is-dying': dying }]">
     <defs>
       <linearGradient :id="id('board')" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#101624" />
@@ -275,7 +281,7 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
   }
 
   /* Switched off, the gas sputters out. */
-  .gl-sign:not(.is-lit) .gl-sign-lit {
+  .gl-sign.is-dying .gl-sign-lit {
     animation: gl-sign-die 1.2s linear both;
   }
 
@@ -294,6 +300,14 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
   /* Now and then the dead tube tries to catch, and doesn't. */
   .is-lit .gl-sign-sputter {
     animation: gl-sign-sputter 11s linear 5s infinite;
+  }
+}
+
+/* Under reduced motion the gas is on or off at once. */
+@media (prefers-reduced-motion: reduce) {
+  .gl-sign-lit,
+  .gl-sign-pools {
+    transition: none;
   }
 }
 

@@ -3,9 +3,13 @@
 // beside the neon sign that says what glosslint does.
 //
 // The sign hangs on two nails. Each click on a nail turns it a third of the way round; a nail turned six times falls
-// out. With one nail out the sign swings and hangs from the other, and with both out it falls to the bottom edge of the
-// window, still lit: its plug stays in the outlet and the cable follows it down. "Hang it back up" sends a cloud with a
-// fishing rod to hook the sign and lift it back onto the wall.
+// out. With one nail out the sign swings and hangs from the other. With both out it falls to the bottom edge of the
+// window, over the page, and its cable tears out of the board: the sign goes dark, and a stub of cable stays in the
+// outlet, swaying and sparking. Drag the sign back onto the wall to hang it on its nails, still dark, then drag the
+// cable's end into the socket on the board's right edge to light it again. Enter does each step from the keyboard.
+//
+// `data-state` on the root says where it is: `hung-live` (on the wall, plugged in, even on one nail), `fallen`, or
+// `hung-dark` (back on the wall, unplugged).
 
 const slots = useSlots()
 
@@ -31,6 +35,7 @@ function onTabKey(event: KeyboardEvent, index: number) {
 // ---- The sign on its nails. Wall units: the backplate is 760 × 400 at the top left of an 800 × 480 wall. ----
 
 type Side = 'left' | 'right'
+type HeroState = 'hung-live' | 'fallen' | 'hung-dark'
 
 const nails: Record<Side, { x: number, y: number, slot: number }> = {
   left: { x: 32, y: 30, slot: 35 },
@@ -44,21 +49,29 @@ const turnsToDrop = 6
 const degreesPerTurn = 120
 // The angle the sign settles at on one nail. Its cable on the other side keeps it from swinging all the way.
 const hangAngle = 15
+// Where the cable leaves the board, and the top of the plug it runs into, in wall units.
+const grommetAt: [number, number] = [764, 284]
+const plugAt: [number, number] = [782, 419]
+// How close, in px, the board's nail holes must come to the wall's, and the cable's end to the grommet, to latch.
+const hangReach = 40
+const plugReach = 24
 
 const turns = reactive<Record<Side, number>>({ left: 0, right: 0 })
 const out = reactive<Record<Side, boolean>>({ left: false, right: false })
 const pivot = ref<Side>()
 const angle = ref(0)
-const fallen = ref(false)
-const fallenBox = ref({ left: 0, width: 0 })
+const state = ref<HeroState>('hung-live')
+// Whether the sign has power. Both copies of the sign follow it, so they play their die and ignite animations.
+const powered = ref(true)
+const fallen = computed(() => state.value === 'fallen')
 const announcement = ref('')
 
 const wall = ref<HTMLElement>()
 const board = ref<HTMLElement>()
 const fallenSign = ref<HTMLElement>()
-const grommet = ref<HTMLElement>()
+const fallenBody = ref<HTMLElement>()
+const liveWire = ref<{ focus: () => void }>()
 const nailButtons = reactive<Partial<Record<Side, HTMLButtonElement>>>({})
-const restoreButton = ref<{ $el: HTMLElement }>()
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -73,10 +86,13 @@ function onBoard([x, y]: [number, number]): [number, number] {
 
 // The cable from the grommet on the board's right edge down into the plug, which follows the board as it swings.
 const cable = computed(() => {
-  const start = onBoard([764, 284])
+  const start = onBoard(grommetAt)
   const bend = onBoard([794, 290])
   return `M ${start.join(' ')} C ${bend.join(' ')}, 782 372, 782 420`
 })
+
+// Where the cable was going when it tore out, so the stub starts from there and drops.
+const snapFrom = ref<[number, number]>(grommetAt)
 
 const boardStyle = computed(() => pivot.value && {
   transformOrigin: `${nails[pivot.value].x / 7.6}% ${nails[pivot.value].y / 4}%`,
@@ -110,9 +126,9 @@ async function drop(side: Side) {
   }
   else {
     await fall()
-    announcement.value = 'Both nails are out. The sign fell to the bottom of the window, still plugged in.'
+    announcement.value = 'Both nails are out. The sign fell and its cable tore out, so it went dark. Drag it back onto the wall, or press Enter to hang it back up.'
     await nextTick()
-    restoreButton.value?.$el.focus()
+    fallenSign.value?.focus({ preventScroll: true })
   }
 }
 
@@ -156,24 +172,52 @@ function swing(target: number) {
   frame = requestAnimationFrame(step)
 }
 
-// Where the fallen sign lies: below where it hung, moved in so the board and its plug stay inside the window.
-function placeFallen() {
-  const rect = wall.value!.getBoundingClientRect()
-  const width = rect.width * 760 / 800
-  const reach = width * 860 / 760
-  const left = Math.max(0, Math.min(rect.left, window.innerWidth - reach - 8))
-  fallenBox.value = { left, width }
-  return { rect, width, left }
+// ---- The fallen sign: over the page, at the bottom edge of the window, and free to pick up and throw. ----
+
+const fallenWidth = ref(0)
+// Whether the sign had power when it fell, so its fallen copy sputters out rather than lying there dark already.
+const fellLit = ref(false)
+const fallenPosition = ref({ x: 0, y: 0 })
+
+const centre = (el: Element) => {
+  const r = el.getBoundingClientRect()
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
 }
+const midpoint = (els: Iterable<Element>) => {
+  const points = [...els].map(centre)
+  return points.length ? { x: points.reduce((sum, p) => sum + p.x, 0) / points.length, y: points.reduce((sum, p) => sum + p.y, 0) / points.length } : undefined
+}
+
+const throwable = useThrowable(fallenSign, {
+  position: fallenPosition,
+  bounds: () => ({ left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }),
+  reducedMotion: prefersReducedMotion,
+  // Picked up mid-fall, the sign stops falling where it is headed.
+  onGrab: () => fallenBody.value?.getAnimations().forEach(animation => animation.finish()),
+  // The board's nail holes over the wall's.
+  magnet: () => {
+    const anchor = fallenSign.value && midpoint(fallenSign.value.querySelectorAll('.gl-hole-mark'))
+    const target = wall.value && midpoint(wall.value.querySelectorAll('.gl-wall-hole'))
+    return anchor && target && { anchor, target, radius: hangReach }
+  },
+  onLatch: () => hangBack(),
+})
 
 async function fall() {
   cancelAnimationFrame(frame)
-  const { rect, width, left } = placeFallen()
-  fallen.value = true
+  const rect = wall.value!.getBoundingClientRect()
+  const width = rect.width * 760 / 800
+  const height = 400 * width / 760
+  const left = Math.max(0, Math.min(rect.left, window.innerWidth - width - 8))
+  snapFrom.value = onBoard(grommetAt)
+  fallenWidth.value = width
+  fallenPosition.value = { x: left, y: window.innerHeight - height }
+  fellLit.value = powered.value
+  state.value = 'fallen'
+  powered.value = false
   await nextTick()
-  const el = fallenSign.value
+  const el = fallenBody.value
   if (!el) return
-  followCable()
 
   if (prefersReducedMotion()) {
     el.animate([{ opacity: 0, translate: '0 -16px' }, { opacity: 1, translate: '0 0' }], { duration: 200, easing: 'ease-out' })
@@ -183,7 +227,6 @@ async function fall() {
   // Start the fallen copy exactly where the hanging board is: the same box, turned the same way about its nail. The
   // copy turns about its bottom middle, so the turn about the nail becomes that turn plus a shift.
   const scale = width / 760
-  const height = 400 * scale
   const nail = pivot.value ? nails[pivot.value] : { x: 380, y: 200 }
   const toNail = [nail.x * scale - width / 2, nail.y * scale - height]
   const r = angle.value * Math.PI / 180
@@ -199,172 +242,68 @@ async function fall() {
   ], { duration })
 }
 
-// On the floor, the cable runs from the grommet up the right of the outlet and over into the plug, which never leaves
-// the socket. It is redrawn each frame, so it follows the sign as it falls, as the page scrolls, and as the cloud lifts it.
-const fallenCable = ref<{ d: string, width: number }>()
-let cableFrame = 0
-
-function followCable() {
-  const end = grommet.value?.getBoundingClientRect()
-  const rect = wall.value?.getBoundingClientRect()
-  if (!end || !rect) return
-  const s = rect.width / 800
-  const [px, py] = [rect.left + 782 * s, rect.top + 420 * s]
-  const [gx, gy] = [end.left, end.top]
-  const point = (x: number, y: number) => `${x.toFixed(1)} ${y.toFixed(1)}`
-  fallenCable.value = {
-    d: `M ${point(gx, gy)} C ${point(gx + 40 * s, gy + 4 * s)}, ${point(px + 36 * s, py + 60 * s)}, ${point(px + 30 * s, py - 4 * s)}`
-      + ` S ${point(px, py - 40 * s)}, ${point(px, py)}`,
-    width: 5 * s,
-  }
-  cableFrame = requestAnimationFrame(followCable)
-}
-
-// ---- The rescue: a cloud flies in, lowers a hook onto the fallen sign, and reels it up onto the wall. ----
-
-const rescuing = ref(false)
-const liftStyle = ref<Record<string, string>>()
-const cloud = ref<{ x: number, y: number, size: number, tilt: number, tip: [number, number], hook?: [number, number] }>()
-
-// The rod's tip in the cloud's 220 × 150 drawing.
-const rodTip: [number, number] = [214, 22]
-const phases = { arrive: 900, lower: 650, tug: 350, lift: 1600, reel: 450, leave: 850 }
-
-const lerp = (a: number, b: number, p: number) => a + (b - a) * p
-const easeOut = (p: number) => 1 - (1 - p) ** 3
-const easeInOut = (p: number) => p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2
-
-function rehang() {
+// Back on its nails, still unplugged.
+async function hangBack(fromKeyboard = false) {
+  if (state.value !== 'fallen') return
   for (const side of sides) {
     turns[side] = 0
     out[side] = false
   }
   pivot.value = undefined
   angle.value = 0
-  fallen.value = false
-  cancelAnimationFrame(cableFrame)
-  fallenCable.value = undefined
-  liftStyle.value = undefined
+  state.value = 'hung-dark'
+  announcement.value = 'The sign is back on its nails, still dark. Plug the cable back into its right edge to light it.'
+  if (!fromKeyboard) return
+  await nextTick()
+  liveWire.value?.focus()
 }
 
-async function finishRescue() {
-  cloud.value = undefined
-  rescuing.value = false
-  announcement.value = 'The sign is back on its nails.'
+async function reconnect(fromKeyboard = false) {
+  if (state.value === 'fallen') {
+    if (fromKeyboard) announcement.value = 'Hang the sign back on the wall before you plug it in.'
+    return
+  }
+  if (state.value !== 'hung-dark') return
+  state.value = 'hung-live'
+  powered.value = true
+  announcement.value = 'The cable is plugged back in, and the sign is lit.'
+  if (!fromKeyboard) return
   await nextTick()
   nailButtons.left?.focus()
 }
 
-async function hangBack() {
-  if (!fallen.value || rescuing.value) return
-  rescuing.value = true
-  const el = fallenSign.value
-  if (prefersReducedMotion() || !el) {
-    rehang()
-    return finishRescue()
-  }
-  announcement.value = 'A cloud is lifting the sign back onto the wall.'
-
-  const wallRect = wall.value!.getBoundingClientRect()
-  if (wallRect.top < 0 || wallRect.bottom > window.innerHeight) {
-    wall.value!.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    await new Promise(resolve => setTimeout(resolve, 600))
-  }
-
-  for (const animation of el.getAnimations()) animation.cancel()
-  const { left, width } = fallenBox.value
-  const height = width * 400 / 760
-  // The fallen sign turns about its bottom middle. Hooked, it hangs from its top middle, so the same tilt needs a shift.
-  const tilt = -1.2
-  const r = tilt * Math.PI / 180
-  const from: [number, number] = [height * Math.sin(r), height - height * Math.cos(r)]
-  const size = Math.min(220, Math.max(120, width * 0.4))
-  const tipOffset = [size * rodTip[0] / 220, size * rodTip[1] / 220]
-  // The hook bites the top edge of the frame.
-  const bite = 5
-  const hookAt = (shift: [number, number]): [number, number] => [left + width / 2 + shift[0], window.innerHeight - height + bite + shift[1]]
-  const lowest = tipOffset[1]! + 12
-  const lineLength = Math.min(240, Math.max(120, height * 0.6))
-  const shortLine = 48
-
-  const place = (tip: [number, number], cloudTilt: number, hook?: [number, number]) => {
-    const bob = Math.sin(performance.now() / 1000 * 2 * Math.PI * 0.7) * 3
-    const at: [number, number] = [tip[0], Math.max(lowest, tip[1]) + bob]
-    cloud.value = { x: at[0] - tipOffset[0]!, y: at[1] - tipOffset[1]!, size, tilt: cloudTilt, tip: at, hook }
-    return at
-  }
-  const lift = (shift: [number, number], degrees: number) => {
-    liftStyle.value = { transformOrigin: '50% 0', translate: `${shift[0]}px ${shift[1]}px`, rotate: `${degrees}deg` }
-  }
-
-  lift(from, tilt)
-  const start = hookAt(from)
-  const hover: [number, number] = [start[0], start[1] - lineLength]
-  const offscreen: [number, number] = [window.innerWidth + size, -size]
-  const began = performance.now()
-  let rehung = false
-  let leaveFrom: [number, number] | undefined
-
-  const step = (now: number) => {
-    let t = now - began
-    if (t < phases.arrive) {
-      const p = easeOut(t / phases.arrive)
-      place([lerp(offscreen[0], hover[0], p), lerp(offscreen[1], hover[1], p)], -10 * (1 - p))
-    }
-    else if ((t -= phases.arrive) < phases.lower) {
-      const p = (t / phases.lower) ** 2
-      const tip = place(hover, 0)
-      cloud.value!.hook = [tip[0], lerp(tip[1], start[1], p)]
-    }
-    else if ((t -= phases.lower) < phases.tug) {
-      const pull = Math.sin(Math.PI * t / phases.tug) * 10
-      lift([from[0], from[1] - pull], tilt + pull * 0.2)
-      place([hover[0], hover[1] - pull], 0, [start[0], start[1] - pull])
-    }
-    else if ((t -= phases.tug) < phases.lift) {
-      const q = t / phases.lift
-      const p = easeInOut(q)
-      const target = wall.value!.getBoundingClientRect()
-      const to: [number, number] = [target.left - left, target.top - (window.innerHeight - height)]
-      const shift: [number, number] = [lerp(from[0], to[0], p), lerp(from[1], to[1], p)]
-      lift(shift, lerp(tilt, 0, p) + Math.sin(q * 2 * Math.PI * 1.6) * 3 * (1 - q))
-      const hook = hookAt(shift)
-      place([hook[0], hook[1] - lerp(lineLength, shortLine, p)], 0, hook)
-    }
-    else if ((t -= phases.lift) < phases.reel) {
-      if (!rehung) {
-        rehung = true
-        rehang()
-      }
-      const target = wall.value!.getBoundingClientRect()
-      const hook: [number, number] = [target.left + width / 2, target.top + bite]
-      const tip = place([hook[0], hook[1] - shortLine], 0)
-      cloud.value!.hook = [tip[0], lerp(hook[1], tip[1] + 14, easeOut(t / phases.reel))]
-    }
-    else if ((t -= phases.reel) < phases.leave) {
-      leaveFrom ??= cloud.value!.tip
-      const p = (t / phases.leave) ** 2
-      place([lerp(leaveFrom[0], -size * 0.4, p), lerp(leaveFrom[1], -size, p)], -12 * p)
-    }
-    else {
-      return finishRescue()
-    }
-    frame = requestAnimationFrame(step)
-  }
-  frame = requestAnimationFrame(step)
+// The cable's end let go: it plugs in only on the hanging board's grommet.
+function onWireRelease(point: { x: number, y: number }) {
+  const grommet = board.value?.querySelector('.gl-grommet')
+  if (state.value !== 'hung-dark' || !grommet) return
+  const at = centre(grommet)
+  if (Math.hypot(point.x - at.x, point.y - at.y) <= plugReach) reconnect()
 }
 
-const onResize = () => fallen.value && !rescuing.value && placeFallen()
+// Enter or Space hangs the fallen sign back up; arrow keys nudge it.
+function onFallenKey(event: KeyboardEvent) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    hangBack(true)
+    return
+  }
+  const nudge = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[event.key]
+  if (!nudge) return
+  event.preventDefault()
+  fallenPosition.value = { x: fallenPosition.value.x + nudge[0]!, y: fallenPosition.value.y + nudge[1]! }
+  throwable.clamp()
+}
+
+const onResize = () => fallen.value && throwable.clamp()
 onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   cancelAnimationFrame(frame)
-  cancelAnimationFrame(cableFrame)
 })
 </script>
 
 <template>
-  <section class="glosslint-hero">
+  <section class="glosslint-hero" :data-state="state">
     <div class="glosslint-hero-copy">
       <slot />
 
@@ -410,7 +349,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div ref="wall" :class="['glosslint-hero-sign', { 'is-hanging': pivot && !fallen, 'is-fallen': fallen }]">
+    <div ref="wall" :class="['glosslint-hero-sign', { 'is-hanging': pivot && !fallen, 'is-fallen': fallen, 'is-powered': powered }]">
       <div class="gl-wall-bricks" aria-hidden="true" />
 
       <!-- The wall behind the sign: the nail holes and the outlet, which show once the sign is gone. -->
@@ -427,19 +366,30 @@ onBeforeUnmount(() => {
       </svg>
 
       <div ref="board" class="gl-board" :style="boardStyle">
-        <GlosslintSign lit />
+        <GlosslintSign :lit="powered" />
+        <span class="gl-grommet" />
       </div>
 
-      <!-- The cable into its plug, in front of the wall. Once the sign falls, the cable is drawn from the floor instead. -->
+      <!-- The cable into its plug, in front of the wall, while it is plugged into the board. -->
       <svg class="gl-wall-layer" viewBox="0 0 800 480" aria-hidden="true">
-        <g v-if="!fallen" fill="none" stroke-linecap="round">
+        <g v-if="state === 'hung-live'" fill="none" stroke-linecap="round">
           <path :d="cable" stroke="#1c2433" stroke-width="5" />
           <path :d="cable" stroke="#fff" stroke-opacity="0.08" stroke-width="1" transform="translate(-1 -1)" />
         </g>
         <rect x="779" y="418" width="6" height="8" rx="1.5" fill="#1a202c" />
-        <rect x="773.5" y="424" width="17" height="19" rx="3.5" fill="#1a202c" stroke="#05070c" stroke-opacity="0.6" />
+        <rect x="773.5" y="424" width="17" height="19" rx="3.5" fill="#1a202c" stroke="#05070c" stroke-opacity="0.6" class="gl-plug" />
         <rect x="775.5" y="425.5" width="13" height="1.6" rx="0.8" fill="#fff" fill-opacity="0.1" />
       </svg>
+
+      <!-- Torn out of the board, the cable is a live stub hanging from the plug. -->
+      <GlosslintLiveWire
+        v-if="state !== 'hung-live'"
+        ref="liveWire"
+        :anchor="plugAt"
+        :from="snapFrom"
+        @release="onWireRelease"
+        @plug="reconnect(true)"
+      />
 
       <template v-for="side in sides" :key="side">
         <button
@@ -462,66 +412,35 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
-      <UButton
-        v-if="fallen && !rescuing"
-        ref="restoreButton"
-        class="gl-restore"
-        color="neutral"
-        variant="outline"
-        icon="i-lucide-cloud"
-        @click="hangBack"
-      >
-        Hang it back up
-      </UButton>
-
       <p class="gl-visually-hidden" aria-live="polite">
         {{ announcement }}
       </p>
     </div>
 
-    <!-- The fallen sign lies on the bottom edge of the window, behind the page, so text and links stay on top. -->
-    <svg v-if="fallen && fallenCable" :class="['gl-fallen-cable', { 'is-lifting': liftStyle }]" aria-hidden="true">
-      <g fill="none" stroke-linecap="round">
-        <path :d="fallenCable.d" stroke="#1c2433" :stroke-width="fallenCable.width" />
-        <path :d="fallenCable.d" stroke="#fff" stroke-opacity="0.08" stroke-width="1" transform="translate(-1 -1)" />
-      </g>
-    </svg>
-    <div
-      v-if="fallen"
-      ref="fallenSign"
-      :class="['gl-fallen', { 'is-lifting': liftStyle }]"
-      :style="[{ left: `${fallenBox.left}px`, width: `${fallenBox.width}px` }, liftStyle]"
-    >
-      <GlosslintSign lit />
-      <span ref="grommet" class="gl-grommet" />
-    </div>
-
-    <!-- The rescue cloud: a puffed-up tube of neon in a hard hat, fishing the sign off the floor. -->
-    <div v-if="cloud" class="gl-rescue" aria-hidden="true">
-      <svg class="gl-rescue-line">
-        <template v-if="cloud.hook">
-          <path :d="`M ${cloud.tip.join(' ')} L ${cloud.hook[0]} ${Math.max(cloud.tip[1], cloud.hook[1] - 14)}`" class="gl-rescue-string" />
-          <path :transform="`translate(${cloud.hook.join(' ')})`" d="M 0 -15 V -5 A 5 5 0 0 1 -10 -5 V -8" class="gl-rescue-hook" />
-        </template>
-      </svg>
-      <svg
-        class="gl-cloud"
-        viewBox="0 0 220 150"
-        :style="{ left: `${cloud.x}px`, top: `${cloud.y}px`, width: `${cloud.size}px`, rotate: `${cloud.tilt}deg` }"
+    <!-- The fallen sign lies on the bottom edge of the window, over the page, to pick up and throw or hang back up. -->
+    <Teleport to="body">
+      <div
+        v-if="fallen"
+        ref="fallenSign"
+        class="gl-fallen"
+        :style="{ width: `${fallenWidth}px` }"
+        role="button"
+        tabindex="0"
+        aria-label="The fallen sign. Drag it back onto the wall, or press Enter to hang it back up. Arrow keys move it."
+        @keydown="onFallenKey"
       >
-        <path d="M 150 100 L 214 22" class="gl-cloud-rod" />
-        <path
-          d="M 40 110 A 26 26 0 0 1 38 60 A 32 32 0 0 1 92 38 A 36 36 0 0 1 156 52 A 28 28 0 0 1 172 104 A 18 18 0 0 1 140 114 A 20 20 0 0 1 100 116 A 20 20 0 0 1 60 114 A 16 16 0 0 1 40 110 Z"
-          class="gl-cloud-body"
-        />
-        <circle cx="178" cy="66" r="6" class="gl-cloud-reel" />
-        <path d="M 82 78 Q 88 70 94 78 M 112 78 Q 118 70 124 78 M 97 88 Q 103 94 109 88" class="gl-cloud-face" />
-        <ellipse cx="76" cy="89" rx="6" ry="3.5" class="gl-cloud-cheek" />
-        <ellipse cx="130" cy="89" rx="6" ry="3.5" class="gl-cloud-cheek" />
-        <path d="M 100 27 A 21 17 0 0 1 142 27 Z" class="gl-cloud-hat" />
-        <path d="M 94 28 H 148" class="gl-cloud-brim" />
-      </svg>
-    </div>
+        <div ref="fallenBody" class="gl-fallen-body">
+          <GlosslintSign :lit="powered" :was-lit="fellLit" />
+          <span class="gl-grommet" />
+          <span
+            v-for="side in sides"
+            :key="side"
+            class="gl-hole-mark"
+            :style="{ left: `${nails[side].x / 7.6}%`, top: `${nails[side].y / 4}%` }"
+          />
+        </div>
+      </div>
+    </Teleport>
 
     <div
       v-for="nail in falling"
@@ -763,138 +682,55 @@ onBeforeUnmount(() => {
 
 /* ---- After the fall ---- */
 
-.gl-fallen {
-  position: fixed;
-  bottom: 0;
-  z-index: -1;
-  rotate: -1.2deg;
-  transform-origin: 50% 100%;
-  pointer-events: none;
+/* Unplugged, the sign throws no light on the wall. */
+.glosslint-hero-sign:not(.is-powered) .gl-board::before {
+  opacity: 0;
+  animation: none;
+  transition: opacity 0.6s;
 }
 
-.gl-fallen > :deep(svg) {
+/* Over everything on the page, the header included. `useThrowable` places it with `translate`. */
+.gl-fallen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gl-fallen:active {
+  cursor: grabbing;
+}
+
+.gl-fallen:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 4px;
+  border-radius: 2.1% / 4%;
+}
+
+.gl-fallen-body {
+  position: relative;
+  rotate: -1.2deg;
+  transform-origin: 50% 100%;
+}
+
+.gl-fallen-body > :deep(svg) {
   filter: drop-shadow(0 -2px 10px rgb(0 0 0 / 35%));
 }
 
-/* Still plugged in, the copy on the floor stays lit instead of striking its tubes again. */
-.gl-fallen :deep(.gl-sign-lit) {
-  animation: none;
+/* Where the cable leaves the board, and the nail holes, in its 760 × 400 units: points to measure from. */
+.gl-grommet,
+.gl-hole-mark {
+  position: absolute;
+  pointer-events: none;
 }
 
-/* Where the cable leaves the board, in its 760 × 400 units. */
 .gl-grommet {
-  position: absolute;
   top: calc(284 / 400 * 100%);
   left: calc(764 / 760 * 100%);
-}
-
-.gl-fallen-cable {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-
-/* Hooked, the sign rises over the page on its way back to the wall. */
-.gl-fallen.is-lifting,
-.gl-fallen-cable.is-lifting {
-  z-index: 60;
-}
-
-.gl-restore {
-  position: absolute;
-  top: 42%;
-  left: 47.5%;
-  translate: -50% -50%;
-}
-
-.gl-rescue {
-  --gl-cloud-fill: #0d1522;
-  --gl-cloud-ink: #e6fbff;
-  --gl-cloud-line: rgb(230 251 255 / 75%);
-  position: fixed;
-  inset: 0;
-  z-index: 61;
-  pointer-events: none;
-}
-
-:global(.light .gl-rescue) {
-  --gl-cloud-fill: #fff;
-  --gl-cloud-ink: #0f172a;
-  --gl-cloud-line: rgb(15 23 42 / 70%);
-}
-
-.gl-rescue-line {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.gl-rescue-string {
-  fill: none;
-  stroke: var(--gl-cloud-line);
-  stroke-width: 1.25;
-}
-
-.gl-rescue-hook {
-  fill: none;
-  stroke: #cbd5e1;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 45%));
-}
-
-.gl-cloud {
-  position: absolute;
-  overflow: visible;
-}
-
-.gl-cloud-body {
-  fill: var(--gl-cloud-fill);
-  stroke: #22e8ff;
-  stroke-width: 3.5;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px rgb(34 232 255 / 90%)) drop-shadow(0 0 14px rgb(34 232 255 / 45%));
-}
-
-.gl-cloud-face {
-  fill: none;
-  stroke: var(--gl-cloud-ink);
-  stroke-width: 3.2;
-  stroke-linecap: round;
-}
-
-.gl-cloud-cheek {
-  fill: #ff4770;
-  opacity: 0.45;
-}
-
-.gl-cloud-rod {
-  stroke: #94a3b8;
-  stroke-width: 3.5;
-  stroke-linecap: round;
-}
-
-.gl-cloud-reel {
-  fill: #1e293b;
-  stroke: #94a3b8;
-  stroke-width: 2.5;
-}
-
-/* The hard hat: the screwdriver's amber. */
-.gl-cloud-hat {
-  fill: #f59e0b;
-}
-
-.gl-cloud-brim {
-  stroke: #f59e0b;
-  stroke-width: 5;
-  stroke-linecap: round;
 }
 
 .gl-visually-hidden {
