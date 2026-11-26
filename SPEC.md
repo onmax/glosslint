@@ -16,7 +16,7 @@ Prior art:
 
 ## Scope
 
-Version 0.0.2. The first user is a Nuxt 4 app of about 390 Vue files with an ESLint flat config (`@nuxt/eslint` with `@antfu/eslint-config`), vue-i18n YAML locales (one source locale, two translated) and agents that read `AGENTS.md` and `.agents/`. What that app needs is in: the glossary file as the one source, ESLint on Vue templates, TypeScript and the source YAML locale, and a CLI that checks Markdown, explains a word and repairs the glossary. Oxlint covers JavaScript and TypeScript only. The x18n plugin reads the glossary file the way the ESLint config does, and `defineCorpus` stays as it is in 0.0.1. `fromGlossaryTable` is removed with no alias and no migration. The README, the docs and the agent skill lead with the glossary file and show `defineCorpus` second.
+Version 0.0.2. The first user is a Nuxt 4 app of about 390 Vue files with an ESLint flat config (`@nuxt/eslint` with `@antfu/eslint-config`), vue-i18n YAML locales (one source locale, two translated) and agents that read `AGENTS.md` and `.agents/`. What that app needs is in: the glossary file as the one source, ESLint on Vue templates, TypeScript and the source YAML locale, and a CLI that checks Markdown, explains a word and repairs the glossary. Oxlint covers JavaScript and TypeScript only. The x18n plugin reads the glossary file the way the ESLint config does, and `defineCorpus` stays as it is in 0.0.1. `fromGlossaryTable` is removed with no alias and no migration. The README and the docs lead with the glossary file and show `defineCorpus` second.
 
 ## The glossary file
 
