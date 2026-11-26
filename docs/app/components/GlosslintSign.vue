@@ -289,7 +289,7 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
 
   /* Pulled from the wall, the gas sputters out. */
   .gl-sign:not(.is-lit) .gl-sign-lit {
-    animation: gl-sign-die 0.8s linear both;
+    animation: gl-sign-die 1.2s linear both;
   }
 
   .is-lit .gl-sign-stutter {
@@ -344,13 +344,14 @@ const label = 'A neon sign reading glosslint. Under it, e-bike rack is a dark tu
   85%, 100% { opacity: 1; }
 }
 
+/* Three last catches, under three a second, each weaker than the one before. */
 @keyframes gl-sign-die {
-  0% { opacity: 1; }
-  12% { opacity: 0.15; }
-  22% { opacity: 0.85; }
-  38% { opacity: 0.1; }
-  52% { opacity: 0.45; }
-  100% { opacity: 0; }
+  0%, 6% { opacity: 1; }
+  10%, 24% { opacity: 0.05; }
+  28%, 34% { opacity: 1; }
+  38%, 56% { opacity: 0.05; }
+  60%, 64% { opacity: 0.6; }
+  68%, 100% { opacity: 0; }
 }
 
 @keyframes gl-sign-sputter {

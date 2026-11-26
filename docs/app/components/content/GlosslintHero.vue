@@ -3,7 +3,8 @@
 // beside the neon sign that says what glosslint does.
 //
 // The sign hangs on two nails. Each click on a nail turns it a little; a nail turned six times falls out. With one nail
-// out the sign swings and hangs from the other, and with both out it falls to the bottom edge of the window, unplugged.
+// out the sign swings and hangs from the other, and with both out it falls to the bottom edge of the window, unplugged,
+// with a spark at the outlet. A reload hangs it back up.
 
 const slots = useSlots()
 
@@ -49,13 +50,13 @@ const angle = ref(0)
 const fallen = ref(false)
 const fallenLit = ref(true)
 const fallenBox = ref({ left: 0, width: 0 })
+const sparking = ref(false)
 const announcement = ref('')
 
 const wall = ref<HTMLElement>()
 const board = ref<HTMLElement>()
 const fallenSign = ref<HTMLElement>()
 const nailButtons = reactive<Partial<Record<Side, HTMLButtonElement>>>({})
-const rehangButton = ref<HTMLButtonElement>()
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -107,8 +108,7 @@ async function drop(side: Side) {
   }
   else {
     await fall()
-    announcement.value = 'Both nails are out. The sign fell to the bottom of the window and came unplugged.'
-    rehangButton.value?.focus()
+    announcement.value = 'Both nails are out. The sign fell to the bottom of the window and came unplugged. Reload the page to hang it back up.'
   }
 }
 
@@ -170,8 +170,12 @@ async function fall() {
   await nextTick()
   const el = fallenSign.value
   if (!el) return
-  // Pulled from the wall, the tubes go out.
+  // Pulled from the wall, the plug sparks and the tubes go out.
   requestAnimationFrame(() => { fallenLit.value = false })
+  if (!prefersReducedMotion()) {
+    sparking.value = true
+    setTimeout(() => { sparking.value = false }, 900)
+  }
 
   if (prefersReducedMotion()) {
     el.animate([{ opacity: 0, translate: '0 -16px' }, { opacity: 1, translate: '0 0' }], { duration: 200, easing: 'ease-out' })
@@ -197,24 +201,9 @@ async function fall() {
   ], { duration })
 }
 
-async function rehang() {
-  const finish = async () => {
-    fallen.value = false
-    pivot.value = undefined
-    angle.value = 0
-    for (const side of sides) {
-      turns[side] = 0
-      out[side] = false
-    }
-    announcement.value = 'The sign hangs on both nails again.'
-    await nextTick()
-    board.value?.animate([{ opacity: 0, translate: '0 -10px' }, { opacity: 1, translate: '0 0' }], { duration: prefersReducedMotion() ? 120 : 360, easing: 'ease-out' })
-    nailButtons.left?.focus()
-  }
-  const el = fallenSign.value
-  if (!el) return finish()
-  el.animate([{ opacity: 1 }, { opacity: 0, translate: '0 24px' }], { duration: prefersReducedMotion() ? 120 : 260, easing: 'ease-in' }).onfinish = finish
-}
+// Rays out of the socket, and bits of hot metal that fly off and drop.
+const sparkRays = [-2.6, -2.05, -1.55, -1.1, -0.6, 0.25, 2.9, 3.5]
+const sparkBits = [[-38, 34], [-26, 52], [-12, 60], [-46, 12], [-30, -18], [-8, -30], [10, 44]]
 
 const onResize = () => fallen.value && placeFallen()
 onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
@@ -285,6 +274,23 @@ onBeforeUnmount(() => {
             <rect x="2.6" y="-3.4" width="2" height="6" rx="1" class="gl-outlet-slot" />
           </g>
         </g>
+        <!-- The spark as the plug comes out of the top socket. -->
+        <g v-if="sparking" class="gl-spark" transform="translate(782 428)">
+          <circle r="9" class="gl-spark-flash" />
+          <path
+            v-for="ray in sparkRays"
+            :key="ray"
+            :d="`M 0 0 L ${Math.cos(ray) * 26} ${Math.sin(ray) * 26}`"
+            class="gl-spark-ray"
+          />
+          <circle
+            v-for="(bit, index) in sparkBits"
+            :key="index"
+            r="1.6"
+            class="gl-spark-bit"
+            :style="{ '--dx': `${bit[0]}px`, '--dy': `${bit[1]}px`, animationDelay: `${index * 25}ms` }"
+          />
+        </g>
       </svg>
 
       <div ref="board" class="gl-board" :style="boardStyle">
@@ -307,25 +313,21 @@ onBeforeUnmount(() => {
           v-if="!out[side] && !fallen"
           :ref="el => { nailButtons[side] = (el as HTMLButtonElement | null) ?? undefined }"
           type="button"
+          data-motion="none"
           :class="['gl-nail', `gl-nail-${side}`]"
           :style="{ left: `${nails[side].x / 8}%`, top: `${nails[side].y / 4.8}%` }"
           :aria-label="`Loosen the ${side} nail (${turnsToDrop - turns[side]} ${turnsToDrop - turns[side] === 1 ? 'turn' : 'turns'} left)`"
           @click="loosen(side)"
         >
           <svg viewBox="-18 -18 36 36" aria-hidden="true">
-            <circle cx="0.6" cy="1.8" r="7.8" fill="#000" :opacity="0.4 + turns[side] * 0.05" :transform="`translate(${turns[side] * 0.25} ${turns[side] * 0.4})`" />
-            <g>
-              <circle r="7.5" class="gl-nail-metal" />
-              <circle r="7.5" fill="none" stroke="#05070c" stroke-opacity="0.85" />
-              <path d="M -4.6 0 L 4.6 0" class="gl-nail-slot" :style="{ rotate: `${nails[side].slot - turns[side] * degreesPerTurn}deg` }" />
-            </g>
+            <circle cx="0.8" cy="2.2" r="10" fill="#000" :opacity="0.5 + turns[side] * 0.05" :transform="`translate(${turns[side] * 0.25} ${turns[side] * 0.4})`" />
+            <circle r="9.5" class="gl-nail-metal" />
+            <path d="M -6.6 -4.2 A 7.8 7.8 0 0 1 2.2 -7.5" class="gl-nail-shine" />
+            <circle r="9.5" fill="none" stroke="#05070c" stroke-opacity="0.9" />
+            <path d="M -6 0 L 6 0" class="gl-nail-slot" :style="{ rotate: `${nails[side].slot - turns[side] * degreesPerTurn}deg` }" />
           </svg>
         </button>
       </template>
-
-      <button v-if="fallen" ref="rehangButton" type="button" class="gl-rehang" @click="rehang">
-        Hang the sign back up
-      </button>
 
       <p class="gl-visually-hidden" aria-live="polite">
         {{ announcement }}
@@ -351,9 +353,10 @@ onBeforeUnmount(() => {
       aria-hidden="true"
     >
       <svg viewBox="-18 -18 36 36">
-        <circle r="7.5" class="gl-nail-metal" />
-        <circle r="7.5" fill="none" stroke="#05070c" stroke-opacity="0.85" />
-        <path d="M -4.6 0 L 4.6 0" class="gl-nail-slot" :style="{ rotate: `${nail.slot}deg` }" />
+        <circle r="9.5" class="gl-nail-metal" />
+        <path d="M -6.6 -4.2 A 7.8 7.8 0 0 1 2.2 -7.5" class="gl-nail-shine" />
+        <circle r="9.5" fill="none" stroke="#05070c" stroke-opacity="0.9" />
+        <path d="M -6 0 L 6 0" class="gl-nail-slot" :style="{ rotate: `${nail.slot}deg` }" />
       </svg>
     </div>
   </section>
@@ -502,13 +505,14 @@ onBeforeUnmount(() => {
 .gl-nail {
   position: absolute;
   z-index: 1;
-  width: 5%;
+  width: 6%;
   aspect-ratio: 1;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: none;
-  cursor: pointer;
+  /* A flat screwdriver, its blade at the hotspot. */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cg fill='none'%3E%3Cpath d='M3.5 3.5 16 16' stroke='%230b0f17' stroke-width='4.6'/%3E%3Cpath d='M3.5 3.5 16 16' stroke='%23d6dde8' stroke-width='2.4'/%3E%3Cpath d='M17 17 27 27' stroke='%230b0f17' stroke-width='9.5' stroke-linecap='round'/%3E%3Cpath d='M17 17 27 27' stroke='%23f59e0b' stroke-width='7' stroke-linecap='round'/%3E%3Cpath d='M18.6 17.4 25.4 24.2' stroke='%23fff' stroke-opacity='.45' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 3 3, pointer;
   translate: -50% -50%;
   -webkit-tap-highlight-color: transparent;
 }
@@ -534,21 +538,29 @@ onBeforeUnmount(() => {
 }
 
 .gl-nail-slot {
-  stroke: #0a0d14;
-  stroke-width: 1.5;
+  stroke: #05070c;
+  stroke-width: 2.2;
   stroke-linecap: round;
   transition: rotate 0.22s ease-out;
 }
 
-/* Metal with a highlight at the top left. A gradient id would be shared by every nail, so this is a CSS gradient. */
+/* Bright steel with a shine at the top left, so the nails read as something to turn. */
 .gl-nail-metal {
-  fill: #2c3546;
-  filter: drop-shadow(-1px -1px 0 rgb(255 255 255 / 12%));
+  fill: #6b778c;
+  filter: drop-shadow(-1px -1px 0 rgb(255 255 255 / 22%));
+}
+
+.gl-nail-shine {
+  fill: none;
+  stroke: #fff;
+  stroke-opacity: 0.5;
+  stroke-width: 1.3;
+  stroke-linecap: round;
 }
 
 @media (hover: hover) {
   .gl-nail:hover .gl-nail-metal {
-    fill: #3a4558;
+    fill: #8592a8;
   }
 }
 
@@ -560,13 +572,56 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gl-nail-head,
   .gl-nail-slot {
     transition: none;
   }
 }
 
 /* ---- After the fall ---- */
+
+.gl-spark {
+  filter: drop-shadow(0 0 3px #fff3b0) drop-shadow(0 0 10px #ffb020) drop-shadow(0 0 22px #ff7a00);
+}
+
+.gl-spark-flash {
+  fill: #fffbe6;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gl-spark-flash 0.55s ease-out both;
+}
+
+.gl-spark-ray {
+  stroke: #fff6c8;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 26;
+  animation: gl-spark-ray 0.4s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.gl-spark-bit {
+  fill: #ffe08a;
+  animation: gl-spark-bit 0.8s cubic-bezier(0.3, 0.6, 0.6, 1) both;
+}
+
+@keyframes gl-spark-flash {
+  0% { opacity: 1; scale: 0.4; }
+  20% { opacity: 1; scale: 1.6; }
+  35% { opacity: 0.3; scale: 1; }
+  50% { opacity: 0.9; scale: 1.3; }
+  100% { opacity: 0; scale: 0.6; }
+}
+
+@keyframes gl-spark-ray {
+  0% { stroke-dashoffset: 26; opacity: 1; }
+  60% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -26; opacity: 0; }
+}
+
+@keyframes gl-spark-bit {
+  0% { translate: 0 0; opacity: 1; }
+  80% { opacity: 1; }
+  100% { translate: var(--dx) var(--dy); opacity: 0; }
+}
 
 .gl-fallen {
   position: fixed;
@@ -584,29 +639,6 @@ onBeforeUnmount(() => {
 /* On the light page the dark board sits under dark text, so it lies there faded. */
 :global(.light .gl-fallen > svg) {
   opacity: 0.25;
-}
-
-.gl-rehang {
-  position: absolute;
-  top: 40%;
-  left: 47.5%;
-  padding: 0.375rem 0.75rem;
-  border: 1px dashed var(--ui-border-accented);
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--ui-bg) 70%, transparent);
-  color: var(--ui-text-muted);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  translate: -50% -50%;
-  white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-@media (hover: hover) {
-  .gl-rehang:hover {
-    border-color: var(--ui-primary);
-    color: var(--ui-text-highlighted);
-  }
 }
 
 .gl-visually-hidden {
