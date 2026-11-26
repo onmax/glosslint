@@ -41,7 +41,7 @@ describe("glosslint doctor", () => {
 
 [GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links" or "Case", or reword the line so it does not start with "Note:".
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case" or "Casing", or reword the line so it does not start with "Note:".
 
 [GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
 ├▶ term: Dock
@@ -77,7 +77,7 @@ describe("glosslint doctor", () => {
       stdout: "No problems in glossaries/kiosk.md.\n",
       stderr: "",
     });
-    // bikeDir has a config but no glossary file.
+    // bikeDir has a corpus module but no glossary file.
     expect((await run(["doctor"], bikeDir)).code).toBe(2);
   });
 
@@ -98,14 +98,14 @@ describe("glosslint doctor", () => {
     use(join(glossaryFixtures, "fixable.md"));
     const { code, stdout } = await run(["doctor"], dir);
     expect(code).toBe(1);
-    expect(stdout).toMatch(/\n\n16 problems in \.agents\/glossary\.md, 16 fixable with --fix\.\n$/);
+    expect(stdout).toMatch(/\n\n17 problems in \.agents\/glossary\.md, 17 fixable with --fix\.\n$/);
   });
 
   it("--fix rewrites G001 to G003 in canonical form, and a second --fix changes no byte", async () => {
     const file = use(join(glossaryFixtures, "fixable.md"));
     expect(await run(["doctor", "--fix"], dir)).toEqual({
       code: 0,
-      stdout: "Fixed 16 problems in .agents/glossary.md.\n",
+      stdout: "Fixed 17 problems in .agents/glossary.md.\n",
       stderr: "",
     });
     const fixed = readFileSync(join(glossaryFixtures, "fixable.fixed.md"), "utf8");

@@ -26,7 +26,7 @@ The first user is a Nuxt 4 app of about 390 Vue files with an ESLint flat config
 
 The words the rider app and the help center use.
 
-Extends: tech, inclusive
+Presets: tech, inclusive
 Allow: check out our, roof rack
 Casing: label sentence, header title
 
@@ -51,13 +51,13 @@ Case: context
 - The H1 is `Glossary`. Each H2 is one term. Prose between the H1 and the first field or H2 is an introduction and is not read.
 - A field starts at a line that begins with its name and a colon, in any case, even inside a paragraph, and a term's heading and its fields go on consecutive lines, as do the corpus fields. Names are fixed, in English, written as above. An unknown name is an error, never prose, so a typo is not silently read as text. A paragraph under a text field that does not start with a field continues it.
 - Markdown previews such as GitHub's join consecutive field lines into one paragraph, so the file reads best as source, which is how people and agents read it. A Markdown formatter such as Prettier indents a field that follows a list into the list's last item, so add `.agents/glossary.md` to its ignore file.
-- Corpus fields, before the first H2: `Extends` (the presets `tech` and `inclusive`, by name, merged in order before the file's terms), `Allow` (`allow`), `Casing` (`casing`, as `kind style` pairs).
-- Term fields, in canonical order: `What` (`description`), `How` (`nuance`), `Why` (`why`, new), `Avoid` (`avoid`), `Good` and `Bad` (`examples`), `Links` (`links`), `Case` (`case`: `exact`, `spelling` or `context`).
-- `What`, `How` and `Why` are text, kept as written; line and paragraph breaks read as one space. `Avoid`, `Good`, `Bad` and `Links` are `-` lists. `Extends`, `Allow`, `Casing` and `Avoid` also take a comma list on the field's line.
+- Corpus fields, before the first H2: `Presets` (the presets `tech` and `inclusive`, by name, merged in order before the file's terms), `Allow` (`allow`), `Casing` (`casing`, as `kind style` pairs).
+- Term fields, in canonical order: `What` (`description`), `How` (`nuance`), `Why` (`why`, new), `Avoid` (`avoid`), `Good` and `Bad` (`examples`), `Links` (`links`), `Case` (`case`: `exact`, `spelling` or `context`), `Casing` (`casing`, the term's own `kind style` pairs; without `Case` it makes the term `context`).
+- `What`, `How` and `Why` are text, kept as written; line and paragraph breaks read as one space. `Avoid`, `Good`, `Bad` and `Links` are `-` lists. `Presets`, `Allow`, `Casing` and `Avoid` also take a comma list on the field's line.
 - An avoid item is `word` or `word: reason`, split at the first colon followed by a space. Backticks around the word are dropped, which is how a word holding a comma or a colon is written. A link is `[title](url)` with an http or https URL.
 - `## Day Pass (DP, D)` gives the term and its abbreviations. Parentheses in a heading hold only abbreviations: single words that are one capital or have a capital after their first letter.
 - A name with a capital right after a letter (`eBike`, `SOS`) is `exact` unless `Case` says otherwise. Nothing is inferred from the text of `How`.
-- `skip`, `forms`, `translations`, per-term `casing` and `wholeLabel` have no field. A project that needs them writes `defineCorpus({ extends: [fromGlossary()], … })`.
+- `skip`, `forms`, `translations` and `wholeLabel` have no field. A project that needs them writes `defineCorpus({ extends: [fromGlossary()], … })` and passes the corpus to the runner that needs it: `glosslint({ corpus })` in ESLint or x18n, `--corpus <module>` in the CLI. No file is discovered by name besides `.agents/glossary.md`.
 
 ## Behaviour
 
@@ -68,7 +68,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 3. **Loaders throw on what they cannot read.** `fromGlossary` throws a `GlosslintConfigError` with the code, `path:line` and the fix for `G004` to `G008`. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. `test/glossary.test.ts`
 4. **No glossary.** A missing file throws `GLOSSLINT_C009`, naming the path it looked for. `test/glossary.test.ts`
 5. **`Why` in findings.** An avoid finding prints the avoid word's own reason, else the term's `why`, else its `nuance`. `explain` prints `why`. `test/core/matcher.test.ts`, `test/tools.test.ts`
-6. **CLI loading.** `check`, `test`, `print` and `explain` take the corpus from `--config`, else `--glossary`, else `glosslint.config.{ts,mts,js,mjs}` in the current folder, else `.agents/glossary.md`. Both flags together exit 2 with `GLOSSLINT_USAGE`. Nothing found exits 2 with `GLOSSLINT_C009`, naming both files. `test/cli/load.test.ts`
+6. **CLI loading.** `check`, `test`, `print` and `explain` take the corpus from the `--corpus` module's default export, else the `--glossary` file, else `.agents/glossary.md`. A `glosslint.config.*` file is never read. Both flags together exit 2 with `GLOSSLINT_USAGE`. A missing file exits 2 with `GLOSSLINT_C009`. `test/cli/load.test.ts`
 7. **`check` leaves the glossary alone.** The file loaded by `--glossary` or by default is never checked, even when named or inside a checked folder. `test/cli/check.test.ts`
 8. **`doctor` reports.** On a fixture with one problem of each code it prints each with its line and fix and exits 1. A clean file exits 0. A missing file exits 2. `test/cli/doctor.test.ts`
 9. **`doctor --fix` repairs.** A file with `G001` to `G003` problems is rewritten in canonical form, `doctor` then exits 0, and a second `--fix` changes no byte. Term order, introduction and text are kept. `test/cli/doctor.test.ts`
@@ -78,7 +78,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 13. **ESLint and x18n options.** `glossary` reads another path, `corpus` takes a corpus, and both together throw `GLOSSLINT_C012`. The x18n plugin with no options reads `.agents/glossary.md` once, when it is built. `test/eslint/glossary.test.ts`, `test/x18n.test.ts`
 14. **Oxlint.** With `jsPlugins: ["glosslint/oxlint"]` and the four rules on, the `oxlint` binary reports term, avoid, comment and identifier findings in `.ts` files and in the `<script>` of a `.vue` file, `--fix` applies the autofixes and leaves the suggestions, and `settings.glosslint.glossary` changes the path. `test/oxlint.test.ts`
 15. **The package.** `glosslint` exports `fromGlossary` and `readGlossary` and no `fromGlossaryTable`, `glosslint/oxlint` resolves, and the built plugin loads in `oxlint`. `test/dist.test.ts`
-16. **The example.** `examples/basic` has `.agents/glossary.md` and no config. Every CLI output the README and docs show, `doctor` included, is what the CLI prints there. `test/example.test.ts`
+16. **The example.** `examples/basic` has `.agents/glossary.md` and no corpus module. Every CLI output the README and docs show, `doctor` included, is what the CLI prints there. `test/example.test.ts`
 
 ## Shape
 
@@ -100,16 +100,16 @@ glosslint(options?: { glossary?: string | URL, corpus?: Corpus, sourceLocale?, k
 //   "settings": { "glosslint": { "glossary"?: string, "ignoreCallees"?: string[], "identifierAvoid"?: boolean } } }
 
 // CLI
-// glosslint [check] [...paths] [--glossary <path> | --config <path>] [--format text|json] [--ext <list>]
+// glosslint [check] [...paths] [--glossary <path> | --corpus <module>] [--format text|json] [--ext <list>]
 // glosslint doctor [--glossary <path>] [--fix]
 // glosslint test | print | explain <query>   (same two flags)
 ```
 
 - **`readGlossary`** (`src/glossary.ts`) is the one parser. `fromGlossary`, `doctor` and every adapter go through it. `corpus` is set when no `G004` to `G008` problem exists; `fixed` is the canonical text, set when the file can be rewritten and differs from it.
-- **Problems `--fix` rewrites.** `GLOSSLINT_G001`: the H1 is missing or not `Glossary` (inserted or retitled). `G002`: a field name in another case, an alias (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related` or `Related links` for `Links`), or a near miss by the `nearest` rule of `src/corpus.ts`. `G003`: layout, meaning a blank line after a term's heading or between fields, `*` or `+` bullets, a bare URL under `Links` (becomes `[url](url)`), fields out of canonical order, or spacing.
+- **Problems `--fix` rewrites.** `GLOSSLINT_G001`: the H1 is missing or not `Glossary` (inserted or retitled). `G002`: a field name in another case, an alias (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related` or `Related links` for `Links`, `Extends` for `Presets`), or a near miss by the `nearest` rule of `src/corpus.ts`. `G003`: layout, meaning a blank line after a term's heading or between fields, `*` or `+` bullets, a bare URL under `Links` (becomes `[url](url)`), fields out of canonical order, or spacing.
 - **Problems only reported.** `G004`: an unknown field, or content the format has no place for (text before a term's first field or after a list, a table, a code fence, an H3). `G005`: a term or a field written twice. `G006`: a bad value (`Case`, `Casing`, an unknown preset, a link that is not `[title](http…)`, an empty field). `G007`: a term heading with no words, or with parentheses that are not abbreviations. `G008`: an avoid word that is a term of the file. `G009`: a failing example, which `doctor` reports and loaders ignore.
 - **Canonical form.** `# Glossary`, the introduction as written, the corpus fields, then each term in file order with its fields in canonical order. A list stays in the form it was written, on the field's line or as `-` items. One blank line before each heading, between introduction blocks, after the introduction and between the paragraphs of a text field, and none after a `##` heading or between fields. LF line endings and one final newline.
-- **`doctor`** reads only the glossary file, never a config. Exit 0 with no problems, 1 with problems left, 2 when the file is missing.
+- **`doctor`** reads only the glossary file, never a corpus module. Exit 0 with no problems, 1 with problems left, 2 when the file is missing.
 - **ESLint** sets no parser: the app's config supplies typescript-eslint, vue-eslint-parser and yaml-eslint-parser. `files` picks the source locale file.
 - **Oxlint** has no config hook, so the rules read the glossary on the first file, from `context.cwd`, and keep it for the process. It takes a path only: plugin entries are module specifiers and settings are JSON, so there is no `corpus` and no `kindOf`. Oxlint offers no parser services, so Vue templates are not visited, and it does not lint YAML. JS plugins are alpha in Oxlint 1.94, so `oxlint` is an optional peer and the entry may change with it.
 - **Removed.** `fromGlossaryTable`, `GlossaryTableColumns`, `src/table.ts`, its test and fixture, the codes `GLOSSLINT_NO_GLOSSARY_TABLE` and `GLOSSLINT_DUPLICATE_TERM`, and the docs page about tables.

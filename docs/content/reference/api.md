@@ -190,7 +190,7 @@ Returns an `@x18n/core` plugin named `"glosslint"` that adds the checks `glossli
 
 ## glosslint/presets/tech
 
-Exports a default `Corpus` containing 477 product and technology names generated from case-police 2.2.1 (each an `exact` term with `skip: ["lower", "upper"]`) and 7 joined spellings in `allow`. In `.agents/glossary.md`, write `Extends: tech`; in `defineCorpus`, pass it inside `extends`. See [Built-in presets](/guide/presets).
+Exports a default `Corpus` containing 477 product and technology names generated from case-police 2.2.1 (each an `exact` term with `skip: ["lower", "upper"]`) and 7 joined spellings in `allow`. In `.agents/glossary.md`, write `Presets: tech`; in `defineCorpus`, pass it inside `extends`. See [Built-in presets](/guide/presets).
 
 ```ts
 declare const corpus: Corpus;
@@ -199,7 +199,7 @@ export default corpus;
 
 ## glosslint/presets/inclusive
 
-Exports a default `Corpus` containing 37 inclusive-wording terms with reasons on each avoid word, inline examples, and an empty `allow` list. In `.agents/glossary.md`, write `Extends: inclusive`; in `defineCorpus`, pass it inside `extends`. See [Built-in presets](/guide/presets).
+Exports a default `Corpus` containing 37 inclusive-wording terms with reasons on each avoid word, inline examples, and an empty `allow` list. In `.agents/glossary.md`, write `Presets: inclusive`; in `defineCorpus`, pass it inside `extends`. See [Built-in presets](/guide/presets).
 
 ```ts
 declare const corpus: Corpus;

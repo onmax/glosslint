@@ -5,7 +5,7 @@ navigation.order: 5
 icon: i-lucide-case-sensitive
 ---
 
-Use the default `spelling` mode for most terms, `exact` for names that keep one form, and `context` when capitals change between labels and sentences. Set `Case:` per term in [`.agents/glossary.md`](/guide/glossary), and `Casing:` at the top to style `context` terms in labels, headers, and sentences. In `glosslint.config.ts`, [`defineCorpus`](/guide/corpus) takes `case`, per-term `casing`, and `wholeLabel`.
+Use the default `spelling` mode for most terms, `exact` for names that keep one form, and `context` when capitals change between labels and sentences. Set `Case:` per term in [`.agents/glossary.md`](/guide/glossary), and `Casing:` to style `context` terms in labels, headers, and sentences, at the top for the whole glossary or under one term. `wholeLabel` lives in [`defineCorpus`](/guide/corpus).
 
 ## Case modes
 
@@ -28,7 +28,7 @@ Case: exact
 Case: context
 ```
 
-Omit `Case:` when you want `spelling`. In `.agents/glossary.md`, names with a capital after the first letter (`eBike`, `SOS`) pick `exact` without a `Case:` line. In `defineCorpus`, setting `casing` without `case` makes a term `context`. glosslint always checks abbreviations like `DP` as `exact`, except all-lowercase forms pass: `"dp"` passes, `"Dp"` is reported.
+Omit `Case:` when you want `spelling`. In `.agents/glossary.md`, names with a capital after the first letter (`eBike`, `SOS`) pick `exact` without a `Case:` line. A term's `Casing:` without `Case:` makes it `context`, as `casing` without `case` does in `defineCorpus`. glosslint always checks abbreviations like `DP` as `exact`, except all-lowercase forms pass: `"dp"` passes, `"Dp"` is reported.
 
 ## How context picks text kind
 
@@ -73,19 +73,29 @@ Case: context
 
 `{ headerName: "Day pass" }` fixes to `DAY PASS`, while `"Buy a day pass"` on a button becomes `"Buy a Day Pass"`. In `upper` headers, all-caps forms pass for `exact` terms and abbreviations too (`EBIKE`, `DP`).
 
-## Per-term styles and `wholeLabel`
+## Per-term styles
 
-```ts [glosslint.config.ts]
+A term's own `Casing:` wins over the glossary's for that term. It takes the same `<kind> <style>` pairs:
+
+```md [.agents/glossary.md]
+# Glossary
+
+Casing: header upper
+
+## Ride history
+Casing: label as-written
+```
+
+"Ride history" stays as written in labels, takes lowercase in sentences, and "RIDE HISTORY" in headers, from the glossary's `header upper`. In `defineCorpus`, the same term is `{ term: "Ride history", casing: { label: "as-written" } }`.
+
+## `wholeLabel`
+
+`wholeLabel` has no glossary field. Set it in a [`defineCorpus`](/guide/corpus) corpus:
+
+```ts
 import { defineCorpus, fromGlossary } from "glosslint";
 
-export default defineCorpus({
-  extends: [fromGlossary()],
-  terms: [
-    // "Ride history" in labels, "ride history" in sentences, "RIDE HISTORY" in headers
-    { term: "Ride history", casing: { label: "as-written" } },
-  ],
-  wholeLabel: true,
-});
+const corpus = defineCorpus({ extends: [fromGlossary()], wholeLabel: true });
 ```
 
 By default only the term is checked (`"Day pass price"` becomes `"Day Pass price"`). With `wholeLabel: true`, every word of a `title` or `upper` label or header holding a `context` term is checked in one fix (`"Day Pass Price"`). In `title` style, small words like `"a"` and `"of"` stay lowercase unless first or after a dash or colon, and text in parentheses keeps its case.

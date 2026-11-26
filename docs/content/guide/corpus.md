@@ -1,16 +1,16 @@
 ---
 title: defineCorpus
-description: Layer a config file on top of your glossary for skip lists, word forms, translations, per-term casing, and merging corpora.
+description: Build a corpus in TypeScript with defineCorpus for skip, forms, translations, wholeLabel, and merging corpora, then pass it to the tool that needs it.
 navigation.order: 4
 icon: i-lucide-book-marked
 ---
 
-Most projects only need [`.agents/glossary.md`](/guide/glossary). Add `glosslint.config.ts` when you need config-only options (`skip`, `forms`, `translations`, per-term `casing`, `wholeLabel`) or shared corpora across packages.
+Most projects only need [`.agents/glossary.md`](/guide/glossary). Build a corpus in TypeScript with `defineCorpus` when you need options the glossary has no field for (`skip`, `forms`, `translations`, `wholeLabel`) or want to merge corpora across packages, then pass it to the tool that needs it. There is no config file that glosslint finds on its own.
 
-```ts [glosslint.config.ts]
+```ts
 import { defineCorpus, fromGlossary } from "glosslint";
 
-export default defineCorpus({
+const corpus = defineCorpus({
   extends: [fromGlossary()],
   terms: [
     {
@@ -24,7 +24,6 @@ export default defineCorpus({
       translations: { de: "Dock" },
       forms: { de: ["Dockingstation", "Dockingstationen"] },
     },
-    { term: "Ride history", casing: { label: "as-written" } },
   ],
   wholeLabel: true,
 });
@@ -32,33 +31,36 @@ export default defineCorpus({
 
 `fromGlossary()` reads `.agents/glossary.md` from the working directory; pass `fromGlossary(new URL("./docs/glossary.md", import.meta.url))` for another path. `defineCorpus` validates on load and throws `GlosslintConfigError` on mistakes ([Config and glossary errors](/reference/config-errors)).
 
-## How tools load `glosslint.config.ts`
+## Pass the corpus to a tool
 
-- **CLI.** `check`, `test`, `print`, and `explain` load `glosslint.config.{ts,mts,js,mjs}` before `.agents/glossary.md` unless `--glossary` is passed. `doctor` reads only the Markdown glossary.
-- **ESLint.** Pass `{ corpus }` to `glosslint({ corpus })` ([ESLint](/integrations/eslint)).
-- **x18n.** Pass `{ corpus }` to the plugin and `toX18nGlossary(corpus)` ([x18n](/integrations/x18n)).
-- **Oxlint.** Reads `.agents/glossary.md` or `settings.glosslint.glossary`, never `glosslint.config.ts` ([Oxlint](/integrations/oxlint)).
+Write the corpus inline in the tool's config, or export it from any module and import it where you need it.
+
+- **ESLint.** `glosslint({ corpus })` in `eslint.config.ts` ([ESLint](/integrations/eslint)).
+- **x18n.** `glosslint({ corpus })` in `x18n.config.ts`, and `toX18nGlossary(corpus)` for the translation glossary ([x18n](/integrations/x18n)).
+- **CLI.** `--corpus <module>` on `check`, `test`, `print`, and `explain`, where the module's default export is the corpus ([CLI](/integrations/cli)). `doctor` reads only the Markdown glossary.
+- **Oxlint.** Takes no corpus: it reads `.agents/glossary.md` or `settings.glosslint.glossary` ([Oxlint](/integrations/oxlint)).
 
 ## Corpus fields
 
 | Field | What it does |
 | --- | --- |
 | `extends` | Corpora merged first: `fromGlossary(...)`, [presets](/guide/presets), or another `defineCorpus(...)` ([Merge order](#merge-order)). |
-| `terms` | Term objects. Shared fields match [The glossary file](/guide/glossary); config-only fields follow below. |
+| `terms` | Term objects. Shared fields match [The glossary file](/guide/glossary); TypeScript-only fields follow below. |
 | `allow` | Phrases never reported ([Allowing phrases](#allowing-phrases)). |
 | `casing` | Default style for `context` terms: `{ label, header, sentence }` ([Casing rules](/guide/casing)). |
 | `wholeLabel` | Set `true` to check every word of a label or header holding a `context` term ([Casing rules](/guide/casing)). |
 
-## Config-only term fields
+## TypeScript-only term fields
 
-Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `examples`, `links`, `case`) are documented in [The glossary file](/guide/glossary). These four exist only in `defineCorpus`:
+Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `examples`, `links`, `case`, `casing`) are documented in [The glossary file](/guide/glossary). These three exist only in `defineCorpus`:
 
 | Property | What it does |
 | --- | --- |
-| `casing` | Per-term style over corpus `casing`, such as `{ label: "as-written" }`. Setting `casing` without `case` makes the term `context`. |
 | `skip` | `["lower"]`, `["upper"]`, or both: whole-word casings that always pass (`tech` sets both so `github` and `GITHUB` pass while `Github` fails). |
 | `forms` | Locale forms such as `{ de: ["Dockingstation", "Dockingstationen"] }`, passed to [x18n](/integrations/x18n) and matched by `glosslint explain`. |
 | `translations` | Locale translations such as `{ de: "Dock" }`, passed to [x18n](/integrations/x18n). |
+
+To add `forms` or `translations` to a term from the glossary, write the whole term in `terms`: it replaces the glossary's term with the same key ([Merge order](#merge-order)).
 
 ## Allowing phrases
 

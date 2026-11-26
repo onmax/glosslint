@@ -7,18 +7,17 @@ icon: i-lucide-terminal
 
 Use the glosslint CLI to check Markdown and text files, validate and repair `.agents/glossary.md` with `doctor`, test term examples in CI, print a merged corpus, and look up terms from the terminal.
 
-## Corpus discovery and flags
+## Corpus and flags
 
-For `check`, `test`, `print`, and `explain`, the CLI loads your corpus in this order:
+`check`, `test`, `print`, and `explain` read `.agents/glossary.md` in the current folder. `--glossary <path>` reads another glossary file, and `--corpus <module>` imports a module whose default export is a [`defineCorpus`](/guide/corpus) corpus:
 
-1. `--config <path>`
-2. `--glossary <path>`
-3. `glosslint.config.ts`, `.mts`, `.js`, or `.mjs` in the current folder
-4. `.agents/glossary.md` in the current folder
+```sh
+npx glosslint check docs --corpus ./glossary.ts
+```
 
-Passing both `--config` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. Finding neither a config nor `.agents/glossary.md` exits `2` with `GLOSSLINT_C009`.
+Passing both `--corpus` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. A missing glossary file or module exits `2` with `GLOSSLINT_C009`.
 
-`glosslint doctor` reads only the glossary file (`.agents/glossary.md` or `--glossary <path>`), never a JS/TS config. `check`, `test`, and `doctor` also accept `--color`, which is on by default when writing to a terminal unless `NO_COLOR` is set.
+`glosslint doctor` reads only the glossary file (`.agents/glossary.md` or `--glossary <path>`), never a corpus module. `check`, `test`, and `doctor` also accept `--color`, which is on by default when writing to a terminal unless `NO_COLOR` is set.
 
 | Command | What it does |
 | --- | --- |
@@ -37,7 +36,7 @@ Passing both `--config` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. Findi
 | --- | --- |
 | `0` | No findings, no `doctor` problems left, every `test` example passes, or `explain` found a term. |
 | `1` | `check` found something, `doctor` has problems remaining, a `test` example failed, or `explain` found no term. |
-| `2` | The glossary or config is missing or invalid, or the command line is wrong. The error goes to stderr. |
+| `2` | The glossary or corpus module is missing or invalid, or the command line is wrong. The error goes to stderr. |
 
 See [Config and glossary errors](/reference/config-errors) for every error code.
 
@@ -84,7 +83,7 @@ npx glosslint check docs/guide
 6 findings in 2 of 2 files.
 ```
 
-The heading "Buying a day pass" is a label, so Day Pass takes Title Case there. In the next line it sits inside a sentence, so it takes lowercase. "Check out our" and "roof rack" are in `Allow:`, and the CLI never reads the code block. Apple Pay comes from `Extends: tech` and "Manned" from `inclusive`.
+The heading "Buying a day pass" is a label, so Day Pass takes Title Case there. In the next line it sits inside a sentence, so it takes lowercase. "Check out our" and "roof rack" are in `Allow:`, and the CLI never reads the code block. Apple Pay comes from `Presets: tech` and "Manned" from `inclusive`.
 
 ## doctor
 
@@ -115,7 +114,7 @@ When the file has problems, `doctor` prints each one with its code, file and lin
 
 [GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links" or "Case", or reword the line so it does not start with "Note:".
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case" or "Casing", or reword the line so it does not start with "Note:".
 
 [GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
 ├▶ term: Dock
@@ -140,7 +139,7 @@ See [Config and glossary errors](/reference/config-errors#glossary-problem-codes
 
 ## test
 
-`test` checks every term's `Good` and `Bad` examples across the loaded corpus, including presets and any `defineCorpus` additions. Every `Good` string must pass with no findings for that term, and every `Bad` string must give a finding for that term. Run it in CI and after editing your glossary or config.
+`test` checks every term's `Good` and `Bad` examples across the loaded corpus, including presets and any `defineCorpus` additions. Every `Good` string must pass with no findings for that term, and every `Bad` string must give a finding for that term. Run it in CI and after editing your glossary or corpus module.
 
 ```sh
 npx glosslint test | tail -n 3
@@ -168,7 +167,7 @@ A failing term shows why it failed and what to change:
 
 `print` writes the loaded corpus as a Markdown summary (one section per term that says more than its spelling and one "Spelling" line for the rest), or as JSON with `--format json` (`{ terms, allow }`).
 
-Projects that keep their terms in `.agents/glossary.md` do not need `print` for coding agents, because agents read `.agents/glossary.md` directly. `print` is useful when your corpus is composed in `glosslint.config.ts` or when you want a JSON export.
+Projects that keep their terms in `.agents/glossary.md` do not need `print` for coding agents, because agents read `.agents/glossary.md` directly. `print` is useful when you build your corpus in TypeScript and pass it with `--corpus`, or when you want a JSON export.
 
 ```sh
 npx glosslint print

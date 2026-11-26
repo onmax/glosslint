@@ -17,22 +17,22 @@ glosslint ships two presets, `tech` and `inclusive`. Their keys do not overlap, 
 
 ## Use a preset
 
-List presets under `Extends:` in [`.agents/glossary.md`](/guide/glossary):
+List presets under `Presets:` in [`.agents/glossary.md`](/guide/glossary):
 
 ```md [.agents/glossary.md]
 # Glossary
 
-Extends: tech, inclusive
+Presets: tech, inclusive
 ```
 
 Or import them in [`defineCorpus`](/guide/corpus):
 
-```ts [glosslint.config.ts]
+```ts
 import { defineCorpus, fromGlossary } from "glosslint";
 import inclusive from "glosslint/presets/inclusive";
 import tech from "glosslint/presets/tech";
 
-export default defineCorpus({
+const corpus = defineCorpus({
   extends: [tech, inclusive, fromGlossary()],
 });
 ```
@@ -44,7 +44,7 @@ Defining a term with the same name replaces the preset entry completely, so `## 
 ```md [.agents/glossary.md]
 # Glossary
 
-Extends: tech
+Presets: tech
 
 ## GitHub
 ```
@@ -56,6 +56,6 @@ Add a word to `Allow:` to silence it, listing both spaced and joined forms for m
 ```md [.agents/glossary.md]
 # Glossary
 
-Extends: tech, inclusive
+Presets: tech, inclusive
 Allow: Apple Pay, ApplePay, whitelist
 ```

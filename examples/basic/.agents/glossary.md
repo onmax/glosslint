@@ -4,7 +4,7 @@
 
 The words the rider app and the help center use.
 
-Extends: tech, inclusive
+Presets: tech, inclusive
 Allow: check out our, roof rack
 
 ## Station

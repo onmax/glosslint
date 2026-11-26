@@ -27,7 +27,7 @@ Write your product's terms in `.agents/glossary.md`. This excerpt comes from the
 
 The words the rider app and the help center use.
 
-Extends: tech, inclusive
+Presets: tech, inclusive
 Allow: check out our, roof rack
 
 ## Dock
@@ -49,7 +49,7 @@ Links:
 Case: context
 ```
 
-`eBike` gets `Case: exact` automatically because of its inner capital. `Day Pass (DP)` sets the abbreviation `DP` and enforces Title Case in labels and lowercase in sentences. Every runner reads `.agents/glossary.md` by default; `defineCorpus` in `glosslint.config.ts` is available when you need fields such as `skip`, `forms` or `translations`.
+`eBike` gets `Case: exact` automatically because of its inner capital. `Day Pass (DP)` sets the abbreviation `DP` and enforces Title Case in labels and lowercase in sentences. Every runner reads `.agents/glossary.md` by default. When you need fields such as `skip`, `forms` or `translations`, build a corpus with `defineCorpus` and pass it to the runner: `glosslint({ corpus })` in ESLint or x18n, `--corpus <module>` in the CLI.
 
 ## Install
 

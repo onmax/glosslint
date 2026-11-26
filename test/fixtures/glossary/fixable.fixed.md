@@ -3,7 +3,7 @@
 The words the rider app uses.
 Keep it short.
 
-Extends: tech
+Presets: tech
 Allow: check out our, roof rack
 
 ## Dock

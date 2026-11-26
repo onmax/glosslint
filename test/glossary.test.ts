@@ -166,10 +166,47 @@ describe("readGlossary", () => {
 
   it("reports bad values: Case, Casing, presets, links and empty fields", () => {
     const head = "# Glossary\n\n";
-    expect(codes(`${head}Extends: tech, prose\n`)).toEqual(["GLOSSLINT_G006"]);
+    expect(codes(`${head}Presets: tech, prose\n`)).toEqual(["GLOSSLINT_G006"]);
     expect(codes(`${head}Casing: label loud\n`)).toEqual(["GLOSSLINT_G006"]);
     expect(codes(`${head}## Dock\nLinks:\n- [Docks](ftp://a)\n`)).toEqual(["GLOSSLINT_G006"]);
     expect(codes(`${head}## Dock\nWhat:\n`)).toEqual(["GLOSSLINT_G006"]);
+  });
+
+  it("reads Extends as Presets and rewrites it as G002", () => {
+    const text = "# Glossary\n\nExtends: tech\n\n## Dock\nAvoid: rack\n";
+    const result = readGlossary(text);
+    expect(result.problems).toEqual([
+      {
+        code: "GLOSSLINT_G002",
+        line: 3,
+        why: '"Extends" is another name for "Presets".',
+        fix: 'Rename it to "Presets".',
+        fixable: true,
+      },
+    ]);
+    expect(result.fixed).toBe(text.replace("Extends:", "Presets:"));
+    expect(result.corpus).toEqual(readGlossary(result.fixed!).corpus);
+    expect(result.corpus!.terms.some((term) => term.term === "GitHub")).toBe(true);
+  });
+
+  it("reads a term's Casing as defineCorpus's casing, which makes the term context without Case", () => {
+    const text =
+      "# Glossary\n\n## Ride history\nCasing: label as-written, sentence lower\n\n## eBike\nCasing: label as-written\n\n## GitHub\nCase: exact\nCasing: label upper\n";
+    const result = readGlossary(text);
+    expect(result.problems).toEqual([]);
+    expect(result.corpus).toEqual(
+      defineCorpus({
+        terms: [
+          { term: "Ride history", casing: { label: "as-written", sentence: "lower" } },
+          { term: "eBike", casing: { label: "as-written" } },
+          { term: "GitHub", case: "exact", casing: { label: "upper" } },
+        ],
+      }),
+    );
+    expect(codes("# Glossary\n\n## Dock\nCasing: label loud\n")).toEqual(["GLOSSLINT_G006"]);
+    expect(codes("# Glossary\n\n## Dock\nCasing: label title\nCase: context\n")).toEqual([
+      "GLOSSLINT_G003",
+    ]);
   });
 
   it("gives each problem its line, term, fix and whether --fix rewrites it", () => {
@@ -178,7 +215,7 @@ describe("readGlossary", () => {
       code: "GLOSSLINT_G004",
       line: 5,
       why: '"Note" is not a field.',
-      fix: 'Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links" or "Case", or reword the line so it does not start with "Note:".',
+      fix: 'Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case" or "Casing", or reword the line so it does not start with "Note:".',
       fixable: false,
       term: "Dock",
     });

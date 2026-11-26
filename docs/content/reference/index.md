@@ -1,12 +1,12 @@
 ---
 title: Reference overview
-description: Reference for glosslint findings, config and glossary error codes, and every JavaScript entry point, function signature, and exported type.
+description: Reference for glosslint findings, corpus and glossary error codes, and every JavaScript entry point, function signature, and exported type.
 navigation.order: 1
 navigation.title: Overview
 icon: i-lucide-library
 ---
 
-Use this section when you parse glosslint output in CI or editor tooling, troubleshoot an error code from `.agents/glossary.md` or `glosslint.config.ts`, or call glosslint directly from JavaScript and TypeScript.
+Use this section when you parse glosslint output in CI or editor tooling, troubleshoot an error code from `.agents/glossary.md` or `defineCorpus`, or call glosslint directly from JavaScript and TypeScript.
 
 ## Reference pages
 

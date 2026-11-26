@@ -11,7 +11,7 @@ glosslint checks your product vocabulary across code, translations, and Markdown
 ```md [.agents/glossary.md]
 # Glossary
 
-Extends: tech, inclusive
+Presets: tech, inclusive
 
 ## Dock
 What: A powered stand where one bike is locked.

@@ -36,8 +36,10 @@ glosslint sets no parser of its own. Supply `typescript-eslint` for `.ts`, `vue-
 Pass `glossary` to read another path, or `corpus` to pass a [`defineCorpus`](/guide/corpus) object instead. Passing both throws `GLOSSLINT_C012`.
 
 ```ts [eslint.config.ts]
+import { defineCorpus, fromGlossary } from "glosslint";
 import glosslint from "glosslint/eslint";
-import corpus from "./glosslint.config.ts";
+
+const corpus = defineCorpus({ extends: [fromGlossary()], wholeLabel: true });
 
 export default [
   // ...parsers

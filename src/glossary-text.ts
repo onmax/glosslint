@@ -67,7 +67,7 @@ interface FieldSpec {
 }
 
 const CORPUS_FIELDS: readonly FieldSpec[] = [
-  { name: "Extends", kind: "list", comma: true },
+  { name: "Presets", kind: "list", comma: true },
   { name: "Allow", kind: "list", comma: true },
   { name: "Casing", kind: "list", comma: true },
 ];
@@ -80,8 +80,10 @@ const TERM_FIELDS: readonly FieldSpec[] = [
   { name: "Bad", kind: "list" },
   { name: "Links", kind: "list" },
   { name: "Case", kind: "value" },
+  { name: "Casing", kind: "list", comma: true },
 ];
 const ALIASES: Record<string, string> = {
+  extends: "Presets",
   description: "What",
   meaning: "What",
   notes: "How",
@@ -689,7 +691,7 @@ class Reader {
       const text = itemText(item);
       if (text === "")
         bad(item.line, `An item of ${name} is empty.`, "Write the item, or remove its line.");
-      else if (name === "Extends" && !(text in PRESETS))
+      else if (name === "Presets" && !(text in PRESETS))
         bad(item.line, `"${text}" is not a preset.`, `Use ${quoteList(Object.keys(PRESETS))}.`);
       else if (name === "Casing" && !CASING.test(text))
         bad(
@@ -798,22 +800,31 @@ function buildTerm(node: TermNode): Term {
     return match ? [{ title: match[1]!.trim(), url: match[2]! }] : [];
   });
   if (links.length) term.links = links;
+  const casing = parseCasing(items("Casing"));
+  if (Object.keys(casing).length) term.casing = casing;
   const mode = field("Case")?.value as CaseMode | undefined;
   if (mode) term.case = mode;
-  else if (isExactName(node.name)) term.case = "exact";
+  // Casing without Case makes the term `context`, as in defineCorpus, whatever its name.
+  else if (!term.casing && isExactName(node.name)) term.case = "exact";
   return term;
+}
+
+/** `label sentence, sentence as-written` as a `Casing`. */
+function parseCasing(pairs: readonly string[]): Casing {
+  const casing: Casing = {};
+  for (const pair of pairs) {
+    const [, kind, style] = CASING.exec(pair)!;
+    casing[kind as CasingKind] = style as CaseStyle;
+  }
+  return casing;
 }
 
 function buildCorpus(doc: Doc, terms: Term[]): Corpus {
   const items = (name: string) => doc.corpus.get(name)?.items.map(itemText).filter(Boolean) ?? [];
-  const casing: Casing = {};
-  for (const pair of items("Casing")) {
-    const [, kind, style] = CASING.exec(pair)!;
-    casing[kind as CasingKind] = style as CaseStyle;
-  }
+  const casing = parseCasing(items("Casing"));
   const allow = items("Allow");
   return defineCorpus({
-    extends: items("Extends").map((name) => PRESETS[name]!),
+    extends: items("Presets").map((name) => PRESETS[name]!),
     terms,
     ...(allow.length ? { allow } : {}),
     ...(Object.keys(casing).length ? { casing } : {}),

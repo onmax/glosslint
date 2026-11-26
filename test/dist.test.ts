@@ -80,12 +80,12 @@ describe("dist", { timeout: 60_000 }, () => {
     );
   });
 
-  it("runs all four commands on a config that imports glosslint by name", () => {
+  it("runs all four commands on a corpus module that imports glosslint by name", () => {
     const cwd = `${root}test/fixtures/cli/bike`;
     const cli = (...args: string[]) => {
       const result = spawnSync(
         process.execPath,
-        [`${root}${pkg.bin.glosslint}`, ...args, "--config", "glosslint.dist.config.mjs"],
+        [`${root}${pkg.bin.glosslint}`, ...args, "--corpus", "dist.corpus.mjs"],
         { cwd, encoding: "utf8" },
       );
       return { code: result.status, stdout: result.stdout, stderr: result.stderr };
