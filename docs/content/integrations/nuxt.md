@@ -1,7 +1,7 @@
 ---
 title: Nuxt and vue-i18n
 navigation.title: Nuxt
-description: Lint product terms in Nuxt apps and vue-i18n JSON or YAML locale files through @nuxt/eslint and .agents/glossary.md.
+description: Lint product terms in Nuxt apps and vue-i18n JSON or YAML locale files through the Nuxt ESLint module and your glossary.
 navigation.order: 2.5
 icon: i-lucide-triangle
 ---
