@@ -1,15 +1,15 @@
 ---
 title: Findings format
-description: "Reference for glosslint findings: JSON and tree output, every field, the three finding codes, fix kinds, and matcher output."
+description: JSON and tree output, finding fields, codes, and fix kinds.
 navigation.order: 2
 icon: i-lucide-list-checks
 ---
 
-Every time glosslint spots a wrong spelling, wrong capitals, or an avoid word, it produces a finding with the location, reason, replacement, and term context. Use this reference when you parse `glosslint check --format json` in scripts or CI, apply findings as a [coding agent](/guide/agents), or read matcher output from the [JavaScript API](/reference/api).
+Every finding reports a location, matched text, replacement, and term context.
 
 ## JSON output
 
-`glosslint check --format json` prints `{ findings, summary }`:
+`glosslint check --format json` prints `{ findings, summary }`. See [CLI](/integrations/cli) for flags and exit codes.
 
 ```sh
 npx glosslint check docs/guide/riding.md --format json
@@ -69,11 +69,9 @@ npx glosslint check docs/guide/riding.md --format json
 }
 ```
 
-The `summary` object holds the number of checked files, the total finding count, and a count per finding code. See [CLI](/integrations/cli) for `glosslint check` flags and exit codes.
-
 ## Tree format
 
-Without `--format json`, `glosslint check` prints each finding as a tree with its code, reported text, file position, and branches for `why`, `fix`, `term`, and `see` when present. Here is one finding from `glosslint check` on the bike-share docs:
+Without `--format json`, `glosslint check` prints each finding as a tree, followed by a summary line:
 
 ```txt
 [GLOSSLINT_AVOID] "rack" in docs/guide/riding.md:3:56
@@ -83,49 +81,38 @@ Without `--format json`, `glosslint check` prints each finding as a tree with it
 ╰▶ see: https://example.com/docs/docks
 ```
 
-The [CLI](/integrations/cli) prints a summary line after the last finding, such as `6 findings in 2 of 2 files.`.
+## Fields
 
-## Finding fields
+| Field | Meaning |
+| --- | --- |
+| `code` | `GLOSSLINT_TERM`, `GLOSSLINT_AVOID`, or `GLOSSLINT_CASE`. |
+| `file`, `line`, `column` | 1-based start position in the file. |
+| `start`, `end` | Character offsets in the file. |
+| `text` | Matched text as written. |
+| `message` | One-line diagnostic printed by [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint). |
+| `why` | Avoid reason, else `Why`, else `How`. Omitted when none exist. |
+| `fix` | `{ kind, replace, result }`. Omitted when an in-place fix isn't safe, such as across a line break. |
+| `term` | `{ term, description, nuance }` summary. |
+| `see` | First URL from `Links`. |
 
-| Field                    | Meaning                                                                                                                 |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `code`                   | `GLOSSLINT_TERM` for other splits or hyphens, `GLOSSLINT_AVOID` for an avoid word, `GLOSSLINT_CASE` for wrong capitals. |
-| `file`, `line`, `column` | Where the text starts. `line` and `column` count from 1.                                                                |
-| `start`, `end`           | Offsets of the text in the file.                                                                                        |
-| `text`                   | The reported text, as written.                                                                                          |
-| `message`                | The one-line message [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint) print.                           |
-| `why`                    | The avoid word's reason, else the term's `why` (`Why:`), else the term's `nuance` (`How:`). Absent when none exist.     |
-| `fix.kind`               | What the fix may do. See [Fix kinds](#fix-kinds).                                                                       |
-| `fix.replace`            | The text that replaces `text`.                                                                                          |
-| `fix.result`             | The line as it reads once fixed.                                                                                        |
-| `term`                   | The term's `term`, `description` and `nuance`.                                                                          |
-| `see`                    | The term's first link.                                                                                                  |
+## Codes
 
-`fix` is omitted when a finding cannot be replaced safely in place, such as a match that spans a line break. In [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint), strings whose escapes the fix would break (and YAML block scalars in ESLint) also report without a fix.
+In [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint), the finding code is also the rule's `messageId`.
 
-## Finding codes
-
-Every finding carries one of three stable codes. In [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint), the code is also the rule diagnostic's `messageId`.
-
-| Code              | Reported when                                                                                                                                    |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GLOSSLINT_TERM`  | A term is written with different word splits or hyphens, such as `"e-bike"` for `eBike`, or an avoid word shares a term's key, or an identifier splits a term wrongly. |
-| `GLOSSLINT_AVOID` | Text contains one of a term's avoid words, such as `"rack"` instead of `Dock`.                                                                   |
-| `GLOSSLINT_CASE`  | A term or abbreviation has the wrong capitals for its casing rule or text kind, such as `"day pass"` in a label or `"Apple pay"` for `Apple Pay`. |
+| Code | Reported when |
+| --- | --- |
+| `GLOSSLINT_TERM` | Wrong word splits or hyphens, an avoid word sharing a term's key, or a mis-split identifier. |
+| `GLOSSLINT_AVOID` | Text contains an avoid word. |
+| `GLOSSLINT_CASE` | Wrong capitalization for a term's casing rule or text kind. |
 
 ## Fix kinds
 
-`fix.kind` tells tools, editors, and [coding agents](/guide/agents) what is safe to change automatically:
+- `autofix`. Safe spelling or casing fix. [ESLint](/integrations/eslint), [Oxlint](/integrations/oxlint), and [x18n](/integrations/x18n) downgrade it to a suggestion when a `context` term's kind was guessed from text shape. See [Casing rules](/guide/casing).
+- `suggestion`. Replacement for an avoid word that a person needs to confirm.
+- `rename`. New identifier name, never applied automatically because it touches callers.
 
-- `autofix`: a spelling or casing fix. It is safe to apply without asking. [ESLint](/integrations/eslint), [Oxlint](/integrations/oxlint), and [x18n](/integrations/x18n) offer it as a suggestion instead when only the text's shape decided its kind, as described in [Casing rules](/guide/casing).
-- `suggestion`: the term to use instead of an avoid word. Someone has to check that the meaning fits.
-- `rename`: a new name for an identifier. It touches every caller, so nothing applies it alone.
-
-> [!NOTE]
-> `glosslint check` never modifies files. It reports `fix.kind`, `fix.replace`, and `fix.result` so you or an agent can apply changes yourself.
+`glosslint check` never modifies files; it only reports fixes for you or a [coding agent](/guide/agents) to apply.
 
 ## Findings in JavaScript
 
-In code, `createMatcher(corpus).check(text, kind)` returns the findings for one string as `Finding[]`. They have the same shape as the JSON output above without `file`, `line`, `column`, and `fix.result`, and `term` is the whole `Term` object rather than the `{ term, description, nuance }` summary. `start` and `end` are character offsets in `text`.
-
-`formatFindings(findings, options)` prints an array of `Finding` or `CliFinding` objects in the tree format shown above, followed by a summary line. For plain `Finding` objects without a `file`, the headline prints `at offset <start>` instead of `in <file>:<line>:<column>`. See [JavaScript API](/reference/api) for `createMatcher`, `formatFinding`, `formatFindings`, and `toJson`.
+`createMatcher(corpus).check(text, kind)` returns `Finding[]`, which drops `file`, `line`, `column`, and `fix.result` and attaches the full `Term` object. Pass them to `formatFindings` or `toJson` to format them; see [JavaScript API](/reference/api).

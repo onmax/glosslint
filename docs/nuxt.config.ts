@@ -93,7 +93,8 @@ export default defineNuxtConfig({
     },
   },
   icon: {
-    // npmx.dev's mark, from its repository (public/logo-mark.svg), in currentColor like the other social icons.
+    // npmx.dev's mark (public/logo-mark.svg) and x18n's (res/logo-mini-dark.svg, MIT), from their repositories, in
+    // currentColor like the simple-icons logos.
     customCollections: [{ prefix: 'glosslint', dir: './app/assets/icons' }],
   },
   fonts: {

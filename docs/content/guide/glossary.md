@@ -79,15 +79,28 @@ Plurals ending in `s` or `es` match terms and avoid words: listing `rack` also f
 
 ### Avoid entries
 
+Write one entry per line as a `-` list:
+
 ```md
-Avoid: rack, `bay, berth`: Old words., `pod:x`, slot: Ops: only
+Avoid:
+- bay
+- rack: Racks are unpowered.
+- slot: Ops: only
+- `zone: west`: Retired name.
 ```
 
-Items split at the first colon followed by a space. Wrap words containing a comma or colon in backticks, which glosslint strips on load. That line defines `"rack"`, `{ word: "bay, berth", why: "Old words." }`, `"pod:x"`, and `{ word: "slot", why: "Ops: only" }`.
+- `bay` is a plain avoid word with no custom reason.
+- `rack: Racks are unpowered.` splits at the first colon followed by a space into the word `"rack"` and its reason.
+- `slot: Ops: only` splits only at the first `: `, so `"Ops: only"` stays intact as the reason.
+- `` `zone: west`: Retired name. `` wraps the word in backticks because it contains a colon followed by a space; glosslint strips the backticks on load.
 
-`why` precedence for an avoid finding: 1) the avoid item's own reason, 2) `Why`, 3) `How` (`nuance`).
+For short lists you can put entries on one line separated by commas, wrapping any word that contains a comma or colon in backticks:
 
-Avoid words match in any case, unless they contain two consecutive capitals like `SM`, which matches as written. An avoid word sharing a key with a term (`day-pass` for `Day Pass`) reports `GLOSSLINT_TERM`, not `GLOSSLINT_AVOID`.
+```md
+Avoid: rack, stand, `bay, berth`: Old words.
+```
+
+An avoid finding's `why` uses the entry's own reason first, then the term's `Why`, then `How`. Avoid words match in any case unless they contain two consecutive capitals like `SM`, which matches as written. An avoid word sharing a key with the term, such as `day-pass` for `Day Pass`, reports `GLOSSLINT_TERM` instead of `GLOSSLINT_AVOID`.
 
 ## Heading inference
 

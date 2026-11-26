@@ -3,7 +3,7 @@ title: Nuxt and vue-i18n
 navigation.title: Nuxt
 description: Lint product terms in Nuxt apps and vue-i18n locale files through the Nuxt ESLint module.
 navigation.order: 2.5
-icon: i-lucide-triangle
+icon: i-simple-icons-nuxt
 ---
 
 There is no Nuxt module. glosslint runs in the ESLint config `@nuxt/eslint` gives you, as one spread in `eslint.config.mjs`. It reads [`.agents/glossary.md`](/guide/glossary) by default and takes the same options as the [ESLint integration](/integrations/eslint).

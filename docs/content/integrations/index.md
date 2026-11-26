@@ -6,26 +6,16 @@ navigation.title: Overview
 icon: i-lucide-plug
 ---
 
-Every glosslint integration feeds text into the same matcher backed by [`.agents/glossary.md`](/guide/glossary), or by a [`defineCorpus`](/guide/corpus) config when you need TypeScript-only options. Pick the tools that match the files in your repository.
+Every integration reads [`.agents/glossary.md`](/guide/glossary) by default, or a [`defineCorpus`](/guide/corpus) config when you need TypeScript options. Pick the ones that fit your repository.
 
-## Comparing integrations
-
-| Integration | Files checked | Loads `.agents/glossary.md` | Autofix | Notes |
-| --- | --- | --- | --- | --- |
-| [ESLint](/integrations/eslint) | JS, TS, Vue templates and `<script>`, YAML and JSON locales, comments, identifiers | By default (`glosslint()`) | Yes (`eslint --fix`) | Supports `glossary`, `corpus`, and `kindOf`. Requires ESLint `>=9.15.0`. |
-| [Oxlint](/integrations/oxlint) | JS, TS, Vue `<script>`, comments, identifiers | By default (`"jsPlugins": ["glosslint/oxlint"]`) | Yes (`oxlint --fix`) | No Vue `<template>`, no YAML, no `corpus` or `kindOf`. JS plugins are alpha in Oxlint `>=1.94.0`. |
-| [x18n](/integrations/x18n) | Source-locale messages and hard-coded strings | Reads `.agents/glossary.md`, or `glossary` or `corpus` | Safe and quick fixes in `x18n check --fix` | Also exports terms to x18n's `glossary` via `toX18nGlossary`. Requires `@x18n/core >=0.1.14`. |
-| [CLI](/integrations/cli) | Markdown, MDX, and plain text files | By default (after `glosslint.config.*`) | `doctor --fix` repairs `.agents/glossary.md` | Also runs `doctor`, `test`, `print`, and `explain`. No peer dependencies needed. |
+- **[ESLint](/integrations/eslint).** Checks JS, TS, Vue templates and `<script>`, YAML and JSON locales, comments, and identifiers, with autofixes via `eslint --fix`.
+- **[Nuxt](/integrations/nuxt).** Runs `glosslint/eslint` inside `withNuxt()` on `.ts`, `.vue`, and `vue-i18n` locale files, with autofixes via `eslint --fix`.
+- **[Oxlint](/integrations/oxlint).** Checks JS, TS, Vue `<script>`, comments, and identifiers via Oxlint's alpha JS plugins without Vue templates or YAML, with autofixes via `oxlint --fix`.
+- **[x18n](/integrations/x18n).** Checks source-locale messages and hard-coded strings, fixes messages with `x18n check --fix`, and exports terms through `toX18nGlossary`.
+- **[CLI](/integrations/cli).** Checks Markdown, MDX, and plain text files read-only, and repairs `.agents/glossary.md` with `doctor --fix`.
 
 ## Typical setups
 
-- **Nuxt or Vue app with locale files and docs:** run [ESLint](/integrations/eslint) inside `withNuxt()` ([Nuxt and vue-i18n](/integrations/nuxt)) on `.ts`, `.vue`, and your source locale file, and run the [CLI](/integrations/cli) in CI on `docs/` and with `glosslint doctor`.
-- **TypeScript repo using Oxlint:** add `"glosslint/oxlint"` in `.oxlintrc.json` for fast checks on `.js` and `.ts` files, and pair it with the [CLI](/integrations/cli) for Markdown documentation.
-- **Localized app using x18n:** wire `glosslint/x18n` and `toX18nGlossary` in `x18n.config.ts` so source messages and translator glossaries stay aligned with `.agents/glossary.md`.
-
-## Integration guides
-
-- [ESLint](/integrations/eslint): flat config setup, parsers for TypeScript, Vue, YAML, and JSON, rule details, and options.
-- [Oxlint](/integrations/oxlint): `.oxlintrc.json` setup, `settings.glosslint`, rule behavior, and current limits.
-- [x18n](/integrations/x18n): plugin setup, check severities, safe vs. quick fixes, and `toX18nGlossary`.
-- [Command line](/integrations/cli): `check`, `doctor`, `test`, `print`, `explain`, flags, and exit codes.
+- **Nuxt or Vue.** Spread `glosslint()` inside `withNuxt()` for `.ts`, `.vue`, and your source locale, then check docs with the CLI in CI.
+- **Oxlint.** Add `"glosslint/oxlint"` to `.oxlintrc.json` for JS and TS, and run the CLI on Markdown docs.
+- **x18n.** Wire `glosslint/x18n` and `toX18nGlossary` in `x18n.config.ts` to check source messages and feed translator glossaries.
