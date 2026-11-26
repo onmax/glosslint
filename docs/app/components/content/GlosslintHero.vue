@@ -1,57 +1,266 @@
 <script setup lang="ts">
-// `::glosslint-hero`: the headline, the pitch and the ways in, beside the neon sign that says what glosslint does.
-// The sign is drawn here instead of as the README's banner.svg so each letter is its own tube and can flicker on its own.
+// `::glosslint-hero`: the headline and the pitch, a prompt for agents and an install line for people, and the ways in,
+// beside the neon sign that says what glosslint does.
+//
+// The sign hangs on two nails. Each click on a nail turns it a little; a nail turned six times falls out. With one nail
+// out the sign swings and hangs from the other, and with both out it falls to the bottom edge of the window, unplugged.
 
-type Tube = 'cyan' | 'mint'
+const slots = useSlots()
 
-interface Letter {
-  paths: string[]
-  tube: Tube
-  // A tube with a worn electrode: `stutter` drops out twice, `buzz` catches twice in a blink, `brownout` dims once.
-  flicker?: 'stutter' | 'buzz' | 'brownout'
+const tabs = [
+  { slot: 'agents', label: 'For agents' },
+  { slot: 'humans', label: 'For humans' },
+].filter(tab => slots[tab.slot])
+const tab = ref(tabs[0]?.slot)
+const tabIds = useId()
+const tabButtons = ref<HTMLButtonElement[]>([])
+
+// Arrow keys, Home and End move between tabs, as the ARIA tabs pattern does.
+function onTabKey(event: KeyboardEvent, index: number) {
+  const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 }[event.key]
+  if (next === undefined) return
+  event.preventDefault()
+  const target = (next + tabs.length) % tabs.length
+  tab.value = tabs[target]!.slot
+  tabButtons.value[target]?.focus()
 }
 
-// The README banner's monoline glyphs, in the same coordinates.
-const letters: Letter[] = [
-  { tube: 'cyan', flicker: 'brownout', paths: ['M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42', 'M 68 4 L 68 86 C 68 118, 42 126, 12 114'] },
-  { tube: 'cyan', paths: ['M 92 -46 L 92 66 Q 92 82, 108 82'] },
-  { tube: 'cyan', paths: ['M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42'] },
-  { tube: 'cyan', paths: ['M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70'] },
-  { tube: 'cyan', flicker: 'stutter', paths: ['M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70'] },
-  { tube: 'mint', paths: ['M 372 -46 L 372 66 Q 372 82, 388 82'] },
-  { tube: 'mint', flicker: 'buzz', paths: ['M 412 4 L 412 66 Q 412 82, 428 82', 'M 412 -27 L 412 -25'] },
-  { tube: 'mint', paths: ['M 450 4 L 450 82', 'M 450 32 C 450 -7, 506 -7, 506 32 L 506 82'] },
-  { tube: 'mint', paths: ['M 542 -32 L 542 64 Q 542 82, 562 82', 'M 526 6 L 564 6'] },
-]
+// ---- The sign on its nails. Wall units: the backplate is 760 × 400 at the top left of an 800 × 480 wall. ----
 
-// Glass from the outside in: the tinted glass wall, the lit gas, its brighter middle, and the hot core.
-const glass: Record<Tube, { wall: string, halo: string, gas: string, middle: string, core: string }> = {
-  cyan: { wall: '#0c3240', halo: '#15dcff', gas: '#2ee6ff', middle: '#9cf4ff', core: '#f2feff' },
-  mint: { wall: '#0b3a2a', halo: '#1ff098', gas: '#3af5a8', middle: '#a8fbd7', core: '#f2fff9' },
+type Side = 'left' | 'right'
+
+const nails: Record<Side, { x: number, y: number, slot: number }> = {
+  left: { x: 32, y: 30, slot: 35 },
+  right: { x: 728, y: 30, slot: -20 },
+}
+const sides: Side[] = ['left', 'right']
+const other = (side: Side): Side => side === 'left' ? 'right' : 'left'
+
+// Six turns of 7.5° pull a nail out: 45° in all, a little at a time.
+const turnsToDrop = 6
+const degreesPerTurn = 45 / turnsToDrop
+// The angle the sign settles at on one nail. Its cable on the other side keeps it from swinging all the way.
+const hangAngle = 15
+
+const turns = reactive<Record<Side, number>>({ left: 0, right: 0 })
+const out = reactive<Record<Side, boolean>>({ left: false, right: false })
+const pivot = ref<Side>()
+const angle = ref(0)
+const fallen = ref(false)
+const fallenLit = ref(true)
+const fallenBox = ref({ left: 0, width: 0 })
+const announcement = ref('')
+
+const wall = ref<HTMLElement>()
+const board = ref<HTMLElement>()
+const fallenSign = ref<HTMLElement>()
+const nailButtons = reactive<Partial<Record<Side, HTMLButtonElement>>>({})
+const rehangButton = ref<HTMLButtonElement>()
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// A point on the board, turned with it about the nail it hangs from.
+function onBoard([x, y]: [number, number]): [number, number] {
+  if (!pivot.value) return [x, y]
+  const { x: px, y: py } = nails[pivot.value]
+  const r = angle.value * Math.PI / 180
+  const [cos, sin] = [Math.cos(r), Math.sin(r)]
+  return [px + (x - px) * cos - (y - py) * sin, py + (x - px) * sin + (y - py) * cos]
 }
 
-// The painted-out tube that carries the gas from one letter to the next behind the sign face.
-const blockouts = [
-  'M 108 82 Q 124 82, 131 63',
-  'M 194 42 Q 200 64, 217 70',
-  'M 342 65 Q 352 82, 372 66',
-  'M 428 82 L 450 82',
-  'M 506 82 Q 522 84, 542 70',
-]
+// The cable from the grommet on the board's right edge down into the plug, which follows the board as it swings.
+const cable = computed(() => {
+  const start = onBoard([764, 284])
+  const bend = onBoard([794, 290])
+  return `M ${start.join(' ')} C ${bend.join(' ')}, 782 372, 782 420`
+})
 
-// Where a tube turns back through the face to its electrode.
-const electrodes = [[12, 114], [92, -46], [372, -46], [542, -32], [526, 6]]
+const boardStyle = computed(() => pivot.value && {
+  transformOrigin: `${nails[pivot.value].x / 7.6}% ${nails[pivot.value].y / 4}%`,
+  transform: `rotate(${angle.value}deg)`,
+})
 
-// The clear posts that hold the tubes off the board.
-const standoffs = [[68, 60], [92, 12], [160, 81], [244, 42], [318, 42], [372, 12], [506, 52], [542, 34]]
+function loosen(side: Side) {
+  if (out[side] || fallen.value) return
+  turns[side]++
+  // The last turn shows before the nail lets go.
+  if (turns[side] >= turnsToDrop) setTimeout(() => drop(side), prefersReducedMotion() ? 0 : 200)
+}
 
-const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
+const falling = ref<{ id: number, x: number, y: number, size: number, slot: number }[]>([])
+let fallingId = 0
+
+async function drop(side: Side) {
+  const button = nailButtons[side]
+  if (!button || out[side]) return
+  const rect = button.getBoundingClientRect()
+  falling.value.push({ id: fallingId++, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: rect.width, slot: nails[side].slot - turns[side] * degreesPerTurn })
+  out[side] = true
+
+  const rest = other(side)
+  if (!out[rest]) {
+    pivot.value = rest
+    swing(rest === 'right' ? -hangAngle : hangAngle)
+    announcement.value = `The ${side} nail fell out. The sign hangs from the ${rest} nail.`
+    await nextTick()
+    nailButtons[rest]?.focus()
+  }
+  else {
+    await fall()
+    announcement.value = 'Both nails are out. The sign fell to the bottom of the window and came unplugged.'
+    rehangButton.value?.focus()
+  }
+}
+
+// A falling nail tumbles out of the window and is gone.
+function startNailFall(el: Element | null, nail: { id: number, y: number }) {
+  if (!(el instanceof HTMLElement) || el.dataset.started) return
+  el.dataset.started = 'true'
+  const done = () => { falling.value = falling.value.filter(candidate => candidate.id !== nail.id) }
+  if (prefersReducedMotion()) {
+    el.animate([{ opacity: 1 }, { opacity: 0, translate: '0 12px' }], { duration: 160, easing: 'ease-in' }).onfinish = done
+    return
+  }
+  const distance = window.innerHeight - nail.y + 60
+  const drift = (Math.random() - 0.5) * 60
+  el.animate([
+    { translate: '0 0', rotate: '0deg', scale: 1, easing: 'cubic-bezier(.3,.9,.6,1)' },
+    { offset: 0.12, translate: `${drift * 0.1}px -6px`, rotate: '-30deg', scale: 1.25, easing: 'cubic-bezier(.5,0,.95,.6)' },
+    { translate: `${drift}px ${distance}px`, rotate: `${drift > 0 ? 400 : -400}deg`, scale: 1.15 },
+  ], { duration: Math.min(1200, 420 + Math.sqrt(distance) * 18) }).onfinish = done
+}
+
+let frame = 0
+
+// A damped swing from where the sign is to where it settles. Under reduced motion it is just there.
+function swing(target: number) {
+  cancelAnimationFrame(frame)
+  if (prefersReducedMotion()) {
+    angle.value = target
+    return
+  }
+  const from = angle.value
+  const started = performance.now()
+  const damping = 2.4
+  const omega = 2 * Math.PI * 0.85
+  const step = (now: number) => {
+    const t = (now - started) / 1000
+    angle.value = target + (from - target) * Math.exp(-damping * t) * (Math.cos(omega * t) + damping / omega * Math.sin(omega * t))
+    if (t < 3) frame = requestAnimationFrame(step)
+    else angle.value = target
+  }
+  frame = requestAnimationFrame(step)
+}
+
+// Where the fallen sign lies: below where it hung, moved in so the board and its plug stay inside the window.
+function placeFallen() {
+  const rect = wall.value!.getBoundingClientRect()
+  const width = rect.width * 760 / 800
+  const reach = width * 860 / 760
+  const left = Math.max(0, Math.min(rect.left, window.innerWidth - reach - 8))
+  fallenBox.value = { left, width }
+  return { rect, width, left }
+}
+
+async function fall() {
+  cancelAnimationFrame(frame)
+  const { rect, width, left } = placeFallen()
+  fallenLit.value = true
+  fallen.value = true
+  await nextTick()
+  const el = fallenSign.value
+  if (!el) return
+  // Pulled from the wall, the tubes go out.
+  requestAnimationFrame(() => { fallenLit.value = false })
+
+  if (prefersReducedMotion()) {
+    el.animate([{ opacity: 0, translate: '0 -16px' }, { opacity: 1, translate: '0 0' }], { duration: 200, easing: 'ease-out' })
+    return
+  }
+
+  // Start the fallen copy exactly where the hanging board is: the same box, turned the same way about its nail. The
+  // copy turns about its bottom middle, so the turn about the nail becomes that turn plus a shift.
+  const scale = width / 760
+  const height = 400 * scale
+  const nail = pivot.value ? nails[pivot.value] : { x: 380, y: 200 }
+  const toNail = [nail.x * scale - width / 2, nail.y * scale - height]
+  const r = angle.value * Math.PI / 180
+  const turned = [toNail[0]! * Math.cos(r) - toNail[1]! * Math.sin(r), toNail[0]! * Math.sin(r) + toNail[1]! * Math.cos(r)]
+  const x = rect.left - left + toNail[0]! - turned[0]!
+  const y = rect.top - (window.innerHeight - height) + toNail[1]! - turned[1]!
+  const duration = Math.min(1400, Math.max(650, 480 + Math.sqrt(Math.abs(y)) * 22))
+  el.animate([
+    { translate: `${x}px ${y}px`, rotate: `${angle.value}deg`, easing: 'cubic-bezier(.45,0,.9,.55)' },
+    { offset: 0.74, translate: '0 0', rotate: '1.6deg', easing: 'cubic-bezier(.2,.7,.3,1)' },
+    { offset: 0.86, translate: `0 ${-8 * scale - 4}px`, rotate: '-2.4deg', easing: 'cubic-bezier(.6,0,.9,.5)' },
+    { translate: '0 0', rotate: '-1.2deg' },
+  ], { duration })
+}
+
+async function rehang() {
+  const finish = async () => {
+    fallen.value = false
+    pivot.value = undefined
+    angle.value = 0
+    for (const side of sides) {
+      turns[side] = 0
+      out[side] = false
+    }
+    announcement.value = 'The sign hangs on both nails again.'
+    await nextTick()
+    board.value?.animate([{ opacity: 0, translate: '0 -10px' }, { opacity: 1, translate: '0 0' }], { duration: prefersReducedMotion() ? 120 : 360, easing: 'ease-out' })
+    nailButtons.left?.focus()
+  }
+  const el = fallenSign.value
+  if (!el) return finish()
+  el.animate([{ opacity: 1 }, { opacity: 0, translate: '0 24px' }], { duration: prefersReducedMotion() ? 120 : 260, easing: 'ease-in' }).onfinish = finish
+}
+
+const onResize = () => fallen.value && placeFallen()
+onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onResize)
+  cancelAnimationFrame(frame)
+})
 </script>
 
 <template>
   <section class="glosslint-hero">
     <div class="glosslint-hero-copy">
       <slot />
+
+      <div v-if="tabs.length" class="gl-hero-tabs">
+        <div role="tablist" aria-label="Start with glosslint" class="gl-hero-tablist">
+          <button
+            v-for="(item, index) in tabs"
+            :id="`${tabIds}-tab-${item.slot}`"
+            :key="item.slot"
+            ref="tabButtons"
+            type="button"
+            role="tab"
+            class="gl-hero-tab"
+            :aria-selected="tab === item.slot"
+            :aria-controls="`${tabIds}-panel-${item.slot}`"
+            :tabindex="tab === item.slot ? 0 : -1"
+            @click="tab = item.slot"
+            @keydown="onTabKey($event, index)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+        <div
+          v-for="item in tabs"
+          v-show="tab === item.slot"
+          :id="`${tabIds}-panel-${item.slot}`"
+          :key="item.slot"
+          role="tabpanel"
+          class="gl-hero-panel docs-content"
+          :aria-labelledby="`${tabIds}-tab-${item.slot}`"
+        >
+          <slot :name="item.slot" />
+        </div>
+      </div>
+
       <div class="glosslint-hero-links">
         <UButton to="/guide/installation" color="primary" size="lg" trailing-icon="i-lucide-arrow-right">
           Get started
@@ -62,175 +271,89 @@ const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
       </div>
     </div>
 
-    <div class="glosslint-hero-sign">
-      <svg viewBox="0 0 760 400" width="760" height="400" role="img" aria-label="A neon sign reading glosslint, with e-bike rack crossed out and corrected to eBike dock" class="gl-sign">
-        <defs>
-          <linearGradient id="gl-sign-board" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#101624" />
-            <stop offset="0.55" stop-color="#0a0e18" />
-            <stop offset="1" stop-color="#06080f" />
-          </linearGradient>
-          <linearGradient id="gl-sign-edge" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#fff" stop-opacity="0.16" />
-            <stop offset="0.3" stop-color="#fff" stop-opacity="0.04" />
-            <stop offset="1" stop-color="#fff" stop-opacity="0.02" />
-          </linearGradient>
-          <radialGradient id="gl-sign-pool-cyan" cx="250" cy="150" r="260" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#22e8ff" stop-opacity="0.2" />
-            <stop offset="0.5" stop-color="#0ea5e9" stop-opacity="0.07" />
-            <stop offset="1" stop-color="#0ea5e9" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="gl-sign-pool-mint" cx="540" cy="150" r="240" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#2ef5a3" stop-opacity="0.17" />
-            <stop offset="0.5" stop-color="#10b981" stop-opacity="0.06" />
-            <stop offset="1" stop-color="#10b981" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="gl-sign-pool-tray" cx="380" cy="320" r="260" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#38f9b8" stop-opacity="0.08" />
-            <stop offset="1" stop-color="#22e8ff" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="gl-sign-screw" cx="0.38" cy="0.32" r="0.75">
-            <stop offset="0" stop-color="#5b6678" />
-            <stop offset="0.55" stop-color="#2a3343" />
-            <stop offset="1" stop-color="#121822" />
-          </radialGradient>
-          <linearGradient id="gl-sign-tray-border" x1="100" y1="0" x2="660" y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#ff4770" stop-opacity="0.45" />
-            <stop offset="0.45" stop-color="#283650" stop-opacity="0.6" />
-            <stop offset="0.55" stop-color="#283650" stop-opacity="0.6" />
-            <stop offset="1" stop-color="#34f5a8" stop-opacity="0.55" />
-          </linearGradient>
-          <linearGradient id="gl-sign-arrow" x1="358" y1="0" x2="402" y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#ff6b8d" />
-            <stop offset="0.48" stop-color="#6eedff" />
-            <stop offset="1" stop-color="#45ffd0" />
-          </linearGradient>
-          <linearGradient id="gl-sign-cable" x1="0" y1="396" x2="0" y2="470" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#1c2433" />
-            <stop offset="1" stop-color="#1c2433" stop-opacity="0" />
-          </linearGradient>
-          <clipPath id="gl-sign-face">
-            <rect width="760" height="400" rx="16" />
-          </clipPath>
-          <filter id="gl-sign-grain" x="0" y="0" width="100%" height="100%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
-            <feColorMatrix type="saturate" values="0" />
-          </filter>
-          <filter id="gl-sign-halo" filterUnits="userSpaceOnUse" x="-120" y="-160" width="900" height="460">
-            <feGaussianBlur stdDeviation="9" />
-          </filter>
-          <filter id="gl-sign-bloom" filterUnits="userSpaceOnUse" x="-120" y="-160" width="900" height="460">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="gl-sign-soft" filterUnits="userSpaceOnUse" x="0" y="200" width="760" height="200">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b1" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b2" />
-            <feMerge>
-              <feMergeNode in="b1" />
-              <feMergeNode in="b2" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="gl-sign-shadow" filterUnits="userSpaceOnUse" x="-120" y="-160" width="900" height="460">
-            <feGaussianBlur stdDeviation="4" />
-          </filter>
-        </defs>
+    <div ref="wall" :class="['glosslint-hero-sign', { 'is-hanging': pivot && !fallen, 'is-fallen': fallen }]">
+      <div class="gl-wall-bricks" aria-hidden="true" />
 
-        <!-- The cable to the transformer, leaving the board at the bottom. -->
-        <path d="M 700 396 C 702 428, 724 432, 728 470" fill="none" stroke="url(#gl-sign-cable)" stroke-width="5" stroke-linecap="round" />
-
-        <!-- The backing board: a dark painted panel with a fine grain, a light top edge, and an inset frame. -->
-        <g clip-path="url(#gl-sign-face)">
-          <rect width="760" height="400" fill="url(#gl-sign-board)" />
-          <rect width="760" height="400" filter="url(#gl-sign-grain)" opacity="0.07" />
-          <rect width="760" height="400" fill="url(#gl-sign-pool-cyan)" />
-          <rect width="760" height="400" fill="url(#gl-sign-pool-mint)" />
-          <rect width="760" height="400" fill="url(#gl-sign-pool-tray)" />
+      <!-- The wall behind the sign: the nail holes and the outlet, which show once the sign is gone. -->
+      <svg class="gl-wall-layer" viewBox="0 0 800 480" aria-hidden="true">
+        <circle v-for="side in sides" :key="side" :cx="nails[side].x" :cy="nails[side].y" r="2.4" class="gl-wall-hole" />
+        <g class="gl-outlet">
+          <rect x="767" y="420" width="30" height="50" rx="4.5" class="gl-outlet-plate" />
+          <g v-for="y in [433, 455]" :key="y" :transform="`translate(782 ${y})`">
+            <rect x="-9" y="-7.5" width="18" height="15" rx="3.5" class="gl-outlet-socket" />
+            <rect x="-4.6" y="-3.4" width="2" height="6" rx="1" class="gl-outlet-slot" />
+            <rect x="2.6" y="-3.4" width="2" height="6" rx="1" class="gl-outlet-slot" />
+          </g>
         </g>
-        <rect x="0.5" y="0.5" width="759" height="399" rx="15.5" fill="none" stroke="url(#gl-sign-edge)" />
-        <rect x="14" y="14" width="732" height="372" rx="9" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="1.5" />
-        <rect x="15.5" y="15.5" width="729" height="369" rx="8" fill="none" stroke="#fff" stroke-opacity="0.035" />
-        <rect x="692" y="389" width="16" height="11" rx="3" fill="#161d2a" stroke="#28324a" />
+      </svg>
 
-        <g v-for="[x, y, angle] in screws" :key="`${x}-${y}`" :transform="`translate(${x} ${y})`">
-          <circle r="6" fill="url(#gl-sign-screw)" stroke="#05070c" stroke-opacity="0.8" />
-          <path d="M -3.6 0 L 3.6 0" stroke="#0a0d14" stroke-width="1.4" stroke-linecap="round" :transform="`rotate(${angle})`" />
+      <div ref="board" class="gl-board" :style="boardStyle">
+        <GlosslintSign lit />
+      </div>
+
+      <!-- The cable into its plug, in front of the wall. It stays with the sign when the sign falls. -->
+      <svg v-if="!fallen" class="gl-wall-layer" viewBox="0 0 800 480" aria-hidden="true">
+        <g fill="none" stroke-linecap="round">
+          <path :d="cable" stroke="#1c2433" stroke-width="5" />
+          <path :d="cable" stroke="#fff" stroke-opacity="0.08" stroke-width="1" transform="translate(-1 -1)" />
         </g>
+        <rect x="779" y="418" width="6" height="8" rx="1.5" fill="#1a202c" />
+        <rect x="773.5" y="424" width="17" height="19" rx="3.5" fill="#1a202c" stroke="#05070c" stroke-opacity="0.6" />
+        <rect x="775.5" y="425.5" width="13" height="1.6" rx="0.8" fill="#fff" fill-opacity="0.1" />
+      </svg>
 
-        <!-- The wordmark, centered over the tray. -->
-        <g transform="translate(98 116)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Shadows of the tubes on the board. -->
-          <g transform="translate(0 8)" filter="url(#gl-sign-shadow)" opacity="0.85" stroke="#010205" stroke-width="13">
-            <template v-for="(letter, i) in letters" :key="i">
-              <path v-for="d in letter.paths" :key="d" :d="d" />
-            </template>
-          </g>
-
-          <g v-for="[x, y] in standoffs" :key="`${x}-${y}`" :transform="`translate(${x} ${y})`">
-            <circle cx="1.5" cy="4" r="9" fill="#010205" opacity="0.6" />
-            <circle r="8.5" fill="#182030" stroke="#334058" />
-            <circle r="5" fill="#0e131d" />
-          </g>
-
-          <g stroke="#121926" stroke-width="8">
-            <path v-for="d in blockouts" :key="d" :d="d" />
-          </g>
-          <g stroke="#2a3447" stroke-width="1.2" transform="translate(-1 -2)">
-            <path v-for="d in blockouts" :key="d" :d="d" />
-          </g>
-
-          <!-- Unlit, each tube is still tinted glass. -->
-          <template v-for="(letter, i) in letters" :key="i">
-            <path v-for="d in letter.paths" :key="d" :d="d" :stroke="glass[letter.tube].wall" stroke-width="13" />
-          </template>
-
-          <!-- Lit: the halo, the gas, its brighter middle, and the core. A worn tube flickers on its own. -->
-          <g class="gl-sign-lit">
-            <g v-for="(letter, i) in letters" :key="i" :class="letter.flicker && `gl-sign-${letter.flicker}`">
-              <g filter="url(#gl-sign-halo)" opacity="0.75">
-                <path v-for="d in letter.paths" :key="d" :d="d" :stroke="glass[letter.tube].halo" stroke-width="16" />
-              </g>
-              <g filter="url(#gl-sign-bloom)">
-                <path v-for="d in letter.paths" :key="d" :d="d" :stroke="glass[letter.tube].gas" stroke-width="10" />
-              </g>
-              <path v-for="d in letter.paths" :key="d" :d="d" :stroke="glass[letter.tube].middle" stroke-width="5.5" opacity="0.85" />
-              <path v-for="d in letter.paths" :key="d" :d="d" :stroke="glass[letter.tube].core" stroke-width="2.4" />
+      <template v-for="side in sides" :key="side">
+        <button
+          v-if="!out[side] && !fallen"
+          :ref="el => { nailButtons[side] = (el as HTMLButtonElement | null) ?? undefined }"
+          type="button"
+          :class="['gl-nail', `gl-nail-${side}`]"
+          :style="{ left: `${nails[side].x / 8}%`, top: `${nails[side].y / 4.8}%` }"
+          :aria-label="`Loosen the ${side} nail (${turnsToDrop - turns[side]} ${turnsToDrop - turns[side] === 1 ? 'turn' : 'turns'} left)`"
+          @click="loosen(side)"
+        >
+          <svg viewBox="-18 -18 36 36" aria-hidden="true">
+            <circle cx="0.6" cy="1.8" r="7.8" fill="#000" :opacity="0.4 + turns[side] * 0.05" :transform="`translate(${turns[side] * 0.25} ${turns[side] * 0.4})`" />
+            <g :style="{ scale: 1 + turns[side] * 0.025 }" class="gl-nail-head">
+              <circle r="7.5" class="gl-nail-metal" />
+              <circle r="7.5" fill="none" stroke="#05070c" stroke-opacity="0.85" />
+              <path d="M -4.6 0 L 4.6 0" class="gl-nail-slot" :style="{ rotate: `${nails[side].slot - turns[side] * degreesPerTurn}deg` }" />
             </g>
-          </g>
+          </svg>
+        </button>
+      </template>
 
-          <!-- The painted ends where a tube turns into the board. -->
-          <g v-for="[x, y] in electrodes" :key="`${x}-${y}`" :transform="`translate(${x} ${y})`">
-            <circle r="6.5" fill="#0d121b" stroke="#2c3649" />
-            <circle r="2.2" fill="#3a465c" />
-          </g>
-        </g>
+      <button v-if="fallen" ref="rehangButton" type="button" class="gl-rehang" @click="rehang">
+        Hang the sign back up
+      </button>
 
-        <!-- The correction tray: e-bike rack, struck, becomes eBike dock. -->
-        <rect x="100" y="292" width="560" height="56" rx="28" fill="#05080f" fill-opacity="0.85" stroke="url(#gl-sign-tray-border)" stroke-width="1.5" />
-        <g class="gl-sign-wrong">
-          <g opacity="0.72" fill="none" stroke-linecap="round">
-            <path d="M 128 314 L 140 326 M 140 314 L 128 326" stroke="#ff4770" stroke-width="3" filter="url(#gl-sign-soft)" />
-            <path d="M 128 314 L 140 326 M 140 314 L 128 326" stroke="#ffb3c5" stroke-width="1.2" />
-          </g>
-          <text x="250" y="327" text-anchor="middle" class="gl-sign-mono" fill="#ff4770" filter="url(#gl-sign-soft)" opacity="0.46">e-bike rack</text>
-          <text x="250" y="327" text-anchor="middle" class="gl-sign-mono" fill="#ffa0b6" opacity="0.84">e-bike rack</text>
-          <line x1="178" y1="324" x2="322" y2="315" stroke="#ff3562" stroke-width="2.8" stroke-linecap="round" filter="url(#gl-sign-soft)" opacity="0.82" />
-          <line x1="178" y1="324" x2="322" y2="315" stroke="#ff7a98" stroke-width="1.5" stroke-linecap="round" opacity="0.9" />
-        </g>
-        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M 358 320 L 400 320 M 389 310 L 401 320 L 389 330" stroke="url(#gl-sign-arrow)" stroke-width="4" filter="url(#gl-sign-soft)" opacity="0.85" />
-          <path d="M 358 320 L 400 320 M 389 310 L 401 320 L 389 330" stroke="#e9fff8" stroke-width="1.7" />
-        </g>
-        <text x="510" y="327" text-anchor="middle" class="gl-sign-mono" fill="#20f0a0" filter="url(#gl-sign-soft)" opacity="0.85">eBike dock</text>
-        <text x="510" y="327" text-anchor="middle" class="gl-sign-mono" fill="#f0fff9">eBike dock</text>
-        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M 612 320 L 618 326 L 630 313" stroke="#2ef5a3" stroke-width="3.4" filter="url(#gl-sign-soft)" />
-          <path d="M 612 320 L 618 326 L 630 313" stroke="#ecfff7" stroke-width="1.5" />
-        </g>
+      <p class="gl-visually-hidden" aria-live="polite">
+        {{ announcement }}
+      </p>
+    </div>
+
+    <!-- The fallen sign lies on the bottom edge of the window, behind the page, so text and links stay on top. -->
+    <div
+      v-if="fallen"
+      ref="fallenSign"
+      class="gl-fallen"
+      :style="{ left: `${fallenBox.left}px`, width: `${fallenBox.width}px` }"
+    >
+      <GlosslintSign :lit="fallenLit" unplugged />
+    </div>
+
+    <div
+      v-for="nail in falling"
+      :key="nail.id"
+      :ref="el => startNailFall(el as Element | null, nail)"
+      class="gl-falling-nail"
+      :style="{ left: `${nail.x - nail.size / 2}px`, top: `${nail.y - nail.size / 2}px`, width: `${nail.size}px` }"
+      aria-hidden="true"
+    >
+      <svg viewBox="-18 -18 36 36">
+        <circle r="7.5" class="gl-nail-metal" />
+        <circle r="7.5" fill="none" stroke="#05070c" stroke-opacity="0.85" />
+        <path d="M -4.6 0 L 4.6 0" class="gl-nail-slot" :style="{ rotate: `${nail.slot}deg` }" />
       </svg>
     </div>
   </section>
@@ -239,12 +362,16 @@ const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
 <style scoped>
 .glosslint-hero {
   display: grid;
+  /* minmax(0, …) so a long line in a code block scrolls inside its frame instead of widening the column. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 2.5rem;
   align-items: center;
   width: 100%;
   max-width: 76rem;
   margin-inline: auto;
   padding: 2.5rem 1rem 3.5rem;
+  /* The wall texture and a swinging sign reach past the column. They never widen the page. */
+  overflow-x: clip;
 }
 
 @media (min-width: 40rem) {
@@ -262,7 +389,7 @@ const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
   .glosslint-hero {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.1fr);
     gap: 4rem;
-    padding-block: 4.5rem 5rem;
+    padding-block: 4.5rem 4rem;
   }
 
   .glosslint-hero-sign {
@@ -270,17 +397,83 @@ const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
   }
 }
 
-/* The sign hangs on the wall: a soft shadow under the board, and the tubes' light on the wall around it. */
+/* ---- The wall: an 800 × 480 box. The board covers its top left; the outlet sits below its right corner. ---- */
+
 .glosslint-hero-sign {
+  --gl-brick: rgb(150 205 255 / 9%);
+  --gl-outlet-plate: #121825;
+  --gl-outlet-edge: #263044;
+  --gl-outlet-socket: #0c111b;
+  --gl-outlet-slot: #020306;
   position: relative;
   isolation: isolate;
-  margin-bottom: 1.25rem;
-  border-radius: 2.1% / 4%;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 18px 40px -16px rgb(0 0 0 / 55%);
-  aspect-ratio: 760 / 400;
+  aspect-ratio: 800 / 480;
 }
 
-.glosslint-hero-sign::before {
+:global(.light .glosslint-hero-sign) {
+  --gl-brick: rgb(15 23 42 / 7%);
+  --gl-outlet-plate: #f4f6f9;
+  --gl-outlet-edge: #c6cfdb;
+  --gl-outlet-socket: #e3e8ef;
+  --gl-outlet-slot: #3b4452;
+}
+
+/* Painted brick behind the sign, lit where the sign lights it and fading into the page. */
+.gl-wall-bricks {
+  position: absolute;
+  inset: -16% -10% -8% -14%;
+  z-index: -2;
+  background: var(--gl-brick);
+  mask-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='52'%3E%3Cpath d='M0 .75H120M0 26.75H120M.75 0V26M60.75 26V52' stroke='%23000' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"),
+    radial-gradient(closest-side at 48% 46%, #000 30%, rgb(0 0 0 / 40%) 65%, transparent);
+  mask-size: 120px 52px, 100% 100%;
+  mask-repeat: repeat, no-repeat;
+  mask-composite: intersect;
+  pointer-events: none;
+}
+
+.gl-wall-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.gl-wall-hole {
+  fill: var(--gl-outlet-slot);
+  opacity: 0.55;
+}
+
+.gl-outlet-plate {
+  fill: var(--gl-outlet-plate);
+  stroke: var(--gl-outlet-edge);
+}
+
+.gl-outlet-socket {
+  fill: var(--gl-outlet-socket);
+  stroke: var(--gl-outlet-edge);
+  stroke-opacity: 0.6;
+}
+
+.gl-outlet-slot {
+  fill: var(--gl-outlet-slot);
+}
+
+/* The board: a soft shadow on the wall, and the tubes' light on the wall around it. It never takes a click. */
+.gl-board {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 95%;
+  border-radius: 2.1% / 4%;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 18px 40px -16px rgb(0 0 0 / 55%);
+  pointer-events: none;
+}
+
+.gl-board::before {
   position: absolute;
   inset: -8% -6% -14%;
   z-index: -1;
@@ -288,30 +481,148 @@ const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
   background:
     radial-gradient(closest-side at 32% 40%, rgb(34 232 255 / 55%), transparent),
     radial-gradient(closest-side at 70% 40%, rgb(46 245 163 / 45%), transparent),
-    radial-gradient(closest-side at 32% 88%, rgb(255 71 112 / 22%), transparent);
+    radial-gradient(closest-side at 32% 88%, rgb(255 71 112 / 16%), transparent);
   filter: blur(48px);
   opacity: var(--gl-hero-spill, 0.5);
   content: "";
 }
 
 /* `:global(.light) .a` compiles to `.light` alone, so the whole selector goes inside `:global()`. */
-:global(.light .glosslint-hero-sign) {
+:global(.light .glosslint-hero-sign .gl-board) {
   --gl-hero-spill: 0.32;
   box-shadow: 0 1px 2px rgb(15 23 42 / 25%), 0 22px 44px -18px rgb(15 23 42 / 55%);
 }
 
-.gl-sign {
+.is-fallen .gl-board {
+  visibility: hidden;
+}
+
+/* ---- Nails: a button each, over the board's top corners. The hit area is at least 28px. ---- */
+
+.gl-nail {
+  position: absolute;
+  z-index: 1;
+  width: 5%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  translate: -50% -50%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gl-nail::before {
+  position: absolute;
+  inset: min(0px, calc(50% - 14px));
+  border-radius: 50%;
+  content: "";
+}
+
+.gl-nail svg,
+.gl-falling-nail svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   overflow: visible;
 }
 
-.gl-sign-mono {
-  font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 600;
+.gl-nail:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
 }
+
+.gl-nail-head {
+  transition: scale 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.gl-nail-slot {
+  stroke: #0a0d14;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: rotate 0.22s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+/* Metal with a highlight at the top left. A gradient id would be shared by every nail, so this is a CSS gradient. */
+.gl-nail-metal {
+  fill: #2c3546;
+  filter: drop-shadow(-1px -1px 0 rgb(255 255 255 / 12%));
+}
+
+@media (hover: hover) {
+  .gl-nail:hover .gl-nail-metal {
+    fill: #3a4558;
+  }
+}
+
+.gl-falling-nail {
+  position: fixed;
+  z-index: 60;
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gl-nail-head,
+  .gl-nail-slot {
+    transition: none;
+  }
+}
+
+/* ---- After the fall ---- */
+
+.gl-fallen {
+  position: fixed;
+  bottom: 0;
+  z-index: -1;
+  rotate: -1.2deg;
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+
+.gl-fallen > :deep(svg) {
+  filter: drop-shadow(0 -2px 10px rgb(0 0 0 / 35%));
+}
+
+/* On the light page the dark board sits under dark text, so it lies there faded. */
+:global(.light .gl-fallen > svg) {
+  opacity: 0.25;
+}
+
+.gl-rehang {
+  position: absolute;
+  top: 40%;
+  left: 47.5%;
+  padding: 0.375rem 0.75rem;
+  border: 1px dashed var(--ui-border-accented);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ui-bg) 70%, transparent);
+  color: var(--ui-text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  translate: -50% -50%;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+@media (hover: hover) {
+  .gl-rehang:hover {
+    border-color: var(--ui-primary);
+    color: var(--ui-text-highlighted);
+  }
+}
+
+.gl-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Copy ---- */
 
 .glosslint-hero-copy :deep(h1) {
   max-width: 20ch;
@@ -323,7 +634,7 @@ const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
   text-wrap: balance;
 }
 
-.glosslint-hero-copy :deep(p) {
+.glosslint-hero-copy > :deep(p) {
   max-width: 60ch;
   margin-top: 1.25rem;
   color: var(--ui-text-muted);
@@ -331,82 +642,61 @@ const screws = [[30, 30, 35], [730, 30, -20], [30, 370, 70], [730, 370, 10]]
   text-wrap: pretty;
 }
 
+.gl-hero-tabs {
+  max-width: 36rem;
+  margin-top: 1.75rem;
+}
+
+.gl-hero-tablist {
+  display: inline-flex;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.625rem;
+  background: var(--ui-bg-muted);
+}
+
+.gl-hero-tab {
+  padding: 0.3125rem 0.75rem;
+  border-radius: 0.4375rem;
+  color: var(--ui-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+@media (hover: hover) {
+  .gl-hero-tab:hover {
+    color: var(--ui-text-highlighted);
+  }
+}
+
+.gl-hero-tab[aria-selected="true"] {
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ui-primary) 35%, var(--ui-border)), 0 0 14px -6px color-mix(in oklab, var(--ui-primary) 70%, transparent);
+}
+
+.gl-hero-panel {
+  margin-top: 0.75rem;
+}
+
+.gl-hero-panel > :deep(*) {
+  margin-block: 0;
+}
+
 .glosslint-hero-links {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 2rem;
+  margin-top: 1.75rem;
 }
 
-/*
- * The tubes catch once on load, then a few worn ones flicker on their own clocks, so the pattern never lines up.
- * Every flicker is at most two dips about 0.15 to 0.5 seconds apart, under the three flashes a second that WCAG 2.3.1
- * allows, on one letter at a time. Opacity only. Nothing moves under `prefers-reduced-motion: reduce`.
- */
 @media (prefers-reduced-motion: no-preference) {
-  .gl-sign-lit {
-    animation: gl-sign-ignite 1.6s linear 0.2s both;
-  }
-
-  .gl-sign-stutter {
-    animation: gl-sign-stutter 9.7s linear 2.2s infinite;
-  }
-
-  .gl-sign-buzz {
-    animation: gl-sign-buzz 13.3s linear 4.1s infinite;
-  }
-
-  .gl-sign-brownout {
-    animation: gl-sign-brownout 17.9s linear 1s infinite;
-  }
-
-  .gl-sign-wrong {
-    animation: gl-sign-wrong 7s ease-in-out infinite;
-  }
-
-  .glosslint-hero-sign::before {
+  .gl-board::before {
     animation: gl-sign-breathe 4.5s ease-in-out 1.8s infinite alternate;
   }
-}
-
-@keyframes gl-sign-ignite {
-  0% { opacity: 0.1; }
-  10% { opacity: 1; }
-  16% { opacity: 0.3; }
-  26%, 46% { opacity: 1; }
-  52% { opacity: 0.6; }
-  58%, 100% { opacity: 1; }
-}
-
-/* Out for about a tenth of a second, back, then half-lit for another tenth half a second later. */
-@keyframes gl-sign-stutter {
-  0%, 20% { opacity: 1; }
-  20.3%, 21.4% { opacity: 0.12; }
-  21.7%, 26.6% { opacity: 1; }
-  26.9%, 27.8% { opacity: 0.45; }
-  28.1%, 100% { opacity: 1; }
-}
-
-/* Two quick catches, 0.15 seconds apart. */
-@keyframes gl-sign-buzz {
-  0%, 58% { opacity: 1; }
-  58.2%, 58.8% { opacity: 0.2; }
-  59%, 59.4% { opacity: 0.9; }
-  59.6%, 60.2% { opacity: 0.25; }
-  60.5%, 100% { opacity: 1; }
-}
-
-/* The voltage sags for a moment. */
-@keyframes gl-sign-brownout {
-  0%, 80% { opacity: 1; }
-  81%, 84% { opacity: 0.55; }
-  85%, 100% { opacity: 1; }
-}
-
-@keyframes gl-sign-wrong {
-  0%, 82%, 86%, 91%, 100% { opacity: 1; }
-  84% { opacity: 0.54; }
-  88% { opacity: 0.74; }
 }
 
 @keyframes gl-sign-breathe {

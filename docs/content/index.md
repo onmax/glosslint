@@ -8,7 +8,19 @@ seo.title: glosslint · Lint your product vocabulary
 ::glosslint-hero
 # Lint your product's words from one glossary
 
-glosslint checks that your product's words are spelled, cased and chosen the way `.agents/glossary.md` says. People and coding agents read that file directly, while ESLint, Oxlint, x18n and the CLI report problems in code, translations and Markdown docs with the reason and meaning on every finding.
+glosslint checks that your product's words are spelled, cased and chosen the way `.agents/glossary.md` says, in code, translations and Markdown docs.
+
+#agents
+```text
+Set up glosslint in this repository. Read https://glosslint.onmax.me/guide/agents,
+write .agents/glossary.md from the terms our UI and docs already use,
+and add the ESLint rules to our config.
+```
+
+#humans
+```sh
+pnpm add -D glosslint
+```
 ::
 
 :badge{source="github-actions" repository="onmax/glosslint" workflow="pkg-pr-new.yml" icon="github"} :badge[MIT]{label="license"}
