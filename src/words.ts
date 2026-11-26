@@ -204,3 +204,15 @@ export function tokenize(text: string, keep: ReadonlySet<string> = new Set()): T
   }
   return tokens;
 }
+
+/** A string with no spaces, all in lowercase, shaped like a key, slug, path or single code word. */
+const LOWER_SHAPE = /^[\p{Ll}\p{N}_\-./:#@~]+$/u;
+/** A camelCase name, such as a column id. Capitalised words and hyphenated labels don't match. */
+const CAMEL_SHAPE = /^\p{Ll}[\p{Ll}\p{N}]*\p{Lu}[\p{L}\p{N}_\-./:]*$/u;
+/** A dotted path of names that each start in lowercase, such as the i18n key `alarm.activeAlarms`. */
+const PATH_SHAPE = /^\p{Ll}[\p{L}\p{N}_$-]*(?:\.[\p{Ll}\p{N}_$][\p{L}\p{N}_$-]*)+$/u;
+
+/** Whether a JS string, attribute or prop value is shaped like code, so it is skipped (decision 7). */
+export function isCodeShape(text: string): boolean {
+  return LOWER_SHAPE.test(text) || CAMEL_SHAPE.test(text) || PATH_SHAPE.test(text);
+}

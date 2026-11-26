@@ -1,6 +1,7 @@
 import type { Rule } from "eslint";
 import { type Classified, classify } from "../kind.ts";
 import type { Finding, KindOf, KindSite, TextKind } from "../types.ts";
+import { isCodeShape } from "../words.ts";
 import { identityMap, jsMap, yamlDoubleMap, yamlSingleMap } from "./offsets.ts";
 
 /** An AST node from any of the parsers: ESTree, vue-eslint-parser's template, yaml-eslint-parser or jsonc-eslint-parser. */
@@ -85,19 +86,6 @@ const NAME_WRAPPERS = new Set([
   "TemplateLiteral",
   "BinaryExpression",
 ]);
-
-/** A string with no spaces, all in lowercase, shaped like a key, slug, path or single code word. */
-const LOWER_SHAPE = /^[\p{Ll}\p{N}_\-./:#@~]+$/u;
-/** A camelCase name, such as a column id. Capitalised words and hyphenated labels don't match. */
-const CAMEL_SHAPE = /^\p{Ll}[\p{Ll}\p{N}]*\p{Lu}[\p{L}\p{N}_\-./:]*$/u;
-
-/** A dotted path of names that each start in lowercase, such as the i18n key `alarm.activeAlarms`. */
-const PATH_SHAPE = /^\p{Ll}[\p{L}\p{N}_$-]*(?:\.[\p{Ll}\p{N}_$][\p{L}\p{N}_$-]*)+$/u;
-
-/** Whether a JS string or attribute value is shaped like code, so it is skipped (decision 7). */
-export function isCodeShape(text: string): boolean {
-  return LOWER_SHAPE.test(text) || CAMEL_SHAPE.test(text) || PATH_SHAPE.test(text);
-}
 
 export function isSkippedAttribute(name: string | undefined): boolean {
   if (name === undefined) return false;

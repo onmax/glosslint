@@ -31,6 +31,17 @@ function byName(name: string | undefined, text: string): TextKind {
   return "unknown";
 }
 
+/** Whether a key or prop holds text people read, from its words alone: `title`, `cardLabel` and `name` do, `to` and `icon` don't. */
+export function isTextName(name: string): boolean {
+  const words = splitWords(name).map((word) => word.toLowerCase().replace(/\d+$/, ""));
+  return (
+    words.at(-1) === "name" ||
+    words.some(
+      (word) => LABEL_WORD.test(word) || HEADER_WORD.test(word) || SENTENCE_WORD.test(word),
+    )
+  );
+}
+
 /**
  * The kind of shown text from its shape alone: a label when it is a few words that don't open like a
  * sentence, or when it is written in Title Case, else a sentence.
