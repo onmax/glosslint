@@ -14,7 +14,7 @@ Every glosslint integration feeds text into the same matcher backed by [`.agents
 | --- | --- | --- | --- | --- |
 | [ESLint](/integrations/eslint) | JS, TS, Vue templates and `<script>`, YAML locales, comments, identifiers | By default (`glosslint()`) | Yes (`eslint --fix`) | Supports `glossary`, `corpus`, and `kindOf`. Requires ESLint `>=9.15.0`. |
 | [Oxlint](/integrations/oxlint) | JS, TS, Vue `<script>`, comments, identifiers | By default (`"jsPlugins": ["glosslint/oxlint"]`) | Yes (`oxlint --fix`) | No Vue `<template>`, no YAML, no `corpus` or `kindOf`. JS plugins are alpha in Oxlint `>=1.94.0`. |
-| [x18n](/integrations/x18n) | Source-locale messages and hard-coded strings | Pass `corpus: fromGlossary()` | Safe and quick fixes in `x18n check --fix` | Also exports terms to x18n's `glossary` via `toX18nGlossary`. Requires `@x18n/core >=0.1.14`. |
+| [x18n](/integrations/x18n) | Source-locale messages and hard-coded strings | Reads `.agents/glossary.md`, or `glossary` or `corpus` | Safe and quick fixes in `x18n check --fix` | Also exports terms to x18n's `glossary` via `toX18nGlossary`. Requires `@x18n/core >=0.1.14`. |
 | [CLI](/integrations/cli) | Markdown, MDX, and plain text files | By default (after `glosslint.config.*`) | `doctor --fix` repairs `.agents/glossary.md` | Also runs `doctor`, `test`, `print`, and `explain`. No peer dependencies needed. |
 
 ## Typical setups

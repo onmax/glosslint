@@ -183,7 +183,7 @@ Provides the x18n plugin factory and its `GlosslintX18nOptions` type. Requires t
 ### glosslint (x18n)
 
 ```ts
-export default function glosslint(options: GlosslintX18nOptions): Plugin
+export default function glosslint(options?: GlosslintX18nOptions): Plugin
 ```
 
 Returns an `@x18n/core` plugin named `"glosslint"` that adds the checks `glosslint-term` (`"error"`), `glosslint-avoid` (`"warning"`), and `glosslint-case` (`"error"`) over source-locale messages and hard-coded strings. Importing this entry point also augments `@x18n/core`'s `CheckIds` interface with those three check IDs.
@@ -235,7 +235,7 @@ Every type below is exported from `glosslint`, except `GlosslintEslintOptions` (
 - `GlosslintEslintOptions`: Options for `glosslint/eslint`: `{ glossary?: string | URL; corpus?: Corpus; files?: string[]; ignoreCallees?: string[]; identifierAvoid?: boolean; kindOf?: KindOf }`.
 - `GlosslintOxlintPlugin`: Oxlint plugin object `{ meta: { name: "glosslint" }; rules: Record<"term" | "avoid" | "comment" | "identifier", OxlintRule> }`.
 - `GlosslintOxlintSettings`: Shape of `settings.glosslint` in `.oxlintrc.json`: `{ glossary?: string; ignoreCallees?: string[]; identifierAvoid?: boolean }`.
-- `GlosslintX18nOptions`: Options for `glosslint/x18n`: `{ corpus: Corpus; sourceLocale?: string; kindOf?: KindOf }`.
+- `GlosslintX18nOptions`: Options for `glosslint/x18n`: `{ glossary?: string | URL; corpus?: Corpus; sourceLocale?: string; kindOf?: KindOf }`, all optional; `glossary` and `corpus` exclude each other.
 - `KindOf`: Custom kind classifier `(site: KindSite) => TextKind | undefined`.
 - `KindSite`: String context passed to `kindOf`: `{ text: string; name?: string; file?: string; shown?: boolean }`.
 - `Link`: Reference link on a term, `{ title: string; url: string }`.

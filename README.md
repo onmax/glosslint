@@ -90,7 +90,7 @@ Here is one finding from `examples/basic`:
 
 - [ESLint](https://glosslint.onmax.me/integrations/eslint): `glosslint()` reads `.agents/glossary.md` with no options and checks strings, comments and identifiers in JavaScript, TypeScript and Vue templates, plus YAML locale values.
 - [Oxlint](https://glosslint.onmax.me/integrations/oxlint): add `"glosslint/oxlint"` to `jsPlugins` in `.oxlintrc.json` to run the four rules on JavaScript, TypeScript and Vue `<script>` blocks (Oxlint JS plugins are alpha).
-- [x18n](https://glosslint.onmax.me/integrations/x18n): pass `corpus: fromGlossary()` to check source-locale messages and hard-coded strings, and pass the corpus to `toX18nGlossary` for x18n's glossary.
+- [x18n](https://glosslint.onmax.me/integrations/x18n): check source-locale messages and hard-coded strings, and pass the corpus to `toX18nGlossary` for x18n's glossary.
 - [CLI](https://glosslint.onmax.me/integrations/cli): checks Markdown, MDX and text files, tests term examples, prints corpora and explains words from the terminal.
 
 ## Doctor

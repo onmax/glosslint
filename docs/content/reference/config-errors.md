@@ -48,7 +48,7 @@ The error's `message` is `why`, with ` (term "<term>")` appended when `term` is 
 | `GLOSSLINT_C009` | No glossary file or config was found, or `--glossary` / `--config` names a missing file. |
 | `GLOSSLINT_C010` | The config threw while loading, such as on a syntax error. |
 | `GLOSSLINT_C011` | `casing` names a kind other than `label`, `header`, or `sentence`, or an unknown style. |
-| `GLOSSLINT_C012` | `glosslint()` in ESLint received both `glossary` and `corpus`. |
+| `GLOSSLINT_C012` | `glosslint()` in ESLint or x18n received both `glossary` and `corpus`. |
 | `GLOSSLINT_G001` | Missing `# Glossary` H1, or an H1 with another title. Fixable with `doctor --fix`. |
 | `GLOSSLINT_G002` | Field name in another case, a known alias, or a close typo. Fixable with `doctor --fix`. |
 | `GLOSSLINT_G003` | Glossary layout problem (bullets, bare URL, field order, blank lines, endings). Fixable with `doctor --fix`. |
