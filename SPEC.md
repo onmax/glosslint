@@ -6,7 +6,7 @@ One Markdown glossary, `.agents/glossary.md`, that people and coding agents read
 
 A product's words (which term to use, what it means, which words to avoid) live in people's heads or in a wiki page nothing checks. Coding agents write a lot of user-facing text and have no file to read the vocabulary from, and no lint tells them they picked the wrong word.
 
-glosslint 0.0.1 kept the corpus in `glosslint.config.ts` and could also read a Markdown table with `fromGlossaryTable`. A table works for short cells. A term with a meaning, usage notes, several avoid words with reasons, examples and links makes rows hundreds of characters wide that nobody edits by hand, and the TypeScript config is not a file an agent is told to read.
+glosslint used to keep the corpus in `glosslint.config.ts` and could also read a Markdown table with `fromGlossaryTable`. A table works for short cells. A term with a meaning, usage notes, several avoid words with reasons, examples and links makes rows hundreds of characters wide that nobody edits by hand, and the TypeScript config is not a file an agent is told to read.
 
 Prior art:
 
@@ -16,7 +16,7 @@ Prior art:
 
 ## Scope
 
-Version 0.0.2. The first user is a Nuxt 4 app of about 390 Vue files with an ESLint flat config (`@nuxt/eslint` with `@antfu/eslint-config`), vue-i18n YAML locales (one source locale, two translated) and agents that read `AGENTS.md` and `.agents/`. What that app needs is in: the glossary file as the one source, ESLint on Vue templates, TypeScript and the source YAML locale, and a CLI that checks Markdown, explains a word and repairs the glossary. Oxlint covers JavaScript and TypeScript only. The x18n plugin reads the glossary file the way the ESLint config does, and `defineCorpus` stays as it is in 0.0.1. `fromGlossaryTable` is removed with no alias and no migration. The README and the docs lead with the glossary file and show `defineCorpus` second.
+The first user is a Nuxt 4 app of about 390 Vue files with an ESLint flat config (`@nuxt/eslint` with `@antfu/eslint-config`), vue-i18n YAML locales (one source locale, two translated) and agents that read `AGENTS.md` and `.agents/`. What that app needs is in: the glossary file as the one source, ESLint on Vue templates, TypeScript and the source YAML locale, and a CLI that checks Markdown, explains a word and repairs the glossary. Oxlint covers JavaScript and TypeScript only. The x18n plugin reads the glossary file the way the ESLint config does, and `defineCorpus` keeps its API. `fromGlossaryTable` is removed with no alias and no migration. The README and the docs lead with the glossary file and show `defineCorpus` second.
 
 ## The glossary file
 
@@ -87,7 +87,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 fromGlossary(path?: string | URL): Corpus // ".agents/glossary.md"; a string resolves from process.cwd()
 readGlossary(text: string): { problems: GlossaryProblem[], corpus?: Corpus, fixed?: string }
 interface GlossaryProblem { code: string, line: number, why: string, fix: string, fixable: boolean, term?: string }
-interface Term { /* as 0.0.1, plus */ why?: string }
+interface Term { /* the existing fields, plus */ why?: string }
 
 // glosslint/eslint — options are optional now; `corpus` and `glossary` exclude each other
 glosslint(options?: { glossary?: string | URL, corpus?: Corpus, files?, ignoreCallees?, identifierAvoid?, kindOf? }): Linter.Config[]
@@ -110,7 +110,7 @@ glosslint(options?: { glossary?: string | URL, corpus?: Corpus, sourceLocale?, k
 - **Problems only reported.** `G004`: an unknown field, or content the format has no place for (text before a term's first field or after a list, a table, a code fence, an H3). `G005`: a term or a field written twice. `G006`: a bad value (`Case`, `Casing`, an unknown preset, a link that is not `[title](http…)`, an empty field). `G007`: a term heading with no words, or with parentheses that are not abbreviations. `G008`: an avoid word that is a term of the file. `G009`: a failing example, which `doctor` reports and loaders ignore.
 - **Canonical form.** `# Glossary`, the introduction as written, the corpus fields, then each term in file order with its fields in canonical order. A list stays in the form it was written, on the field's line or as `-` items. One blank line before each heading, between introduction blocks, after the introduction and between the paragraphs of a text field, and none after a `##` heading or between fields. LF line endings and one final newline.
 - **`doctor`** reads only the glossary file, never a config. Exit 0 with no problems, 1 with problems left, 2 when the file is missing.
-- **ESLint** sets no parser, as in 0.0.1: the app's config supplies typescript-eslint, vue-eslint-parser and yaml-eslint-parser. `files` picks the source locale file.
+- **ESLint** sets no parser: the app's config supplies typescript-eslint, vue-eslint-parser and yaml-eslint-parser. `files` picks the source locale file.
 - **Oxlint** has no config hook, so the rules read the glossary on the first file, from `context.cwd`, and keep it for the process. It takes a path only: plugin entries are module specifiers and settings are JSON, so there is no `corpus` and no `kindOf`. Oxlint offers no parser services, so Vue templates are not visited, and it does not lint YAML. JS plugins are alpha in Oxlint 1.94, so `oxlint` is an optional peer and the entry may change with it.
 - **Removed.** `fromGlossaryTable`, `GlossaryTableColumns`, `src/table.ts`, its test and fixture, the codes `GLOSSLINT_NO_GLOSSARY_TABLE` and `GLOSSLINT_DUPLICATE_TERM`, and the docs page about tables.
 - **Unchanged.** `defineCorpus` (it accepts `why`), the matcher, `kindOf`, the `test`, `print` and `explain` commands, and the presets.

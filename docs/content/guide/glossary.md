@@ -121,7 +121,7 @@ Five advanced corpus options have no field in `.agents/glossary.md`: `skip`, `fo
 
 ## Coming from 0.0.1
 
-glosslint 0.0.2 removes the Markdown table reader (breaking change). Move your 0.0.1 table rows into `.agents/glossary.md`:
+glosslint 0.1.0 removes the Markdown table reader (breaking change). Move your 0.0.1 table rows into `.agents/glossary.md`:
 
 1. Create `.agents/glossary.md` starting with `# Glossary`.
 2. Turn each table row into a `## Term` section using `What:` for `Meaning`/`Description`, `How:` for `Notes`, `Avoid:` for `Avoid`, and `Links:` for `Links`. Move any presets and `allow` phrases to `Extends:` and `Allow:` at the top.
