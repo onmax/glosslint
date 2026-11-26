@@ -37,6 +37,8 @@ export interface Term {
   description?: string;
   /** How it differs from near terms and when not to use it. Printed in findings for avoid words. */
   nuance?: string;
+  /** Why the project uses this term. Printed in findings for avoid words that give no reason of their own. */
+  why?: string;
   /** Abbreviations of the term, always checked as `exact`, such as `DP` for `Day Pass`. */
   abbr?: string[];
   /** Words to avoid in favour of this term, each a word or `{ word, why }`. */
@@ -132,7 +134,7 @@ export interface Finding {
   text: string;
   /** The one-line headline, such as `Use "dock" instead of "rack".` */
   message: string;
-  /** Why it is reported: the avoid word's reason, or the term's nuance. */
+  /** Why it is reported: the avoid word's reason, else the term's `why`, else its nuance. */
   why?: string;
   /** The replacement, when there is one. */
   fix?: Fix;

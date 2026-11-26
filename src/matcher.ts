@@ -532,7 +532,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       avoid.term,
       `Use "${replace}" instead of "${written}".`,
       { kind: "suggestion", replace },
-      avoid.why,
+      avoid.why ?? avoid.term.why,
     );
   }
 
@@ -692,7 +692,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
           hit.value.term,
           `Rename "${written}" to "${replace}".`,
           { kind: "rename", replace },
-          hit.value.why,
+          hit.value.why ?? hit.value.term.why,
         ),
       );
     }

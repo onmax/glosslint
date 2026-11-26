@@ -28,7 +28,10 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   // docs/ is a Nuxt app with its own style, checked by its build.
-  fmt: { ignorePatterns: ["**/dist/**", ".cache/**", "docs/**"] },
+  // The glossary fixture with fixable problems must keep its bad layout.
+  fmt: {
+    ignorePatterns: ["**/dist/**", ".cache/**", "docs/**", "test/fixtures/glossary/fixable.md"],
+  },
   lint: {
     ignorePatterns: ["**/dist/**", ".cache/**", "docs/**"],
     options: { typeAware: true, typeCheck: false },

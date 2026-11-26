@@ -14,7 +14,7 @@ import type { Corpus, Finding, FindingCode, KindOf } from "./types.ts";
 
 /** Options of the x18n plugin. */
 export interface GlosslintX18nOptions {
-  /** The corpus, usually `import corpus from './glosslint.config.ts'`. */
+  /** The corpus, usually `fromGlossary()` for `.agents/glossary.md`. */
   corpus: Corpus;
   /** The locale whose messages are checked. Default: the project's source locale. */
   sourceLocale?: string;

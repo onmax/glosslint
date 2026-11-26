@@ -26,7 +26,7 @@ const docs = [
 const cli = (...args: string[]) => run(args, exampleDir);
 
 describe("examples/basic", () => {
-  it("loads the presets, the glossary table and its own terms", async () => {
+  it("loads the presets and the terms of .agents/glossary.md", async () => {
     const { corpus } = await loadCorpus(exampleDir);
     const names = corpus.terms.map((term) => term.term);
     for (const name of ["GitHub", "allowlist", "Station", "kiosk", "Dock", "Day Pass"])
