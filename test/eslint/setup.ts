@@ -1,5 +1,6 @@
 import type { Linter, Rule } from "eslint";
 import { createRuleTester } from "eslint-vitest-rule-tester";
+import * as jsonParser from "jsonc-eslint-parser";
 import tseslint from "typescript-eslint";
 import vueParser from "vue-eslint-parser";
 import * as yamlParser from "yaml-eslint-parser";
@@ -35,11 +36,17 @@ const vue: Linter.Config = {
   },
 };
 const yaml: Linter.Config = { languageOptions: { parser: yamlParser } };
+const json: Linter.Config = { languageOptions: { parser: jsonParser } };
 
-export type Parser = "ts" | "vue" | "yaml";
+export type Parser = "ts" | "vue" | "yaml" | "json";
 
-const configs: Record<Parser, Linter.Config> = { ts, vue, yaml };
-const filenames: Record<Parser, string> = { ts: "file.ts", vue: "file.vue", yaml: "file.yml" };
+const configs: Record<Parser, Linter.Config> = { ts, vue, yaml, json };
+const filenames: Record<Parser, string> = {
+  ts: "file.ts",
+  vue: "file.vue",
+  yaml: "file.yml",
+  json: "file.json",
+};
 
 /** A rule tester for one rule and one parser. Cases get that parser's file name. */
 export function tester(

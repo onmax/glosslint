@@ -136,12 +136,22 @@ describe("term in TS", () => {
     await valid(`const a = "/docks/check-out";`);
     await valid(`const a = "app.re-charge.point";`);
     await valid(`const a = "checkOutButton";`);
+    await valid(`const a = "dock.reChargePoint";`);
     await valid("const a = `check-out-${id}`;");
     await invalid(`const a = "Check-out";`, { output: `const a = "Checkout";`, errors: 1 });
     await invalid(`const a = "Re-Charge-Point";`, {
       output: `const a = "Recharge Point";`,
       errors: 1,
     });
+  });
+
+  it("checks a dotted term with a capitalised part, such as node.JS", async () => {
+    const node = tester("term", "ts", {
+      corpus: defineCorpus({
+        terms: [{ term: "Node.js", case: "exact", skip: ["lower", "upper"] }],
+      }),
+    });
+    await node.invalid(`const a = "node.JS";`, { output: `const a = "Node.js";`, errors: 1 });
   });
 
   it("skips tagged templates", async () => {
@@ -225,6 +235,7 @@ describe("term in Vue", () => {
       `<template><UIcon :name="'Check-out'" :class="ok ? 'Check-out' : ''" /></template>`,
     );
     await valid(`<template><RouterLink to="Check-out" /></template>`);
+    await valid(`<template><i18n-t keypath="Check-out" /></template>`);
   });
 
   it("skips the key of $t and comparisons in templates", async () => {
@@ -342,6 +353,46 @@ describe("term in YAML", () => {
     const code = `a: >\n  Set the re-charge\n  point here.\n`;
     const { result } = await invalid(code, { output: null, errors: 1 });
     expect(covered(code, result.messages[0]!)).toBe("re-charge\n  point");
+  });
+});
+
+describe("term in JSON", () => {
+  const { valid, invalid } = tester("term", "json");
+
+  it("checks values in objects and arrays and never keys", async () => {
+    await valid(`{ "Check-out": "Checkout" }`);
+    await invalid(`{ "checkout": { "title": "Check-out" } }`, {
+      output: `{ "checkout": { "title": "Checkout" } }`,
+      errors: 1,
+    });
+    await invalid(`{ "list": ["The re-charge point"] }`, {
+      output: `{ "list": ["The recharge point"] }`,
+      errors: 1,
+    });
+  });
+
+  it("never skips a code-shaped value", async () => {
+    await invalid(`{ "a": "check-out" }`, { output: `{ "a": "checkout" }`, errors: 1 });
+  });
+
+  it("reads the last key as the kind", async () => {
+    await invalid(`{ "pass": { "buttonLabel": "Buy a day pass" } }`, {
+      output: `{ "pass": { "buttonLabel": "Buy a Day Pass" } }`,
+      errors: ["GLOSSLINT_CASE"],
+    });
+  });
+
+  it("maps escapes back to the source", async () => {
+    await invalid(`{ "a": "Say \\"hi\\" at the re-charge point" }`, {
+      output: `{ "a": "Say \\"hi\\" at the recharge point" }`,
+      errors: 1,
+    });
+    const code = `{ "a": "\\u0054he re-charge point" }`;
+    const { result } = await invalid(code, {
+      output: `{ "a": "\\u0054he recharge point" }`,
+      errors: 1,
+    });
+    expect(covered(code, result.messages[0]!)).toBe("re-charge point");
   });
 });
 

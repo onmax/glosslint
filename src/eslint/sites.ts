@@ -3,7 +3,7 @@ import { type Classified, classify } from "../kind.ts";
 import type { Finding, KindOf, KindSite, TextKind } from "../types.ts";
 import { identityMap, jsMap, yamlDoubleMap, yamlSingleMap } from "./offsets.ts";
 
-/** An AST node from any of the parsers: ESTree, vue-eslint-parser's template or yaml-eslint-parser. */
+/** An AST node from any of the parsers: ESTree, vue-eslint-parser's template, yaml-eslint-parser or jsonc-eslint-parser. */
 // oxlint-disable-next-line typescript/no-explicit-any
 export type Node = { type: string; range: [number, number]; parent?: Node | null } & Record<
   string,
@@ -56,6 +56,8 @@ const SKIPPED_ATTRIBUTES = new Set([
   "slot",
   "is",
   "for",
+  // vue-i18n's <i18n-t keypath="..."> names a message, it doesn't show one.
+  "keypath",
   "aria-labelledby",
   "aria-describedby",
   "aria-controls",
@@ -89,9 +91,12 @@ const LOWER_SHAPE = /^[\p{Ll}\p{N}_\-./:#@~]+$/u;
 /** A camelCase name, such as a column id. Capitalised words and hyphenated labels don't match. */
 const CAMEL_SHAPE = /^\p{Ll}[\p{Ll}\p{N}]*\p{Lu}[\p{L}\p{N}_\-./:]*$/u;
 
+/** A dotted path of names that each start in lowercase, such as the i18n key `alarm.activeAlarms`. */
+const PATH_SHAPE = /^\p{Ll}[\p{L}\p{N}_$-]*(?:\.[\p{Ll}\p{N}_$][\p{L}\p{N}_$-]*)+$/u;
+
 /** Whether a JS string or attribute value is shaped like code, so it is skipped (decision 7). */
 export function isCodeShape(text: string): boolean {
-  return LOWER_SHAPE.test(text) || CAMEL_SHAPE.test(text);
+  return LOWER_SHAPE.test(text) || CAMEL_SHAPE.test(text) || PATH_SHAPE.test(text);
 }
 
 export function isSkippedAttribute(name: string | undefined): boolean {
@@ -235,6 +240,8 @@ function noneOf(...forbidden: string[]): (replace: string) => boolean {
 }
 
 const NEWLINES = ["\n", "\r"];
+/** U+0000 to U+001F, which JSON allows in a string only escaped. */
+const JSON_CONTROL = Array.from({ length: 0x20 }, (_, code) => String.fromCharCode(code));
 
 /** Builds the sites of a JS string literal or template literal, or none when it is skipped. */
 export function esSites(
@@ -403,6 +410,33 @@ export function yamlSite(node: Node, decide: Decide): Site | undefined {
   }
 }
 
+function jsonKeyName(node: Node): string | undefined {
+  for (let current = node.parent; current; current = current.parent) {
+    if (current.type !== "JSONProperty") continue;
+    const key = current.key as Node;
+    if (key.type === "JSONIdentifier") return key.name as string;
+    return typeof key.value === "string" ? key.value : undefined;
+  }
+  return undefined;
+}
+
+/** Builds the site of a JSON string value; keys are never checked. */
+export function jsonSite(node: Node, decide: Decide): Site | undefined {
+  if (typeof node.value !== "string" || node.value.trim() === "") return undefined;
+  const parent = node.parent;
+  if (parent?.type === "JSONProperty" && parent.key === node) return undefined;
+  const text = node.value;
+  const raw = node.raw as string;
+  return {
+    text,
+    ...decide({ name: jsonKeyName(node), text, shown: true }),
+    base: node.range[0] + 1,
+    map: jsMap(raw.slice(1, -1), text),
+    within: node.range,
+    safe: noneOf(raw[0]!, "\\", ...JSON_CONTROL),
+  };
+}
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -449,9 +483,10 @@ export function stringListener(
   const script: Rule.RuleListener = {
     Literal: es(false),
     TemplateLiteral: es(false),
-    // yaml-eslint-parser's node types are not ESTree's, so the listener type does not know them.
+    // yaml-eslint-parser's and jsonc-eslint-parser's node types are not ESTree's, so the listener type does not know them.
     ...({
       YAMLScalar: (node: unknown) => emit(yamlSite(node as Node, decide)),
+      JSONLiteral: (node: unknown) => emit(jsonSite(node as Node, decide)),
     } as Rule.RuleListener),
   };
   const services = context.sourceCode.parserServices as

@@ -112,6 +112,7 @@
     "case-police": "2.2.1",
     "eslint": "^10.15.0",
     "eslint-vitest-rule-tester": "^3.2.0",
+    "jsonc-eslint-parser": "^3.3.0",
     "oxlint": "1.94.0",
     "publint": "^0.3.25",
     "tsrs": "7.1.0-beta.tsrs5",

@@ -86,6 +86,8 @@ const URL =
   /\b[a-z][a-z\d+.-]*:\/\/[^\s<>"'`)\]]*|\bwww\.[^\s<>"'`)\]]+|\bmailto:[^\s<>"'`)\]]+/giu;
 const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu;
 const BACKTICKS = /(`+)[\s\S]*?\1/gu;
+/** A vue-i18n linked message, such as `@:common.save`, `@.lower:common.save` or `@:{'common.save'}`. */
+const LINKED = /@(?:\.\p{L}+)?:(?:\{\s*'(?:[^'\\]|\\.)*'\s*\}|[\p{L}\p{N}_$.-]+)/gu;
 /** An npm scoped package, such as `@nuxt/kit`, also after a Markdown escape (`\\@nuxt/kit`). */
 const SCOPED_PACKAGE =
   /(?<![\p{L}\p{N}_.@])@[\p{L}\p{N}][\p{L}\p{N}_.~-]*\/[\p{L}\p{N}][\p{L}\p{N}_.~-]*/gu;
@@ -94,7 +96,7 @@ const REPO_REF =
   /(?<![\p{L}\p{N}_./@-])[\p{L}\p{N}][\p{L}\p{N}_.-]*\/[\p{L}\p{N}_.-]+(?:#\d+|@[\p{L}\p{N}_.-]*[\p{L}\p{N}])/gu;
 /** One pass, so the span that starts first wins: a URL keeps a package inside it, an email its `www.` domain. */
 const CODE_SPAN = new RegExp(
-  [URL, REPO_REF, SCOPED_PACKAGE, EMAIL].map((pattern) => pattern.source).join("|"),
+  [URL, LINKED, REPO_REF, SCOPED_PACKAGE, EMAIL].map((pattern) => pattern.source).join("|"),
   "giu",
 );
 const PATH = /(?<![\p{L}\p{N}.~])(?:\.{1,2}|~)?\/[\p{L}\p{N}_.~/-]+/gu;
@@ -138,8 +140,9 @@ function isKept(key: string, keep: ReadonlySet<string>): boolean {
 }
 
 /**
- * Blanks out what is code rather than words, keeping every offset: placeholders, URLs, paths, backtick
- * code, scoped packages, repository refs, and camel, snake and slug tokens unless their key is in `keep`.
+ * Blanks out what is code rather than words, keeping every offset: placeholders, linked messages, URLs,
+ * paths, backtick code, scoped packages, repository refs, and camel, snake and slug tokens unless their
+ * key is in `keep`.
  */
 export function mask(text: string, keep: ReadonlySet<string> = new Set()): string {
   let out = blankAll(text, BACKTICKS);

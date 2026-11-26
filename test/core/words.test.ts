@@ -70,6 +70,15 @@ describe("mask", () => {
     expect(words("Run `rack add` or ``bay``")).toEqual(["Run", "or"]);
   });
 
+  it("masks vue-i18n linked messages", () => {
+    expect(words("Read @:dock.Check-out or @.lower:dock.title now")).toEqual(["Read", "or", "now"]);
+    expect(words("Read @:{'Check-out'} or @:{'Check-out {draft}'} now")).toEqual([
+      "Read",
+      "or",
+      "now",
+    ]);
+  });
+
   it("keeps the words of ICU branches and masks their syntax", () => {
     expect(words("{count, plural, =0 {No docks} one {# dock} other {# docks}}")).toEqual([
       "No",
