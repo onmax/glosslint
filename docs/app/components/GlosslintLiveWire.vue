@@ -7,19 +7,23 @@
 //   and centres its canvases on `anchor`, the top of the plug in wall units.
 // - `from`, in wall units, is where the cable ran to when it snapped: the stub starts pointing there and drops.
 // - `length` is the stub's length in CSS px. It doesn't stretch: a dragged end stops at the length from the plug.
+// - `socket`, in wall units, is where the hung board takes the cable, passed only while there is one to plug into. A
+//   held end near it arcs across the gap in the sign's cyan.
 // - The wire canvas carries `data-state` (`live`, or `held` while dragged), `data-len` (the rope's measured length in
 //   CSS px), `data-tip="x,y"` (the torn end in the canvas's CSS px) and `data-frames` (frames drawn since mount).
-// - Sparks go on a second canvas, `canvas.gl-sparks`, of the same box, which is empty between bursts.
+// - Sparks, the tip's flicker and the arc go on a second canvas, `canvas.gl-sparks`, of the same box, which is empty
+//   between bursts.
 // - `.gl-wire-end` is a 44px button on the torn end. Dragging it emits `release` with the end's viewport point when
 //   it's let go; Enter or Space on it emits `plug`. The hero decides whether either plugs the cable in.
 // - `focus()` focuses the end.
-// - Under reduced motion it draws once and on each drag move, with no sway and no sparks.
+// - Under reduced motion it draws once and on each drag move, with no sway, no sparks and no arc.
 // - Its loop stops while the stub is off screen or the tab is hidden, and the canvases are capped at 2x pixel density.
 
 const props = withDefaults(defineProps<{
   anchor: [number, number]
   from?: [number, number]
   length?: number
+  socket?: [number, number]
 }>(), { length: 100 })
 
 const emit = defineEmits<{
@@ -216,6 +220,13 @@ function draw() {
   ctx.lineWidth = width + 1.6
   ctx.stroke()
   ctx.restore()
+  // On the dark wall a cool rim around the rubber, as if the room's light caught its edges, keeps its shape readable.
+  if (dark) {
+    trace()
+    ctx.strokeStyle = 'rgb(148 170 205 / 30%)'
+    ctx.lineWidth = width + 2
+    ctx.stroke()
+  }
   trace()
   ctx.strokeStyle = '#1c2433'
   ctx.lineWidth = width
@@ -223,11 +234,11 @@ function draw() {
   ctx.save()
   ctx.translate(-width * 0.18, -width * 0.22)
   trace()
-  ctx.strokeStyle = 'rgb(255 255 255 / 11%)'
+  ctx.strokeStyle = dark ? 'rgb(190 210 240 / 16%)' : 'rgb(255 255 255 / 11%)'
   ctx.lineWidth = width * 0.42
   ctx.stroke()
   trace()
-  ctx.strokeStyle = 'rgb(255 255 255 / 15%)'
+  ctx.strokeStyle = dark ? 'rgb(215 230 255 / 30%)' : 'rgb(255 255 255 / 15%)'
   ctx.lineWidth = Math.max(1, width * 0.14)
   ctx.stroke()
   ctx.restore()
@@ -338,26 +349,35 @@ const sparkField = new SparkField()
 let nextBurst = 0
 let sparksDirty = false
 
+// Sparks stay inside the hero's sides, and go out within a stub's length or so below the plug rather than raining on
+// whatever sits under the wall.
+function clip() {
+  if (sparkCanvas.value) sparkField.clipTo(sparkCanvas.value)
+  sparkField.bottom = Math.min(sparkField.bottom, centre() + props.length * 1.9)
+}
+
 // The moment the cable tears out: the biggest burst, a white flash, and the cord whipping away.
 function snap(t: number) {
   const tip = knots[count - 1]!
-  if (sparkCanvas.value) sparkField.clipTo(sparkCanvas.value)
+  clip()
   const scale = Math.max(0.6, wallSize.value.width / 800)
   sparkField.burst(tip.x, tip.y, { count: 64, angle: -Math.PI / 2, spread: 1.6, speed: [260, 760], life: [0.35, 0.95], width: 2.6 })
   // The flash is wide, so it sits a little in from the hero's edge to light the wall rather than be cut off by it.
   sparkField.flash(Math.min(tip.x, sparkField.right - 70 * scale), tip.y, { radius: 150 * scale, life: 0.22, white: true })
   heat = 1
-  nextBurst = t + 1.4 + Math.random() * 1.2
+  // The first crackle comes soon after the tear; after that the cord rests longer between them.
+  gap = 1.4 + Math.random() * 1.2
+  nextBurst = t + gap
 }
 
 function burst(t: number) {
   const tip = knots[count - 1]!
-  if (sparkCanvas.value) sparkField.clipTo(sparkCanvas.value)
+  clip()
   const before = knots[count - 2]!
   const angle = Math.atan2(tip.y - before.y, tip.x - before.x)
-  // Sprayed out of the end and up, leaning away from the hero's edge just past the outlet, then gravity takes them.
-  const lean = Math.atan2(Math.sin(angle) - 1.1, Math.cos(angle) - 0.45)
-  sparkField.burst(tip.x, tip.y, { count: 22 + Math.floor(Math.random() * 16), angle: lean, spread: 1.15, speed: [200, 620], life: [0.22, 0.6], width: 2.2, flash: { radius: 70, life: 0.12 } })
+  // Sprayed out of the end, between where it points and straight down, turned a different way each time.
+  const lean = Math.atan2(Math.sin(angle) + 0.7, Math.cos(angle)) + (Math.random() - 0.5) * 1.8
+  sparkField.burst(tip.x, tip.y, { count: 22 + Math.floor(Math.random() * 16), angle: lean, spread: 1, speed: [200, 600], life: [0.2, 0.5], width: 2, flash: { radius: 70, life: 0.12 } })
   // A third of the time it crackles again a moment later.
   if (Math.random() < 0.35) aftershock = t + 0.08 + Math.random() * 0.08
   heat = 1
@@ -369,27 +389,149 @@ function burst(t: number) {
       knots[i]!.py += 3 * k
     }
   }
-  nextBurst = t + 2 + Math.random() * 2.2
+  // Every 3 to 6.5 seconds, and a long rest is followed by a shorter one: two rests in a row never pass 9.5 seconds,
+  // so any 10 seconds hold two bursts.
+  gap = 3 + Math.random() * Math.min(3.5, 6.5 - Math.max(3, gap))
+  nextBurst = t + gap
 }
 
+let gap = 0
 let aftershock = 0
 
 function crackle() {
   const tip = knots[count - 1]!
-  sparkField.burst(tip.x, tip.y, { count: 6 + Math.floor(Math.random() * 6), angle: -Math.PI / 2, spread: 1.4, speed: [150, 420], life: [0.15, 0.35], width: 1.8, flash: { radius: 34, life: 0.07 } })
+  sparkField.burst(tip.x, tip.y, { count: 6 + Math.floor(Math.random() * 6), angle: -Math.PI / 2 + (Math.random() - 0.5) * 2, spread: 1, speed: [150, 420], life: [0.15, 0.35], width: 1.6, flash: { radius: 34, life: 0.07 } })
   aftershock = 0
 }
 
-function drawSparks(dt: number) {
+// ---- Neon: just before each burst the tip flickers cyan-white, and a held end near the socket arcs across to it, in
+// the sign's own cyan, so the cable's faults tie into its light. ----
+
+interface Point { x: number, y: number }
+// How long the tip flickers before a burst, and the arc's current shape, redrawn every few frames.
+const flickerLead = 0.2
+let flicker = 0
+let bolts: number[][] = []
+let reshape = 0
+
+// A jagged line from a to b: each pass splits every segment and pushes its middle sideways by half as much as before.
+function zigzag(a: Point, b: Point, rough: number, detail: number) {
+  let points = [a.x, a.y, b.x, b.y]
+  let offset = Math.hypot(b.x - a.x, b.y - a.y) * rough
+  for (let pass = 0; pass < detail; pass++) {
+    const next: number[] = []
+    for (let i = 0; i < points.length - 2; i += 2) {
+      const [x0, y0, x1, y1] = [points[i]!, points[i + 1]!, points[i + 2]!, points[i + 3]!]
+      const d = Math.hypot(x1 - x0, y1 - y0) || 1
+      const push = (Math.random() - 0.5) * 2 * offset
+      next.push(x0, y0, (x0 + x1) / 2 - (y1 - y0) / d * push, (y0 + y1) / 2 + (x1 - x0) / d * push)
+    }
+    next.push(points.at(-2)!, points.at(-1)!)
+    points = next
+    offset /= 2
+  }
+  return points
+}
+
+// A point in wall units, in the canvas's CSS px.
+function fromWall(point: [number, number]) {
+  const k = wallSize.value.width / 800
+  return { x: centre() + (point[0] - props.anchor[0]) * k, y: centre() + (point[1] - props.anchor[1]) * k }
+}
+
+// How close a held end is to the socket: 0 out of reach, 1 on it.
+function nearness() {
+  if (!props.socket || !target) return 0
+  const socket = fromWall(props.socket)
+  const tip = knots[count - 1]!
+  return Math.min(1, Math.max(0, 1 - (Math.hypot(socket.x - tip.x, socket.y - tip.y) - 20) / 70))
+}
+
+// The gap arcs more often, and thicker, the closer the end comes; between arcs it drops out for a frame or two.
+function reshapeArc(near: number) {
+  bolts = []
+  if (near <= 0 || Math.random() > 0.4 + near * 0.6) return
+  const tip = knots[count - 1]!
+  const socket = fromWall(props.socket!)
+  const main = zigzag(tip, socket, 0.28, 4)
+  bolts.push(main)
+  const length = Math.hypot(socket.x - tip.x, socket.y - tip.y)
+  const heading = Math.atan2(socket.y - tip.y, socket.x - tip.x)
+  for (let n = near > 0.6 ? 2 : 1; n > 0; n--) {
+    const i = 2 * Math.floor(2 + Math.random() * (main.length / 2 - 4))
+    const from = { x: main[i]!, y: main[i + 1]! }
+    const turn = heading + (Math.random() - 0.5) * 2.2
+    const reach = length * (0.2 + Math.random() * 0.3)
+    bolts.push(zigzag(from, { x: from.x + Math.cos(turn) * reach, y: from.y + Math.sin(turn) * reach }, 0.3, 3))
+  }
+}
+
+function drawNeon(ctx: CanvasRenderingContext2D, dark: boolean, near: number) {
+  const tip = knots[count - 1]!
+  const s = Math.max(0.85, wallSize.value.width / 800)
+  ctx.save()
+  ctx.globalCompositeOperation = dark ? 'lighter' : 'source-over'
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  // The tip's flicker, and a steadier glow while the arc holds: a cyan-white point inside a soft cyan halo.
+  const level = Math.max(flicker, bolts.length ? 0.5 + near * 0.5 : 0)
+  if (level > 0) {
+    const r = (16 + 14 * level) * s
+    const halo = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, r)
+    if (dark) {
+      halo.addColorStop(0, `rgb(240 255 255 / ${0.9 * level})`)
+      halo.addColorStop(0.2, `rgb(46 230 255 / ${0.5 * level})`)
+      halo.addColorStop(0.6, `rgb(34 232 255 / ${0.12 * level})`)
+      halo.addColorStop(1, 'rgb(34 232 255 / 0)')
+    }
+    else {
+      halo.addColorStop(0, `rgb(240 253 255 / ${0.95 * level})`)
+      halo.addColorStop(0.22, `rgb(6 182 212 / ${0.45 * level})`)
+      halo.addColorStop(0.6, `rgb(8 145 178 / ${0.12 * level})`)
+      halo.addColorStop(1, 'rgb(8 145 178 / 0)')
+    }
+    ctx.fillStyle = halo
+    ctx.fillRect(tip.x - r, tip.y - r, r * 2, r * 2)
+  }
+  // The arc: a wide soft glow, the body, and a hot thin core; its forks drawn thinner.
+  bolts.forEach((points, index) => {
+    ctx.beginPath()
+    ctx.moveTo(points[0]!, points[1]!)
+    for (let i = 2; i < points.length; i += 2) ctx.lineTo(points[i]!, points[i + 1]!)
+    const w = (index ? 0.8 : 1.5 + near * 0.7) * s
+    const layers: [string, number][] = dark
+      ? [['rgb(34 232 255 / 22%)', w * 5], ['rgb(46 230 255 / 85%)', w * 1.8], ['rgb(242 254 255)', w * 0.7]]
+      : [['rgb(8 47 73 / 50%)', w * 2.8], ['rgb(2 132 199)', w * 1.6], ['rgb(207 250 254 / 95%)', w * 0.55]]
+    for (const [color, width] of layers) {
+      ctx.strokeStyle = color
+      ctx.lineWidth = width
+      ctx.stroke()
+    }
+  })
+  ctx.restore()
+}
+
+function drawSparks(dt: number, t: number) {
   const canvas = sparkCanvas.value
   if (!canvas) return
-  sparkField.floor = centre() + props.length + 22
   sparkField.step(dt)
-  if (!sparkField.active && !sparksDirty) return
+  // A bad contact: in the last moments before a burst the tip blinks on and off.
+  flicker = snapped && nextBurst - t < flickerLead && Math.random() > 0.3 ? 0.55 + Math.random() * 0.45 : 0
+  const near = nearness()
+  if (near <= 0) bolts = []
+  else if (--reshape <= 0) {
+    reshapeArc(near)
+    reshape = 2 + Math.floor(Math.random() * 3)
+  }
+  const lit = sparkField.active || flicker > 0 || bolts.length > 0
+  if (!lit && !sparksDirty) return
   const ctx = fit(canvas)
   ctx.clearRect(0, 0, size.value, size.value)
-  sparksDirty = sparkField.active
-  if (sparksDirty) sparkField.draw(ctx, isDark())
+  sparksDirty = lit
+  if (!lit) return
+  const dark = isDark()
+  sparkField.draw(ctx, dark)
+  drawNeon(ctx, dark, near)
 }
 
 // ---- The loop: it runs only while the stub is on screen and the tab is visible. ----
@@ -415,7 +557,7 @@ function tick(now: number) {
     burst(t)
   }
   if (aftershock && t >= aftershock) crackle()
-  drawSparks(dt)
+  drawSparks(dt, t)
   draw()
   frame = requestAnimationFrame(tick)
 }

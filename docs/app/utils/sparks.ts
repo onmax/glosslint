@@ -1,7 +1,7 @@
 // Sparks for the hero's torn cable, drawn on a Canvas2D layer the way Canvas UI draws light: hot streaks with
-// motion-blurred trails, pulled down by gravity, bouncing once off an implied floor, and a brief flash where they start.
-// In dark they add light (`lighter`) with white-hot cores cooling to orange; in light they are saturated orange with a
-// dark edge, painted over the pale wall. Positions are in the canvas's CSS px.
+// motion-blurred trails, pulled down by gravity, cooling and going out as they fall, and a brief flash where they start.
+// In dark they add light (`lighter`) with white-hot cores cooling to orange; in light they keep a white-hot core inside
+// a thin orange body and a dark edge, so they read as fire on the pale wall. Positions are in the canvas's CSS px.
 
 interface Spark {
   x: number
@@ -11,7 +11,6 @@ interface Spark {
   age: number
   life: number
   width: number
-  bounces: number
   // The last few positions, oldest first, as x, y pairs: the streak the eye smears behind a fast spark.
   trail: number[]
 }
@@ -38,16 +37,20 @@ export class SparkField {
   sparks: Spark[] = []
   flashes: Flash[] = []
   gravity = 1400
-  floor = Number.POSITIVE_INFINITY
-  // The hero clips sideways, so sparks fade out before they reach its edges instead of being cut off there.
+  // Sparks fade out before they reach these edges instead of being cut off there: the hero's sides, which clip, and
+  // the canvas's own top and bottom. There is no floor to land on, so a spark goes out in the air as it cools.
   left = Number.NEGATIVE_INFINITY
   right = Number.POSITIVE_INFINITY
+  top = Number.NEGATIVE_INFINITY
+  bottom = Number.POSITIVE_INFINITY
 
-  // Read the hero's edges into the canvas's CSS px.
+  // Read the hero's sides and the canvas's height into the canvas's CSS px.
   clipTo(canvas: HTMLElement) {
+    const box = canvas.getBoundingClientRect()
+    this.top = 0
+    this.bottom = box.height
     const hero = canvas.closest('.glosslint-hero')
     if (!hero) return
-    const box = canvas.getBoundingClientRect()
     const edges = hero.getBoundingClientRect()
     this.left = edges.left - box.left
     this.right = edges.right - box.left
@@ -69,7 +72,6 @@ export class SparkField {
         age: 0,
         life: rand(...options.life),
         width: (options.width ?? 2) * rand(0.7, 1.3),
-        bounces: 0,
         trail: [x, y],
       })
     }
@@ -89,14 +91,6 @@ export class SparkField {
       spark.vx *= 1 - 1.2 * dt
       spark.x += spark.vx * dt
       spark.y += spark.vy * dt
-      // The floor takes most of the speed and some of the heat; a second hit puts the spark out.
-      if (spark.y > this.floor && spark.vy > 0) {
-        spark.y = this.floor
-        spark.vy *= -0.3
-        spark.vx *= 0.55
-        spark.bounces++
-        spark.age += spark.life * (spark.bounces > 1 ? 1 : 0.3)
-      }
     }
     this.sparks = this.sparks.filter(spark => spark.age < spark.life)
     for (const flash of this.flashes) flash.age += dt
@@ -135,45 +129,69 @@ export class SparkField {
     }
 
     const margin = 36
+    // Falling sparks cool over a longer stretch than the sides cut them.
+    const fall = 70
     for (const spark of this.sparks) {
-      const edge = Math.min(1, (spark.x - this.left) / margin, (this.right - spark.x) / margin)
+      const edge = Math.min(1, (spark.x - this.left) / margin, (this.right - spark.x) / margin, (spark.y - this.top) / margin, (this.bottom - spark.y) / fall)
       if (edge <= 0) continue
       const fade = (1 - spark.age / spark.life) * edge
       // Heat: white-hot when thrown, cooling through yellow to orange as it dies.
       const heat = fade ** 0.7
-      const tail = spark.trail
-      const tx = tail[0]!
-      const ty = tail[1]!
-      const trace = () => {
-        ctx.beginPath()
-        ctx.moveTo(tx, ty)
-        for (let i = 2; i < tail.length; i += 2) ctx.lineTo(tail[i]!, tail[i + 1]!)
-        ctx.lineTo(spark.x, spark.y)
-      }
-      const streak = (r: number, g: number, b: number, alpha: number, width: number) => {
-        const gradient = ctx.createLinearGradient(tx, ty, spark.x, spark.y)
-        gradient.addColorStop(0, `rgb(${r} ${g} ${b} / 0)`)
-        gradient.addColorStop(1, `rgb(${r} ${g} ${b} / ${alpha})`)
-        ctx.strokeStyle = gradient
-        ctx.lineWidth = width
-        trace()
-        ctx.stroke()
-      }
       if (dark) {
+        const tail = spark.trail
+        const tx = tail[0]!
+        const ty = tail[1]!
+        const streak = (r: number, g: number, b: number, alpha: number, width: number) => {
+          const gradient = ctx.createLinearGradient(tx, ty, spark.x, spark.y)
+          gradient.addColorStop(0, `rgb(${r} ${g} ${b} / 0)`)
+          gradient.addColorStop(1, `rgb(${r} ${g} ${b} / ${alpha})`)
+          ctx.strokeStyle = gradient
+          ctx.lineWidth = width
+          ctx.beginPath()
+          ctx.moveTo(tx, ty)
+          for (let i = 2; i < tail.length; i += 2) ctx.lineTo(tail[i]!, tail[i + 1]!)
+          ctx.lineTo(spark.x, spark.y)
+          ctx.stroke()
+        }
         streak(255, 90 + 70 * heat, 20, 0.6 * fade, spark.width * 3.6)
         streak(255, 170 + 85 * heat, 70 + 185 * heat, fade, spark.width)
+        // The head, where the spark is hottest.
+        ctx.fillStyle = `rgb(255 ${200 + 55 * heat} ${150 + 105 * heat} / ${fade})`
+        ctx.beginPath()
+        ctx.arc(spark.x, spark.y, spark.width * 0.75, 0, Math.PI * 2)
+        ctx.fill()
+        continue
       }
-      else {
-        // Saturated to the end on a pale wall, then gone.
-        const strong = Math.sqrt(fade)
-        streak(67, 20, 7, 0.95 * strong, spark.width + 2.4)
-        streak(234, 88, 12, strong, spark.width + 0.9)
-        streak(255, 190 + 50 * heat, 60 + 100 * heat, strong * heat, spark.width * 0.5)
+      // On a pale wall a long smear reads as rain, so the streak is a short dash behind the head, its length set by the
+      // speed: a dark edge that holds it against the wall, a saturated orange body, and a white-yellow core that cools.
+      const strong = Math.sqrt(fade)
+      const speed = Math.hypot(spark.vx, spark.vy) || 1
+      const length = Math.min(16, 4 + speed * 0.016)
+      const bx = spark.x - spark.vx / speed * length
+      const by = spark.y - spark.vy / speed * length
+      const w = spark.width * 0.6
+      const dash = (color: string, alpha: number, width: number, from: number) => {
+        const gradient = ctx.createLinearGradient(bx, by, spark.x, spark.y)
+        gradient.addColorStop(from, `rgb(${color} / 0)`)
+        gradient.addColorStop(1, `rgb(${color} / ${alpha})`)
+        ctx.strokeStyle = gradient
+        ctx.lineWidth = width
+        ctx.beginPath()
+        ctx.moveTo(bx, by)
+        ctx.lineTo(spark.x, spark.y)
+        ctx.stroke()
       }
-      // The head, where the spark is hottest.
-      ctx.fillStyle = dark ? `rgb(255 ${200 + 55 * heat} ${150 + 105 * heat} / ${fade})` : `rgb(255 ${150 + 70 * heat} 40 / ${Math.sqrt(fade)})`
+      dash('110 34 0', 0.6 * strong, w + 1.6, 0)
+      dash(`255 ${100 + 50 * heat} 0`, strong, w + 0.6, 0)
+      dash(`255 ${240 + 15 * heat} ${170 + 85 * heat}`, strong * (0.5 + 0.5 * heat), w * 0.7, 0.3)
+      // The head: a white-hot point inside a thin dark edge.
+      ctx.fillStyle = `rgb(110 34 0 / ${0.6 * strong})`
       ctx.beginPath()
-      ctx.arc(spark.x, spark.y, spark.width * 0.75, 0, Math.PI * 2)
+      ctx.arc(spark.x, spark.y, w * 0.8 + 0.8, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = `rgb(255 ${235 + 20 * heat} ${160 + 95 * heat} / ${strong})`
+      ctx.beginPath()
+      ctx.arc(spark.x, spark.y, w * 0.8, 0, Math.PI * 2)
       ctx.fill()
     }
     ctx.restore()

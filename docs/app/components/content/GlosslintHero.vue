@@ -391,6 +391,7 @@ onBeforeUnmount(() => {
         ref="liveWire"
         :anchor="plugAt"
         :from="snapFrom"
+        :socket="state === 'hung-dark' ? grommetAt : undefined"
         @release="onWireRelease"
         @plug="reconnect(true)"
       />
