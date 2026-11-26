@@ -41,7 +41,15 @@ export default defineNuxtConfig({
       // The tile with its colors, as the README and the favicon show it.
       logo: { light: '/logo.svg' },
     },
-    start: { section: 'guide' },
+    // The header links beside the logo. ViteHub Docs names the first one "Docs" and the rest by their labels.
+    start: {
+      section: 'guide',
+      links: [
+        { label: 'Guide', to: '/guide' },
+        { label: 'Integrations', to: '/integrations' },
+        { label: 'Reference', to: '/reference' },
+      ],
+    },
     github: { repo: 'onmax/glosslint', dir: 'docs/content' },
     socials: [
       { label: 'glosslint on npmx', icon: 'i-glosslint-npmx', to: 'https://npmx.dev/package/glosslint' },

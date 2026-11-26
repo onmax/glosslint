@@ -397,3 +397,9 @@ html.vh-docs :is(a, button)[data-slot="base"][class*="bg-primary"] {
   from { opacity: 1; }
   to { opacity: 0.55; }
 }
+
+/* `docs.start.links` exist for the three header links. ViteHub Docs also lists them at the top of the sidebar, above a
+   tree that already opens with the same three sections, so that copy is hidden. The back link of a sub-section stays. */
+.vh-docs-sidebar-nav > .vh-docs-sidebar-site-areas[aria-label="Site areas"] {
+  display: none;
+}
