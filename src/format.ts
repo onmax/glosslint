@@ -1,3 +1,4 @@
+import type { GlossaryProblem } from "./glossary-text.ts";
 import { capitalise } from "./words.ts";
 import type { CliFinding, CliReport, Finding, FindingCode, Term, TermSummary } from "./types.ts";
 
@@ -79,4 +80,56 @@ export function toJson(findings: CliFinding[], files: number): CliReport {
   const counts = Object.fromEntries(CODES.map((code) => [code, 0])) as Record<FindingCode, number>;
   for (const finding of findings) counts[finding.code]++;
   return { findings, summary: { files, findings: findings.length, ...counts } };
+}
+
+/** What `formatDoctor` prints: the glossary's problems after `--fix`, and how many it fixed. */
+export interface DoctorResult {
+  /** The glossary, as the output names it. */
+  file: string;
+  /** The problems left. */
+  problems: readonly GlossaryProblem[];
+  /** How many problems `--fix` fixed. */
+  fixed: number;
+  /** Whether the file has a canonical form that `--fix` could write. */
+  rewritable: boolean;
+}
+
+function formatProblem(problem: GlossaryProblem, file: string, color: boolean): string {
+  const lines: Array<[string, string]> = [["fix", problem.fix]];
+  if (problem.term && !problem.why.includes(`"${problem.term}"`))
+    lines.unshift(["term", problem.term]);
+  const branches = lines.map(([label, text], index) => {
+    const branch = index === lines.length - 1 ? "╰▶" : "├▶";
+    return `${paint(color, "2", branch)} ${paint(color, "1", `${label}:`)} ${text}`;
+  });
+  const where = paint(color, "36", `${file}:${problem.line}`);
+  return [
+    `${paint(color, "1;31", `[${problem.code}]`)} ${where}: ${problem.why}`,
+    ...branches,
+  ].join("\n");
+}
+
+/** The text `glosslint doctor` prints: each problem as a tree, then a summary line. */
+export function formatDoctor(
+  result: DoctorResult,
+  options: { color?: boolean; fix?: boolean } = {},
+): string {
+  const { file, problems, fixed } = result;
+  const color = options.color ?? false;
+  const fixable = problems.filter((problem) => problem.fixable).length;
+  const summary: string[] = [];
+  if (fixed > 0) summary.push(`Fixed ${plural(fixed, "problem")} in ${file}.`);
+  if (problems.length === 0) {
+    if (fixed === 0) summary.push(`No problems in ${file}.`);
+  } else if (fixed > 0) summary.push(`${plural(problems.length, "problem")} left.`);
+  else {
+    const canFix = result.rewritable ? `, ${fixable} fixable with --fix` : "";
+    summary.push(`${plural(problems.length, "problem")} in ${file}${canFix}.`);
+    if (options.fix && fixable > 0)
+      summary.push(
+        "The file is unchanged: --fix would drop text, so fix the other problems first.",
+      );
+  }
+  const blocks = problems.map((problem) => formatProblem(problem, file, color));
+  return [...blocks, summary.join(" ")].join("\n\n");
 }
