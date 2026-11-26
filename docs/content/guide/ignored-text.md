@@ -15,9 +15,12 @@ Blanked before matching in ESLint, Oxlint, x18n, and the CLI:
 - ICU syntax, while still reading words inside ICU branches
 - URLs, email addresses, and file paths
 - Text in backticks
+- Scoped packages such as `@nuxt/kit`, and repository refs such as `nuxt/nuxt#18395` or `nuxt/nuxt@v3`
 - `camelCase` and `snake_case` tokens, and kebab slugs with three or more parts or next to `/`, `#`, `@`, or `=`
 
 Two exceptions keep real words intact: tokens matching an `exact` term or abbreviation stay (`eBike` is still checked), and possessive `'s` never forms a word (`"the Dock's light"`). For example, `"Return your e-bike to {rack} at https://example.com/rack."` reports `"e-bike"` as `"eBike"` while skipping `{rack}` and the URL.
+
+Words on either side of a slash stay, since `and/or` is prose as often as `nuxt/nuxt` is a repository. A term written all lowercase against a slash, as in `nuxt/modules`, gets no casing finding, but its spelling and avoid words are still checked.
 
 ## Skipped in ESLint and Oxlint
 

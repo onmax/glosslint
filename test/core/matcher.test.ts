@@ -298,6 +298,35 @@ describe("masks (decision 8)", () => {
     expect(hits("an EBike")).toEqual(["CASE EBike -> eBike"]);
   });
 
+  it("skips scoped packages, repository refs and lowercase repository slugs", () => {
+    const nuxt = createMatcher(defineCorpus({ terms: [{ term: "Nuxt", case: "exact" }] }));
+    for (const text of [
+      "Install @nuxt/kit first.",
+      "This may be removed in \\@nuxt/kit v5.",
+      "The builder is [@nuxt/vite-builder](https://example.com).",
+      "See nuxt/nuxt#18395 for details.",
+      "Pin nuxt/nuxt@v3 for now.",
+      "Open a pull request to [nuxt/nuxt](https://github.com/nuxt/nuxt) or nuxt/modules.",
+    ])
+      expect(hits(text, "sentence", nuxt)).toEqual([]);
+    expect(hits("Merged into nuxt/nuxt, then shipped in nuxt 4.", "sentence", nuxt)).toEqual([
+      "CASE nuxt -> Nuxt",
+    ]);
+  });
+
+  it("still reports an avoid word against a slash", () => {
+    expect(hits("Find a rack/dock nearby")).toEqual(["AVOID rack -> dock"]);
+    expect(hits("See https://registry.npmjs.org/@nuxt/kit?tag=rack")).toEqual([]);
+    expect(hits("Mail rack@www.example.com")).toEqual([]);
+  });
+
+  it("gives a lowercase repository slug no whole-label finding", () => {
+    const nuxt = createMatcher(
+      defineCorpus({ terms: [{ term: "Nuxt", case: "context" }], wholeLabel: true }),
+    );
+    expect(hits("nuxt/modules", "label", nuxt)).toEqual([]);
+  });
+
   it("checks the words of ICU branches", () => {
     expect(hits("{n, plural, one {# rack} other {# racks}}")).toEqual([
       "AVOID rack -> dock",

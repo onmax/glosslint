@@ -83,8 +83,20 @@ const PLACEHOLDER =
 const ICU_HEAD = /\{\s*[\p{L}\p{N}_$.-]+\s*,\s*(?:plural|select|selectordinal)\s*,/gu;
 const ICU_BRANCH = /(?:=\d+|[\p{L}\p{N}_]+)\s*\{|[{}#]/gu;
 const URL =
-  /\b[a-z][a-z\d+.-]*:\/\/[^\s<>"'`)\]]*|\bwww\.[^\s<>"'`)\]]+|\bmailto:[^\s<>"'`)\]]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+/giu;
+  /\b[a-z][a-z\d+.-]*:\/\/[^\s<>"'`)\]]*|\bwww\.[^\s<>"'`)\]]+|\bmailto:[^\s<>"'`)\]]+/giu;
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu;
 const BACKTICKS = /(`+)[\s\S]*?\1/gu;
+/** An npm scoped package, such as `@nuxt/kit`, also after a Markdown escape (`\\@nuxt/kit`). */
+const SCOPED_PACKAGE =
+  /(?<![\p{L}\p{N}_.@])@[\p{L}\p{N}][\p{L}\p{N}_.~-]*\/[\p{L}\p{N}][\p{L}\p{N}_.~-]*/gu;
+/** A repository issue or ref, such as `nuxt/nuxt#18395` or `nuxt/nuxt@v3`. */
+const REPO_REF =
+  /(?<![\p{L}\p{N}_./@-])[\p{L}\p{N}][\p{L}\p{N}_.-]*\/[\p{L}\p{N}_.-]+(?:#\d+|@[\p{L}\p{N}_.-]*[\p{L}\p{N}])/gu;
+/** One pass, so the span that starts first wins: a URL keeps a package inside it, an email its `www.` domain. */
+const CODE_SPAN = new RegExp(
+  [URL, REPO_REF, SCOPED_PACKAGE, EMAIL].map((pattern) => pattern.source).join("|"),
+  "giu",
+);
 const PATH = /(?<![\p{L}\p{N}.~])(?:\.{1,2}|~)?\/[\p{L}\p{N}_.~/-]+/gu;
 const CHUNK = /[\p{L}\p{N}_]+(?:[-.][\p{L}\p{N}_]+)*/gu;
 const CAMEL = /\p{Ll}\p{Lu}/u;
@@ -127,11 +139,11 @@ function isKept(key: string, keep: ReadonlySet<string>): boolean {
 
 /**
  * Blanks out what is code rather than words, keeping every offset: placeholders, URLs, paths, backtick
- * code, and camel, snake and slug tokens unless their key is in `keep`.
+ * code, scoped packages, repository refs, and camel, snake and slug tokens unless their key is in `keep`.
  */
 export function mask(text: string, keep: ReadonlySet<string> = new Set()): string {
   let out = blankAll(text, BACKTICKS);
-  out = blankAll(out, URL);
+  out = blankAll(out, CODE_SPAN);
   out = blankAll(out, PATH);
   if (out.search(ICU_HEAD) !== -1) {
     const icu = maskIcu(out);
