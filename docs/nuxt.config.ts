@@ -40,13 +40,11 @@ export default defineNuxtConfig({
       description: 'Lint your product vocabulary in code, translations and docs from one glossary.',
       // The tile with its colors, as the README and the favicon show it.
       logo: { light: '/logo.svg' },
-      badge: { label: 'preview', tooltip: 'Not published on npm yet. Version 0.0.1 is next.' },
     },
-    banner: 'glosslint is in preview and not on npm yet. Version 0.0.1 will be the first release.',
     start: { section: 'guide' },
     github: { repo: 'onmax/glosslint', dir: 'docs/content' },
     socials: [
-      { label: 'glosslint on npm', icon: 'i-simple-icons-npm', to: 'https://npmx.dev/package/glosslint' },
+      { label: 'glosslint on npmx', icon: 'i-glosslint-npmx', to: 'https://npmx.dev/package/glosslint' },
     ],
     seoAudit: 'error',
   },
@@ -75,6 +73,10 @@ export default defineNuxtConfig({
         vars: { VITEHUB_CONSOLE_KEY_CONSOLE_C74A8682: 'l3WoQCIu2-0Pe9h8XX6Keb6agNA-yridVqDAjCn6Vf8' },
       },
     },
+  },
+  icon: {
+    // npmx.dev's mark, from its repository (public/logo-mark.svg), in currentColor like the other social icons.
+    customCollections: [{ prefix: 'glosslint', dir: './app/assets/icons' }],
   },
   fonts: {
     // The ViteHub theme names Geist only in --font-sans and --font-mono, which @nuxt/fonts 1.x doesn't scan.
