@@ -23,6 +23,8 @@ Write your product's terms in `.agents/glossary.md`. This excerpt comes from the
 ```md
 # Glossary
 
+<!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
+
 The words the rider app and the help center use.
 
 Extends: tech, inclusive

@@ -9,10 +9,12 @@ icon: i-lucide-file-text
 
 ## Full example
 
-A glossary starts with `# Glossary`, optional introduction prose, optional corpus fields (`Extends`, `Allow`, `Casing`), and one `##` section per term:
+A glossary starts with `# Glossary`, optional introduction prose, optional corpus fields (`Extends`, `Allow`, `Casing`), and one `##` section per term. The comment under the title links this page, so an agent that opens the file can look up its format:
 
 ```md [.agents/glossary.md]
 # Glossary
+
+<!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
 
 The words the rider app and the help center use.
 

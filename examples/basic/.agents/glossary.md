@@ -1,5 +1,7 @@
 # Glossary
 
+<!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
+
 The words the rider app and the help center use.
 
 Extends: tech, inclusive

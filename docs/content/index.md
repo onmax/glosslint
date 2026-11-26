@@ -13,7 +13,7 @@ Keep your terms in `.agents/glossary.md` and check code, translations, and docs 
 #agents
 ```text
 Install glosslint as a dev dependency.
-Write our product's terms to .agents/glossary.md following https://glosslint.onmax.me/guide/glossary.
+Write our product's terms to .agents/glossary.md following https://glosslint.onmax.me/guide/glossary, with a comment under the title that links that page.
 Run npx glosslint doctor --fix until it passes.
 Add the glosslint/eslint or glosslint/oxlint plugin.
 ```

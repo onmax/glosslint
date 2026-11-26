@@ -17,6 +17,14 @@ Because your vocabulary lives in [`.agents/glossary.md`](/guide/glossary), codin
 Read `.agents/glossary.md` before writing UI copy, comments, or docs. Run `npx glosslint doctor --fix` after editing it.
 ```
 
+Put a comment under the glossary's title that links the format guide, so an agent that opens the file without `AGENTS.md` can still look up its fields:
+
+```md [.agents/glossary.md]
+# Glossary
+
+<!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
+```
+
 If your project layers extra options in `glosslint.config.ts` with [`defineCorpus`](/guide/corpus), you can run `npx glosslint print` to export the merged corpus as Markdown or JSON. See [CLI](/integrations/cli#print).
 
 ## Workflow for coding agents
