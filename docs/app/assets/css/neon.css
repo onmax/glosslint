@@ -1,0 +1,418 @@
+/*
+ * glosslint's neon sign on the ViteHub Docs shell. The banner's three tubes (cyan, mint, coral on near-black) become the
+ * accent colors, and the glow goes on accents only: the brand, the current page, links, rules, code frames, callouts,
+ * buttons, and search. Body text keeps plain colors.
+ *
+ * The glow is layered shadows of one hue, tight then wide, as on a real tube (CSS-Tricks, "How to Create Neon Text With
+ * CSS"). Moving light only changes opacity or a 1px background, so the browser composites it instead of repainting
+ * shadows on every frame (Tobias Ahlin, "How to animate box-shadow"). Motion runs only under
+ * `prefers-reduced-motion: no-preference`.
+ *
+ * ViteHub sets its tokens on `:root`, `:root.dark`, and the system dark fallback. This file loads after it, so the same
+ * selectors here win. The shell's own rules are scoped components, so a rule that restyles one starts at `html.vh-docs`.
+ */
+
+:root {
+  /* The tubes as lines and fills. Light mode uses deeper inks: a glow does not read on white. */
+  --gl-cyan: #0891b2;
+  --gl-mint: #059669;
+  --gl-coral: #e11d48;
+  /* The tubes as text. Each keeps 4.5:1 on the page and on the muted surfaces. */
+  --gl-cyan-text: #0e7490;
+  --gl-mint-text: #047857;
+  --gl-glow-text: none;
+  --gl-glow-text-strong: none;
+  --gl-glow-ring: 0 0 0 1px color-mix(in oklab, var(--gl-cyan) 28%, transparent), 0 6px 18px -10px color-mix(in oklab, var(--gl-cyan) 55%, transparent);
+  --gl-glow-tube: 0 0 0 0 transparent;
+  --gl-glow-mark: drop-shadow(0 2px 6px rgb(8 145 178 / 30%));
+  --gl-glow-node: none;
+  --gl-spill: 30%;
+  --gl-pool-cyan: rgb(6 182 212 / 7%);
+  --gl-pool-mint: rgb(16 185 129 / 6%);
+  --gl-hairline: linear-gradient(90deg, transparent, var(--gl-cyan) 18%, var(--gl-mint) 50%, var(--gl-cyan) 82%, transparent);
+
+  --foreground: #0d1320;
+  --muted-foreground: #576071;
+  --border: #e1e7ee;
+  --primary: #0e7490;
+  --ring: #0891b2;
+  --ui-text: #2a3240;
+  --ui-text-toned: #3a4352;
+  --ui-text-dimmed: #5f6878;
+  --ui-border-accented: #c9d3de;
+  --vh-selection: rgb(6 182 212 / 18%);
+}
+
+/* Dark is the sign itself: the banner's near-black, cool hairlines, and the tubes at full strength. */
+:root.dark {
+  --gl-cyan: #22e8ff;
+  --gl-mint: #2ef5a3;
+  --gl-coral: #ff4770;
+  --gl-cyan-text: #7af1ff;
+  --gl-mint-text: #6cf7bf;
+  --gl-glow-text: 0 0 6px rgb(34 232 255 / 45%), 0 0 18px rgb(34 232 255 / 22%);
+  --gl-glow-text-strong: 0 0 2px rgb(236 254 255 / 70%), 0 0 8px rgb(34 232 255 / 70%), 0 0 22px rgb(34 232 255 / 40%), 0 0 44px rgb(34 232 255 / 22%);
+  --gl-glow-ring: 0 0 0 1px rgb(34 232 255 / 30%), 0 0 14px -2px rgb(34 232 255 / 28%), 0 0 36px -10px rgb(34 232 255 / 40%);
+  --gl-glow-tube: 0 0 6px rgb(34 232 255 / 80%), 0 0 14px rgb(34 232 255 / 45%);
+  --gl-glow-mark: drop-shadow(0 0 4px rgb(34 232 255 / 55%)) drop-shadow(0 0 10px rgb(46 245 163 / 25%));
+  --gl-glow-node: drop-shadow(0 0 6px rgb(34 232 255 / 22%));
+  --gl-spill: 70%;
+  --gl-pool-cyan: rgb(34 232 255 / 13%);
+  --gl-pool-mint: rgb(46 245 163 / 9%);
+
+  --background: #080b14;
+  --foreground: #f1f7fb;
+  --muted: rgb(140 210 255 / 5%);
+  --muted-foreground: #9ba5b6;
+  --border: rgb(140 200 255 / 11%);
+  --primary: #22e8ff;
+  --primary-foreground: #04121a;
+  --popover: rgb(11 15 26 / 92%);
+  --ring: #22e8ff;
+  --ui-bg-muted: #0d121e;
+  --ui-bg-accented: rgb(140 210 255 / 8%);
+  --ui-border-muted: rgb(140 200 255 / 6%);
+  --ui-border-accented: rgb(140 210 255 / 18%);
+  --ui-text: #d6dde7;
+  --ui-text-toned: #c3cbd8;
+  --ui-text-dimmed: #8893a6;
+  --vh-selection: rgb(34 232 255 / 22%);
+  --vh-scrollbar: rgb(34 232 255 / 14%);
+  --vh-scrollbar-hover: rgb(34 232 255 / 26%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --gl-cyan: #22e8ff;
+    --gl-mint: #2ef5a3;
+    --gl-coral: #ff4770;
+    --gl-cyan-text: #7af1ff;
+    --gl-mint-text: #6cf7bf;
+    --gl-glow-text: 0 0 6px rgb(34 232 255 / 45%), 0 0 18px rgb(34 232 255 / 22%);
+    --gl-glow-text-strong: 0 0 2px rgb(236 254 255 / 70%), 0 0 8px rgb(34 232 255 / 70%), 0 0 22px rgb(34 232 255 / 40%), 0 0 44px rgb(34 232 255 / 22%);
+    --gl-glow-ring: 0 0 0 1px rgb(34 232 255 / 30%), 0 0 14px -2px rgb(34 232 255 / 28%), 0 0 36px -10px rgb(34 232 255 / 40%);
+    --gl-glow-tube: 0 0 6px rgb(34 232 255 / 80%), 0 0 14px rgb(34 232 255 / 45%);
+    --gl-glow-mark: drop-shadow(0 0 4px rgb(34 232 255 / 55%)) drop-shadow(0 0 10px rgb(46 245 163 / 25%));
+  --gl-glow-node: drop-shadow(0 0 6px rgb(34 232 255 / 22%));
+  --gl-spill: 70%;
+    --gl-pool-cyan: rgb(34 232 255 / 13%);
+    --gl-pool-mint: rgb(46 245 163 / 9%);
+
+    --background: #080b14;
+    --foreground: #f1f7fb;
+    --muted: rgb(140 210 255 / 5%);
+    --muted-foreground: #9ba5b6;
+    --border: rgb(140 200 255 / 11%);
+    --primary: #22e8ff;
+    --primary-foreground: #04121a;
+    --popover: rgb(11 15 26 / 92%);
+    --ring: #22e8ff;
+    --ui-bg-muted: #0d121e;
+    --ui-bg-accented: rgb(140 210 255 / 8%);
+    --ui-border-muted: rgb(140 200 255 / 6%);
+    --ui-border-accented: rgb(140 210 255 / 18%);
+    --ui-text: #d6dde7;
+    --ui-text-toned: #c3cbd8;
+    --ui-text-dimmed: #8893a6;
+    --vh-selection: rgb(34 232 255 / 22%);
+    --vh-scrollbar: rgb(34 232 255 / 14%);
+    --vh-scrollbar-hover: rgb(34 232 255 / 26%);
+  }
+}
+
+/* The light the tubes cast on the wall: two faint pools at the top of the page, over ViteHub's grain. */
+:where(.vh-docs) body {
+  background-image:
+    radial-gradient(ellipse 55% 420px at 12% -120px, var(--gl-pool-cyan), transparent 70%),
+    radial-gradient(ellipse 45% 360px at 92% -100px, var(--gl-pool-mint), transparent 70%),
+    var(--vh-grain);
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: auto, auto, 256px 256px;
+}
+
+/* ---- Brand: the logo tile glows, the name is lit, and the badge is a small mint tube. ---- */
+
+html.vh-docs .vh-docs-mark {
+  filter: var(--gl-glow-mark);
+}
+
+html.vh-docs :is(.vh-brand-name > span:first-child, .vh-docs-panel-brand > span:not([class])) {
+  text-shadow: var(--gl-glow-text);
+}
+
+html.vh-docs :is(.vh-brand-alpha, .vh-docs-panel-brand-badge) {
+  border: 1px solid color-mix(in oklab, var(--gl-mint) 45%, transparent);
+  border-radius: 999px;
+  padding: 0.125rem 0.375rem;
+  color: var(--gl-mint-text);
+  text-decoration: none;
+  box-shadow: 0 0 10px -2px color-mix(in oklab, var(--gl-mint) 40%, transparent);
+}
+
+/* ---- Rules: the header, the banner, and the sidebar edges are lit hairlines. ---- */
+
+html.vh-docs .vh-docs-header::after,
+html.vh-docs #docs-content > div:first-child::after {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--gl-hairline) 0 0 / 200% 100%;
+  opacity: 0.6;
+  content: "";
+  pointer-events: none;
+}
+
+html.vh-docs #docs-content > div:first-child {
+  position: relative;
+  background-image: linear-gradient(90deg, color-mix(in oklab, var(--gl-cyan) 5%, transparent), color-mix(in oklab, var(--gl-mint) 5%, transparent));
+}
+
+html.vh-docs .vh-docs-aside-footer {
+  position: relative;
+}
+
+html.vh-docs .vh-docs-aside-footer::before {
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gl-cyan), var(--gl-mint) 60%, transparent);
+  opacity: 0.45;
+  content: "";
+  pointer-events: none;
+}
+
+/* ---- Sidebar: the current page is a lit tube on the section's hairline. ---- */
+
+html.vh-docs .vh-docs-sidebar-link.is-active {
+  background: linear-gradient(90deg, color-mix(in oklab, var(--gl-cyan) 12%, transparent), color-mix(in oklab, var(--gl-cyan) 3%, transparent));
+  color: var(--gl-cyan-text);
+}
+
+html.vh-docs .vh-docs-sidebar-link.is-active:is(.is-nested, .is-grouped) {
+  box-shadow: none;
+}
+
+html.vh-docs .vh-docs-sidebar-link.is-active::before {
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: -1px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--gl-cyan);
+  box-shadow: var(--gl-glow-tube);
+  content: "";
+  pointer-events: none;
+}
+
+html.vh-docs .vh-docs-sidebar-link {
+  position: relative;
+}
+
+@media (hover: hover) {
+  html.vh-docs .vh-docs-sidebar-link:not(.is-active):hover {
+    background: color-mix(in oklab, var(--gl-cyan) 6%, transparent);
+    color: var(--ui-text-highlighted);
+  }
+}
+
+/* The page outline's current heading. */
+html.vh-docs .vh-article-outline a[data-active] {
+  color: var(--gl-cyan-text) !important;
+  text-shadow: var(--gl-glow-text);
+}
+
+/* ---- Search ---- */
+
+html.vh-docs :is(.vh-header-search, .vh-docs-panel-search) {
+  transition: box-shadow 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+
+@media (hover: hover) {
+  html.vh-docs .vh-header-search:hover {
+    box-shadow: var(--gl-glow-ring);
+  }
+
+  html.vh-docs .vh-docs-panel-search:hover .iconify {
+    color: var(--gl-cyan-text);
+  }
+}
+
+html.vh-docs .vh-docs-search-modal {
+  box-shadow: var(--gl-glow-ring), var(--vh-shadow-dialog);
+}
+
+html.vh-docs .vh-docs-search-modal mark {
+  background: color-mix(in oklab, var(--gl-cyan) 22%, transparent);
+  color: var(--ui-text-highlighted);
+}
+
+html.vh-docs .vh-docs-search-modal [role="option"][data-highlighted] {
+  box-shadow: inset 2px 0 0 var(--gl-cyan);
+}
+
+/* ---- Focus: ViteHub's one ring, in cyan, with a soft halo. Nuxt UI's own ring shadow stays under it. ---- */
+
+:where(.vh-docs) :where(a, button, [role="option"], [role="tab"], summary):focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--vh-focus) 22%, transparent), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000);
+}
+
+/* ---- Prose: links, heading rules and anchors, inline code, code frames, callouts, steps. ---- */
+
+.docs-content a:not(.cl-anchor, [class*="not-prose"] a) {
+  text-decoration-color: color-mix(in oklab, var(--gl-cyan) 55%, transparent);
+  text-decoration-thickness: 1px;
+  transition: color 150ms ease, text-decoration-color 150ms ease, text-shadow 150ms ease;
+}
+
+@media (hover: hover) {
+  .docs-content a:not(.cl-anchor):hover {
+    color: var(--gl-cyan-text);
+    text-decoration-color: currentcolor;
+    text-shadow: var(--gl-glow-text);
+  }
+}
+
+/* A section opens with a lit rule instead of a gray one. */
+.docs-content :is(h2:not(.cl-heading > h2), .cl-heading:has(> h2)):not(.not-prose *) {
+  border-top-color: transparent;
+  border-image: linear-gradient(90deg, color-mix(in oklab, var(--gl-cyan) 70%, transparent), color-mix(in oklab, var(--gl-mint) 35%, transparent) 30%, var(--ui-border) 60%) 1;
+}
+
+.docs-content .cl-anchor {
+  transition: color 150ms ease, text-shadow 150ms ease;
+}
+
+.docs-content .cl-heading:hover .cl-anchor,
+.docs-content .cl-anchor:focus-visible {
+  color: var(--gl-cyan-text);
+  text-shadow: var(--gl-glow-text);
+}
+
+.docs-content :where(p, li, td) > code {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gl-cyan) 22%, var(--ui-border));
+}
+
+/* Code frames: a cyan hairline ring, a lit top edge, and a soft spill under the frame in dark mode. */
+.docs-content .ck {
+  position: relative;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gl-cyan) 20%, var(--ui-border)), 0 18px 40px -28px color-mix(in oklab, var(--gl-cyan) 45%, transparent);
+}
+
+.docs-content .ck::before {
+  position: absolute;
+  inset-inline: 1px;
+  top: 0;
+  z-index: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gl-cyan) 25%, var(--gl-mint) 75%, transparent);
+  opacity: 0.55;
+  content: "";
+  pointer-events: none;
+}
+
+.docs-content .ct .ck::before {
+  content: none;
+}
+
+.docs-content .ck-title {
+  color: var(--gl-mint-text);
+}
+
+.docs-content .ct {
+  box-shadow: 0 18px 40px -28px color-mix(in oklab, var(--gl-cyan) 45%, transparent);
+}
+
+/* comark-ui callouts: the note and tip take the cyan and mint tubes, and each callout lights its left edge in its color. */
+.docs-content .cgc {
+  --cgc-note: var(--gl-cyan-text);
+  --cgc-tip: var(--gl-mint-text);
+  border-color: color-mix(in oklab, var(--cgc-color, var(--gl-cyan)) 30%, var(--ui-border));
+  box-shadow: inset 2px 0 0 var(--cgc-color, var(--gl-cyan)), 0 0 28px -14px color-mix(in oklab, var(--cgc-color, var(--gl-cyan)) var(--gl-spill), transparent);
+}
+
+.docs-content .cs-step::before {
+  border-color: color-mix(in oklab, var(--gl-cyan) 55%, transparent);
+  color: var(--gl-cyan-text);
+  box-shadow: 0 0 12px -3px color-mix(in oklab, var(--gl-cyan) var(--gl-spill), transparent);
+}
+
+.docs-content .cs-step::after {
+  background: linear-gradient(var(--gl-cyan), var(--ui-border));
+  opacity: 0.6;
+}
+
+/* Diagrams: nodes framed like the code, edges in the cyan tube, and a faint glow on each node in dark mode. */
+.docs-content .pele-diagram {
+  --pele-border: color-mix(in oklab, var(--gl-cyan) 45%, var(--ui-border));
+  --pele-line: color-mix(in oklab, var(--gl-cyan) 65%, var(--ui-text-muted));
+  --pele-accent: var(--gl-cyan);
+}
+
+.docs-content .pele-nodes rect {
+  filter: var(--gl-glow-node);
+}
+
+.docs-content blockquote {
+  border-left-color: var(--gl-mint);
+}
+
+/* The page title carries a faint glow in dark mode, the way a sign lights the wall behind it. */
+html.vh-docs [data-slot="title"]:is(h1),
+.glosslint-hero h1 {
+  text-shadow: var(--gl-glow-text);
+}
+
+/* ---- Buttons: a solid primary is a lit tube; a framed button lights its frame on hover. ---- */
+
+html.vh-docs :is(a, button)[data-slot="base"][class*="bg-primary"] {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--gl-cyan) 60%, transparent), 0 0 18px -4px color-mix(in oklab, var(--gl-cyan) 55%, transparent);
+}
+
+@media (hover: hover) {
+  html.vh-docs :is(a, button)[data-slot="base"][class*="ring-accented"]:hover,
+  html.vh-docs .vh-page-action:hover {
+    box-shadow: var(--gl-glow-ring);
+  }
+}
+
+/* ---- Motion: the tubes ignite once on load, and the rules carry a slow travelling light. ---- */
+
+@media (prefers-reduced-motion: no-preference) {
+  html.vh-docs .vh-docs-mark,
+  .glosslint-hero-banner {
+    animation: gl-ignite 1.4s steps(1, end) 0.15s both;
+  }
+
+  html.vh-docs .vh-docs-header::after,
+  html.vh-docs #docs-content > div:first-child::after {
+    animation: gl-sweep 16s linear infinite;
+  }
+
+  html.vh-docs .vh-docs-sidebar-link.is-active::before {
+    animation: gl-hum 5s ease-in-out infinite alternate;
+  }
+}
+
+/* A tube catching: two dark gaps, a stutter, then steady. Opacity only, so nothing repaints. */
+@keyframes gl-ignite {
+  0% { opacity: 0.25; }
+  8% { opacity: 1; }
+  12% { opacity: 0.3; }
+  20% { opacity: 1; }
+  38% { opacity: 0.55; }
+  42% { opacity: 1; }
+  60% { opacity: 0.8; }
+  64%, 100% { opacity: 1; }
+}
+
+@keyframes gl-sweep {
+  to { background-position: -200% 0; }
+}
+
+@keyframes gl-hum {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}

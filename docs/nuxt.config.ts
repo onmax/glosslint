@@ -26,6 +26,8 @@ export default defineNuxtConfig({
       nuxt.options.nitro.publicAssets.push({ dir: fileURLToPath(generated), maxAge: 60 * 60 * 24 })
     },
   ],
+  // The banner's neon on the ViteHub Docs tokens. ViteHub puts its own stylesheet first, so this one wins.
+  css: ['~/assets/css/neon.css'],
   app: {
     head: {
       link: [{ rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],

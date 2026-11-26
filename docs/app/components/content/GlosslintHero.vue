@@ -4,10 +4,12 @@
 
 <template>
   <section class="glosslint-hero">
-    <img src="/banner.svg" alt="" class="glosslint-hero-banner" width="1280" height="400">
+    <div class="glosslint-hero-sign">
+      <img src="/banner.svg" alt="" class="glosslint-hero-banner" width="1280" height="400">
+    </div>
     <slot />
     <div class="glosslint-hero-links">
-      <UButton to="/guide/installation" color="neutral" size="lg" trailing-icon="i-lucide-arrow-right">
+      <UButton to="/guide/installation" color="primary" size="lg" trailing-icon="i-lucide-arrow-right">
         Get started
       </UButton>
       <UButton to="https://github.com/onmax/glosslint" target="_blank" color="neutral" variant="outline" size="lg" icon="i-simple-icons-github">
@@ -31,11 +33,50 @@
   }
 }
 
+/* The sign lights the wall around it: a blurred copy of its colors sits behind the banner and breathes. */
+.glosslint-hero-sign {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: 2.5rem;
+}
+
+.glosslint-hero-sign::before {
+  position: absolute;
+  inset: 4% -3% -12%;
+  z-index: -1;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side at 35% 45%, rgb(34 232 255 / 55%), transparent),
+    radial-gradient(closest-side at 68% 45%, rgb(46 245 163 / 45%), transparent),
+    radial-gradient(closest-side at 40% 90%, rgb(255 71 112 / 30%), transparent);
+  filter: blur(48px);
+  opacity: var(--gl-hero-spill, 0.55);
+  content: "";
+}
+
+/* `:global(.light) .a` compiles to `.light` alone, so the whole selector goes inside `:global()`. */
+:global(.light .glosslint-hero-sign::before) {
+  --gl-hero-spill: 0.3;
+}
+
 .glosslint-hero-banner {
+  display: block;
   width: 100%;
   height: auto;
-  margin-bottom: 2.5rem;
   border-radius: 8px;
+  box-shadow: 0 0 0 1px rgb(34 232 255 / 18%), 0 24px 60px -30px rgb(34 232 255 / 55%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .glosslint-hero-sign::before {
+    animation: glosslint-hero-breathe 4.5s ease-in-out 1.6s infinite alternate;
+  }
+}
+
+@keyframes glosslint-hero-breathe {
+  to {
+    opacity: calc(var(--gl-hero-spill, 0.55) * 0.55);
+  }
 }
 
 .glosslint-hero :deep(h1) {
