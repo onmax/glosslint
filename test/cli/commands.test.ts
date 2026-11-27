@@ -12,7 +12,7 @@ describe("glosslint test", () => {
   });
 
   it("explains each failing example and exits 1", async () => {
-    const { code, stdout } = await run(["test", "--config", "failing.config.ts"]);
+    const { code, stdout } = await run(["test", "--corpus", "failing.corpus.ts"]);
     expect(code).toBe(1);
     expect(stdout).toBe(`✓ Dock     1 good, 1 bad
 ✓ Station  1 good, 1 bad
@@ -63,7 +63,7 @@ Write these as shown: Recharge point.
   it("prints the flattened corpus as JSON", async () => {
     const { code, stdout } = await run(["print", "--format", "json"]);
     expect(code).toBe(0);
-    const { corpus } = await loadCorpus(bikeDir);
+    const { corpus } = await loadCorpus(bikeDir, { corpus: "corpus.ts" });
     expect(JSON.parse(stdout)).toEqual({
       terms: corpus.terms,
       allow: ["check out our", "roof rack"],
@@ -117,30 +117,30 @@ describe("glosslint explain", () => {
   });
 });
 
-describe("config errors", () => {
+describe("corpus module errors", () => {
   it("prints a corpus error as a tree with its code, why and fix, and exits 2", async () => {
-    expect(await run([], brokenDir)).toEqual({
+    expect(await run(["--corpus", "bad-field.mjs"], brokenDir)).toEqual({
       code: 2,
       stdout: "",
       stderr: `[GLOSSLINT_C001] Unknown field "avoids" in term "Dock".
 ├▶ fix: Rename it to "avoid".
-╰▶ config: glosslint.config.mjs
+╰▶ corpus: bad-field.mjs
 `,
     });
   });
 
   it("exits 2 when the default export is not a corpus", async () => {
-    const { code, stderr } = await run(["test", "--config", "not-corpus.mjs"], brokenDir);
+    const { code, stderr } = await run(["test", "--corpus", "not-corpus.mjs"], brokenDir);
     expect(code).toBe(2);
     expect(stderr)
       .toBe(`[GLOSSLINT_C008] not-corpus.mjs does not export a corpus as its default export.
-├▶ fix: End the config with \`export default defineCorpus({ … })\`.
-╰▶ config: not-corpus.mjs
+├▶ fix: End the module with \`export default defineCorpus({ … })\`.
+╰▶ corpus: not-corpus.mjs
 `);
   });
 
-  it("exits 2 when --config names no file", async () => {
-    const { stderr } = await run(["--config", "missing.ts"]);
-    expect(stderr).toContain('[GLOSSLINT_C009] The config "missing.ts" does not exist.');
+  it("exits 2 when --corpus names no file", async () => {
+    const { stderr } = await run(["--corpus", "missing.ts"]);
+    expect(stderr).toContain('[GLOSSLINT_C009] The corpus module "missing.ts" does not exist.');
   });
 });

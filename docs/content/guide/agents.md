@@ -31,7 +31,7 @@ Put a link to the format guide under the glossary's title so an agent opening th
 <!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
 ```
 
-If you also use [`defineCorpus`](/guide/corpus), export the merged corpus with `npx glosslint print` and run `npx glosslint test` after changes. See [CLI](/integrations/cli#print).
+If you also use [`defineCorpus`](/guide/corpus), pass its module with `--corpus`: export the merged corpus with `npx glosslint print --corpus <module>` and run `npx glosslint test --corpus <module>` after changes. See [CLI](/integrations/cli#print).
 
 ## Agent workflow
 

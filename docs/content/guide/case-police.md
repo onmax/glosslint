@@ -39,7 +39,7 @@ pnpm add -D glosslint
 ```md [.agents/glossary.md]
 # Glossary
 
-Extends: tech
+Presets: tech
 ```
 
 ```sh

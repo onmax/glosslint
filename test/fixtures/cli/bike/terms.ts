@@ -1,4 +1,4 @@
-// The bike-share terms every CLI fixture config reads.
+// The bike-share terms every CLI fixture corpus reads.
 import type { Term } from "../../../../src/types.ts";
 
 export const terms: Term[] = [

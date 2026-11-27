@@ -1,4 +1,4 @@
-// examples/basic is the project the docs site shows: .agents/glossary.md and no config.
+// examples/basic is the project the docs site shows: .agents/glossary.md and no corpus module.
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";

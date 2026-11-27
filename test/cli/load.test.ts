@@ -1,28 +1,31 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { loadCorpus } from "../../src/cli.ts";
-import { bikeDir, bothDir, glossaryDir, run } from "./run.ts";
+import { bikeDir, glossaryDir, legacyConfigDir, run } from "./run.ts";
 
-const terms = async (cwd: string, options?: { config?: string; glossary?: string }) =>
+const terms = async (cwd: string, options?: { corpus?: string; glossary?: string }) =>
   (await loadCorpus(cwd, options)).corpus.terms.map((term) => term.term);
 
 describe("loading the corpus", () => {
-  it("reads .agents/glossary.md when there is no config", async () => {
+  it("reads .agents/glossary.md by default", async () => {
     expect(await terms(glossaryDir)).toEqual(["Dock", "Station"]);
     const { code, stdout } = await run(["docs"], glossaryDir);
     expect(code).toBe(1);
     expect(stdout).toContain('[GLOSSLINT_AVOID] "rack" in docs/riding.md:3:22');
   });
 
-  it("prefers glosslint.config.* to .agents/glossary.md", async () => {
-    expect(await terms(bothDir)).toEqual(["Kiosk"]);
+  it("never reads a glosslint.config.* file", async () => {
+    expect(await terms(legacyConfigDir)).toEqual(["Dock", "Station"]);
+    expect((await run([], join(bikeDir, "docs"))).stderr).toMatch(
+      /^\[GLOSSLINT_C009\] No glossary at \.agents\/glossary\.md\./,
+    );
   });
 
-  it("prefers --glossary to a config, and --config to everything", async () => {
-    expect(await terms(bothDir, { glossary: ".agents/glossary.md" })).toEqual(["Dock", "Station"]);
+  it("reads --glossary instead of the default, and --corpus instead of any glossary", async () => {
     expect(await terms(glossaryDir, { glossary: "glossaries/kiosk.md" })).toEqual(["Kiosk"]);
-    const config = join(bikeDir, "glosslint.config.ts");
-    expect(await terms(glossaryDir, { config })).toContain("eBike");
+    const corpus = join(bikeDir, "corpus.ts");
+    expect(await terms(glossaryDir, { corpus })).toContain("eBike");
+    expect(await terms(legacyConfigDir, { corpus: "glosslint.config.mjs" })).toEqual(["Kiosk"]);
   });
 
   it("takes --glossary in test, print and explain", async () => {
@@ -35,23 +38,23 @@ describe("loading the corpus", () => {
     expect((await run(["explain", "terminal", ...args], glossaryDir)).code).toBe(0);
   });
 
-  it("exits 2 with GLOSSLINT_USAGE when given both --config and --glossary", async () => {
-    expect(await run(["--config", "a.ts", "--glossary", "b.md"], glossaryDir)).toEqual({
+  it("exits 2 with GLOSSLINT_USAGE when given both --corpus and --glossary", async () => {
+    expect(await run(["--corpus", "a.ts", "--glossary", "b.md"], glossaryDir)).toEqual({
       code: 2,
       stdout: "",
-      stderr: `[GLOSSLINT_USAGE] --config and --glossary both name the corpus.
-╰▶ fix: Pass one of them: --glossary for a glossary file, --config for a config.
+      stderr: `[GLOSSLINT_USAGE] --corpus and --glossary both name the corpus.
+╰▶ fix: Pass one of them: --glossary for a glossary file, --corpus for a module that exports a corpus.
 `,
     });
   });
 
-  it("exits 2 with GLOSSLINT_C009 naming both files when it finds neither", async () => {
+  it("exits 2 with GLOSSLINT_C009 when there is no glossary", async () => {
     for (const args of [[], ["test"], ["print"], ["explain", "dock"]]) {
       expect(await run(args, join(glossaryDir, "docs"))).toEqual({
         code: 2,
         stdout: "",
-        stderr: `[GLOSSLINT_C009] No .agents/glossary.md and no glosslint.config.ts, .mts, .js or .mjs in the current folder.
-╰▶ fix: Create .agents/glossary.md with \`# Glossary\` and a \`## Term\` section per term, or pass --glossary <path> or --config <path>.
+        stderr: `[GLOSSLINT_C009] No glossary at .agents/glossary.md.
+╰▶ fix: Create .agents/glossary.md with \`# Glossary\` and a \`## Term\` section per term, or pass --glossary <path> or --corpus <module>.
 `,
       });
     }
@@ -68,7 +71,7 @@ describe("loading the corpus", () => {
       stdout: "",
       stderr: `[GLOSSLINT_G004] glossaries/broken.md:4: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links" or "Case", or reword the line so it does not start with "Note:". 1 more problem: run \`glosslint doctor --glossary glossaries/broken.md\` to list them.
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case" or "Casing", or reword the line so it does not start with "Note:". 1 more problem: run \`glosslint doctor --glossary glossaries/broken.md\` to list them.
 `,
     });
   });

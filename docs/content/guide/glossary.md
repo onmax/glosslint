@@ -14,7 +14,7 @@ The CLI, ESLint (`glosslint()`), Oxlint, and `fromGlossary()` load `.agents/glos
 
 The words the rider app and the help center use.
 
-Extends: tech, inclusive
+Presets: tech, inclusive
 Allow: check out our, roof rack
 Casing: label sentence, header title
 
@@ -44,7 +44,7 @@ Paragraphs between `# Glossary` and the first field or `##` heading stay as intr
 
 - Fields start with `Name:` on consecutive lines under `# Glossary` or `##`. Unknown names, other heading levels, tables, code fences, and stray text report `GLOSSLINT_G004`.
 - Text fields (`What`, `How`, `Why`) join multiple lines with a space on load.
-- List fields (`Avoid`, `Good`, `Bad`, `Links`) take `-` bullets. `Extends`, `Allow`, `Casing`, and `Avoid` also accept comma-separated items on one line.
+- List fields (`Avoid`, `Good`, `Bad`, `Links`) take `-` bullets. `Presets`, `Allow`, `Casing`, and `Avoid` also accept comma-separated items on one line.
 - Ignore `.agents/glossary.md` in Prettier; Markdown formatters indent a field after a list into the last item.
 
 ## Corpus fields
@@ -53,7 +53,7 @@ Place before the first `##` heading in canonical order:
 
 | Field | Syntax | What it sets |
 | --- | --- | --- |
-| `Extends` | Comma or `-` list | Presets merged first: `tech`, `inclusive` ([Presets](/guide/presets)). |
+| `Presets` | Comma or `-` list | Presets merged first: `tech`, `inclusive` ([Presets](/guide/presets)). `Extends` still loads, and `doctor --fix` renames it. |
 | `Allow` | Comma or `-` list | Phrases never reported, such as `check out our, roof rack`. |
 | `Casing` | `<kind> <style>` list | Style for `context` terms. Kind: `label`, `header`, `sentence`. Style: `title`, `sentence`, `lower`, `upper`, `as-written`. |
 
@@ -72,10 +72,11 @@ Each `##` heading defines one term. Fields go in canonical order and all are opt
 | `Good` / `Bad` | `examples` | `-` list of test strings run by `doctor` (`GLOSSLINT_G009`) and `glosslint test`. |
 | `Links` | `links` | `-` list of `[title](url)` (`http://` or `https://`). First URL becomes `see`. |
 | `Case` | `case` | `exact`, `spelling` (default), or `context` ([Casing rules](/guide/casing)). |
+| `Casing` | `casing` | `<kind> <style>` list over the glossary's `Casing`, such as `label as-written`. Without `Case`, makes the term `context` ([Casing rules](/guide/casing)). |
 
 Plurals ending in `s` or `es` match terms and avoid words: listing `rack` also flags `"racks"` and suggests `"docks"`.
 
-`Good` strings must pass with no findings for the term; `Bad` strings must trigger one. `glosslint doctor` runs them against the file and its `Extends` presets; `glosslint test` runs them against the full loaded corpus, including presets and config.
+`Good` strings must pass with no findings for the term; `Bad` strings must trigger one. `glosslint doctor` runs them against the file and its `Presets`; `glosslint test` runs them against the full loaded corpus, including presets and anything a `--corpus` module adds.
 
 ### Avoid entries
 
@@ -115,9 +116,9 @@ npx glosslint doctor --fix  # rewrite G001-G003 into canonical form
 ```
 
 - `GLOSSLINT_G001`: missing or wrong `# Glossary` title.
-- `GLOSSLINT_G002`: wrong field casing (`what:`), aliases (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related`, or `Related links` for `Links`), or close typos.
+- `GLOSSLINT_G002`: wrong field casing (`what:`), aliases (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related`, or `Related links` for `Links`, `Extends` for `Presets`), or close typos.
 - `GLOSSLINT_G003`: layout issues: blank lines inside a term, `*` or `+` bullets, bare URLs under `Links`, out-of-order fields, CRLF, trailing spaces, or missing final newline.
 
 Loaders still read files with only `G001` to `G003` as their fixed form would read. `GLOSSLINT_G004` through `GLOSSLINT_G008` block loading, and `doctor --fix` leaves the file untouched ([Config and glossary errors](/reference/config-errors)). `glosslint check` always skips the glossary file it loaded directly.
 
-For config-only options (`skip`, `forms`, `translations`, per-term `casing`, `wholeLabel`), layer [`defineCorpus`](/guide/corpus) on top of `.agents/glossary.md`.
+For options the glossary has no field for (`skip`, `forms`, `translations`, `wholeLabel`) or to merge corpora, build a corpus with [`defineCorpus`](/guide/corpus) on top of `.agents/glossary.md` and pass it to the tool that needs it.

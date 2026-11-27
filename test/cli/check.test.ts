@@ -153,7 +153,7 @@ describe("glosslint check", () => {
         const file = join(dir, "locked.md");
         writeFileSync(file, "Find a charger.\n");
         chmodSync(file, 0);
-        const result = await run([file, "--config", join(bikeDir, "glosslint.config.ts")], dir);
+        const result = await run([file, "--corpus", join(bikeDir, "corpus.ts")], dir);
         expect(result).toMatchObject({ code: 2, stdout: "" });
         expect(result.stderr).toMatch(
           /^\[GLOSSLINT_ERROR\] EACCES: permission denied, open .*locked\.md'\n$/,
