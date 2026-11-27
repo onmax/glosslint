@@ -75,11 +75,35 @@ export function formatFindings(
   return [...blocks, summary].join("\n\n");
 }
 
-/** The JSON the CLI prints: `{ findings, summary }`. */
-export function toJson(findings: CliFinding[], files: number): CliReport {
+/** The JSON the CLI prints: `{ findings, summary }`, with `fixed` in the summary after `--fix`. */
+export function toJson(findings: CliFinding[], files: number, fixed?: number): CliReport {
   const counts = Object.fromEntries(CODES.map((code) => [code, 0])) as Record<FindingCode, number>;
   for (const finding of findings) counts[finding.code]++;
-  return { findings, summary: { files, findings: findings.length, ...counts } };
+  return {
+    findings,
+    summary: {
+      files,
+      findings: findings.length,
+      ...(fixed === undefined ? {} : { fixed }),
+      ...counts,
+    },
+  };
+}
+
+/**
+ * What `glosslint check --fix` prints once it fixed something: the findings left as trees, then how
+ * many it fixed in how many files and how many are left, as `glosslint doctor --fix` does.
+ */
+export function formatFixed(
+  findings: CliFinding[],
+  options: { color?: boolean; files: number; fixed: number; fixedFiles: number },
+): string {
+  const blocks = findings.map((finding) => formatFinding(finding, options));
+  const summary = [
+    `Fixed ${plural(options.fixed, "finding")} in ${options.fixedFiles} of ${plural(options.files, "file")}.`,
+  ];
+  if (findings.length > 0) summary.push(`${plural(findings.length, "finding")} left.`);
+  return [...blocks, summary.join(" ")].join("\n\n");
 }
 
 /** What `formatDoctor` prints: the glossary's problems after `--fix`, and how many it fixed. */

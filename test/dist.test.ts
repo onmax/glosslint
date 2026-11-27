@@ -109,6 +109,24 @@ describe("dist", { timeout: 60_000 }, () => {
     expect(cli("explain", "scooter").code).toBe(1);
   });
 
+  it("takes a bundled preset by its package name in --corpus", () => {
+    // A folder with no node_modules, so the specifier resolves from glosslint's own install.
+    const project = mkdtempSync(join(tmpdir(), "glosslint-dist-preset-"));
+    try {
+      writeFileSync(join(project, "notes.md"), "We use Github here.\n");
+      const result = spawnSync(
+        process.execPath,
+        [`${root}${pkg.bin.glosslint}`, "notes.md", "--corpus", "glosslint/presets/tech"],
+        { cwd: project, encoding: "utf8" },
+      );
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain('[GLOSSLINT_CASE] "Github" in notes.md:1:8');
+      expect(result.status).toBe(1);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
   it("loads glosslint/oxlint in oxlint by the package name", () => {
     // A project with glosslint installed: node_modules/glosslint is this package.
     const project = mkdtempSync(join(tmpdir(), "glosslint-dist-oxlint-"));

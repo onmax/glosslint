@@ -165,8 +165,8 @@ export interface CliFinding extends Omit<Finding, "fix" | "term"> {
 export interface CliReport {
   /** Every finding, in file order. */
   findings: CliFinding[];
-  /** How many files were read and how many findings each code has. */
-  summary: { files: number; findings: number } & Record<FindingCode, number>;
+  /** How many files were read, how many findings each code has, and, after `--fix`, how many it fixed. */
+  summary: { files: number; findings: number; fixed?: number } & Record<FindingCode, number>;
 }
 
 /** A corpus compiled for matching, from `createMatcher`. */

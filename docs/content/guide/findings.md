@@ -10,7 +10,7 @@ Every finding reports a location, matched text, replacement, and term context.
 
 ## JSON output
 
-`glosslint check --format json` prints `{ findings, summary }`. See [CLI](/integrations/cli) for flags and exit codes.
+`glosslint check --format json` prints `{ findings, summary }`. With `--fix`, `summary` also has `fixed`, the number of fixes written, and `findings` lists what is left. See [CLI](/integrations/cli) for flags and exit codes.
 
 ```sh
 npx glosslint check docs/guide/riding.md --format json

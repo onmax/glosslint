@@ -15,13 +15,19 @@ Use the glosslint CLI to check Markdown and text files, validate and repair `.ag
 npx glosslint check docs --corpus ./glossary.ts
 ```
 
+`--corpus` also takes a package specifier. It resolves from the current folder's `node_modules`, then from glosslint's own install, so the bundled presets work without a module of your own:
+
+```sh
+npx glosslint check docs --corpus glosslint/presets/tech
+```
+
 Passing both `--corpus` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. A missing glossary file or module exits `2` with `GLOSSLINT_C009`.
 
 `glosslint doctor` reads only the glossary file (`.agents/glossary.md` or `--glossary <path>`), never a corpus module. `check`, `test`, and `doctor` also accept `--color`, which is on by default when writing to a terminal unless `NO_COLOR` is set.
 
 | Command | What it does |
 | --- | --- |
-| `glosslint [check] [...paths]` | Check Markdown, MDX, and text files. `check` is the default command. |
+| `glosslint [check] [...paths] [--fix]` | Check Markdown, MDX, and text files, and write the autofixes into them with `--fix`. `check` is the default command. |
 | `glosslint doctor [--glossary <path>] [--fix]` | Check `.agents/glossary.md` for format, value, and example problems, and rewrite fixable ones with `--fix`. |
 | `glosslint test` | Check every term's good and bad examples across the loaded corpus. |
 | `glosslint print [--format md\|json]` | Print the corpus as a Markdown glossary or as JSON. |
@@ -29,14 +35,14 @@ Passing both `--corpus` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. A mis
 | `glosslint export [--merge <file>] [--note full\|short]` | Print the corpus as an x18n glossary in YAML, or merge it into one. |
 
 > [!NOTE]
-> `glosslint check` has no `--fix` and never edits checked docs. Use `glosslint doctor --fix` to repair `.agents/glossary.md`, and [ESLint](/integrations/eslint) or [Oxlint](/integrations/oxlint) to autofix code.
+> `glosslint check --fix` fixes docs, `glosslint doctor --fix` repairs `.agents/glossary.md`, and [ESLint](/integrations/eslint) or [Oxlint](/integrations/oxlint) autofix code.
 
 ## Exit codes
 
 | Exit code | Meaning |
 | --- | --- |
 | `0` | No findings, no `doctor` problems left, every `test` example passes, or `explain` found a term. |
-| `1` | `check` found something, `doctor` has problems remaining, a `test` example failed, or `explain` found no term. |
+| `1` | `check` found something (with `--fix`, something it could not fix), `doctor` has problems remaining, a `test` example failed, or `explain` found no term. |
 | `2` | The glossary or corpus module is missing or invalid, or the command line is wrong. The error goes to stderr. |
 
 See [Config and glossary errors](/guide/config-errors) for every error code.
@@ -85,6 +91,22 @@ npx glosslint check docs/guide
 ```
 
 The heading "Buying a day pass" is a label, so Day Pass takes Title Case there. In the next line it sits inside a sentence, so it takes lowercase. "Check out our" and "roof rack" are in `Allow:`, and the CLI never reads the code block. Apple Pay comes from `Presets: tech` and "Manned" from `inclusive`.
+
+### Fixing findings
+
+Pass `--fix` to write every finding with one replacement into its file: a different spelling (`GLOSSLINT_TERM`) or wrong capitals (`GLOSSLINT_CASE`). An avoid word (`GLOSSLINT_AVOID`) needs a person to pick the wording, so it stays a finding. `--fix` never touches what `check` skips, such as code, frontmatter, or a line after `<!-- glosslint-ignore -->`. It applies fixes until none is left, so a second run changes nothing.
+
+```sh
+npx glosslint check docs --corpus glosslint/presets/tech --fix
+```
+
+It prints the findings left as trees, then how many it fixed, and exits `1` only if findings are left:
+
+```txt
+Fixed 2 findings in 1 of 270 files.
+```
+
+With `--format json`, the summary also has `fixed`, the number of fixes written.
 
 ## doctor
 

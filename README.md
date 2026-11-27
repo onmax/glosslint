@@ -83,7 +83,7 @@ Here is one finding from `examples/basic`:
 - [Nuxt and vue-i18n](https://glosslint.onmax.me/integrations/nuxt): one spread in the `withNuxt()` config, no module.
 - [Oxlint](https://glosslint.onmax.me/integrations/oxlint): add `"glosslint/oxlint"` to `jsPlugins` in `.oxlintrc.json` to run the four rules on JavaScript, TypeScript and Vue `<script>` blocks (Oxlint JS plugins are alpha).
 - [x18n](https://glosslint.onmax.me/integrations/x18n): check source-locale messages and hard-coded strings, and pass the corpus to `toX18nGlossary` for x18n's glossary.
-- [CLI](https://glosslint.onmax.me/integrations/cli): checks Markdown, MDX and text files, tests term examples, prints corpora and explains words from the terminal.
+- [CLI](https://glosslint.onmax.me/integrations/cli): checks Markdown, MDX and text files and fixes them with `--fix`, tests term examples, prints corpora and explains words from the terminal.
 
 ## Doctor
 
