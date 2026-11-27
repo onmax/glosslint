@@ -56,8 +56,18 @@ describe("tech preset", () => {
     expect(tech.terms).toHaveLength(477);
     expect(duplicates(tech.terms.map((t) => key(t.term)))).toEqual([]);
     for (const term of tech.terms) {
-      expect(term).toEqual({ term: term.term, case: "exact", skip: ["lower", "upper"] });
+      const { avoid, ...rest } = term;
+      expect(rest).toEqual({ term: term.term, case: "exact", skip: ["lower", "upper"] });
+      // Only spaced keys of one-word names, which a phrase of their words would otherwise pass.
+      for (const word of avoid ?? [])
+        expect(key(typeof word === "string" ? word : word.word)).toBe(key(term.term));
     }
+    expect(tech.terms.filter((term) => term.avoid).map((term) => term.term)).toEqual([
+      "DigitalOcean",
+      "Notepad++",
+      "VSCodium",
+      "WebAssembly",
+    ]);
     expect(tech.allow).toEqual([
       "AntDesign",
       "AntDesignVue",

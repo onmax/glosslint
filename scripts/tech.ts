@@ -11,6 +11,8 @@
 // - Several keys share one value once separators are removed (`ant design` -> `Ant Design`,
 //   `antdesign` -> `AntDesign`). A corpus holds one term per key, so the first value in key order
 //   becomes the term, and any other spelling goes to `allow`, where case-police accepts it too.
+// - A spaced key of a one-word term (`web assembly` -> `WebAssembly`) goes to the term's `avoid`,
+//   since glosslint reads an exact one-word name split at spaces as a phrase unless it is listed.
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const pkgDir = new URL("../node_modules/case-police/", import.meta.url);
@@ -40,6 +42,13 @@ for (const [, canonical] of entries) {
   else if (existing !== canonical) allow.add(canonical);
 }
 
+const avoid = new Map<string, string[]>();
+for (const [lookup] of entries) {
+  const term = terms.get(key(lookup));
+  if (term === undefined || !/\s/.test(lookup) || /\s/.test(term)) continue;
+  avoid.set(key(lookup), [...(avoid.get(key(lookup)) ?? []), lookup]);
+}
+
 const byKey = (a: string, b: string) => {
   const [x, y] = [key(a), key(b)];
   return x < y ? -1 : x > y ? 1 : a < b ? -1 : 1;
@@ -62,9 +71,11 @@ const lines = [
   "",
   "/** One `exact` term per canonical spelling, passing all-lowercase and all-capitals words. */",
   "export const terms: Term[] = [",
-  ...[...terms.values()]
-    .sort(byKey)
-    .map((term) => `  { term: ${JSON.stringify(term)}, case: "exact", skip: ["lower", "upper"] },`),
+  ...[...terms.values()].sort(byKey).map((term) => {
+    const spaced = avoid.get(key(term));
+    const extra = spaced ? `, avoid: ${JSON.stringify(spaced).replaceAll(",", ", ")}` : "";
+    return `  { term: ${JSON.stringify(term)}, case: "exact", skip: ["lower", "upper"]${extra} },`;
+  }),
   "];",
   "",
 ];
