@@ -196,6 +196,17 @@ describe("readGlossary", () => {
     ).toEqual(["GLOSSLINT_G004 4 Dock"]);
   });
 
+  it("reports an HTML comment with no closing --> as G004 at its opening line, and leaves no corpus", () => {
+    const result = readGlossary("<!-- Intro comment\n\n## Dock\n\nWhat: A bay.\n");
+    const g004 = result.problems.filter((problem) => problem.code === "GLOSSLINT_G004");
+    expect(g004.map((problem) => problem.line)).toEqual([1]);
+    expect(g004[0]!.why).toContain("-->");
+    expect(result.corpus).toBeUndefined();
+    expect(
+      codes("# Glossary\n\n## Dock\nWhat: A bay.\n<!-- a note\n\n## Pier\nWhat: A deck.\n"),
+    ).toEqual(["GLOSSLINT_G004"]);
+  });
+
   it("reads Extends as Presets and rewrites it as G002", () => {
     const text = "# Glossary\n\nExtends: tech\n\n## Dock\nAvoid: rack\n";
     const result = readGlossary(text);

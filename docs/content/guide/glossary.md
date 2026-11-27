@@ -41,7 +41,7 @@ Case: context
 
 ## Corpus fields
 
-Optional file-level fields sit above the first `##` heading, written as comma lists or `-` lists. Any text between `# Glossary` and the first field is prose for readers that glosslint ignores, and so are HTML comments there. A comment among the fields or inside a term is a `G004` error; move it to the introduction.
+Optional file-level fields sit above the first `##` heading, written as comma lists or `-` lists. Any text between `# Glossary` and the first field is prose for readers that glosslint ignores, and so are HTML comments there. A comment among the fields or inside a term is a `G004` error; move it to the introduction. So is a comment with no closing `-->`, which would hide the rest of the file.
 
 | Field | Example | What it does |
 | --- | --- | --- |
