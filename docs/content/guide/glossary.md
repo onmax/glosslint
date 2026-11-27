@@ -2,7 +2,7 @@
 title: glossary.md
 navigation.title: glossary.md
 navigation.order: 3
-description: "Write and parse .agents/glossary.md: corpus and term fields, file structure, value syntax, validation codes, parsed JSON, and doctor --fix."
+description: "Write and parse .agents/glossary.md: corpus and term fields, file structure, value syntax, validation codes, parsed JSON, and the doctor command."
 icon: i-lucide-file-text
 ---
 
