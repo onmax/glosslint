@@ -206,6 +206,17 @@ describe("inflected forms", () => {
     ]);
   });
 
+  it("drops a final e before ing and writes d after it when the ending is split off", () => {
+    expect(hits("It was cache-ed and cache-ing.", undefined, m)).toEqual([
+      "TERM cache-ed -> cached",
+      "TERM cache-ing -> caching",
+    ]);
+    expect(hits("CACHE-ED and CACHE-ING", undefined, m)).toEqual([
+      "TERM CACHE-ED -> CACHED",
+      "TERM CACHE-ING -> CACHING",
+    ]);
+  });
+
   it("reads the stem forms of a term that ends in ing", () => {
     expect(hits("Pre-rendered pages, pre-renders, pre-render", undefined, m)).toEqual([
       "TERM Pre-rendered -> Prerendered",

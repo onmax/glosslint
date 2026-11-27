@@ -576,7 +576,12 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         : exact
           ? canonical
           : (contextWant ?? keepCapitals(canonical, surface));
-      const replace = withSuffix(base, hit.suffix, entry.mode === "abbr");
+      // `cache-ed` and `cache-ing` keep the `e` of `cache` in the text, so the fix inflects it: "cached", "caching".
+      const ending = hit.verb ? hit.suffix.toLowerCase() : "";
+      const replace =
+        ending === "ed" || ending === "ing"
+          ? inflect(base, ending)
+          : withSuffix(base, hit.suffix, entry.mode === "abbr");
       return makeFinding(
         "GLOSSLINT_TERM",
         hit.start,
