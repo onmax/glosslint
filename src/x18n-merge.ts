@@ -1,6 +1,6 @@
 // Writes x18n glossary YAML. The `yaml` package's Document API edits the parsed file in place, so the
 // comments, entry order, key order and quoting of a shared glossary survive a merge.
-import { isMap, isScalar, isSeq, parseDocument, Scalar, stringify } from "yaml";
+import { isAlias, isMap, isScalar, isSeq, parseDocument, Scalar, stringify } from "yaml";
 import type { Document, Pair, YAMLMap } from "yaml";
 import type { X18nGlossaryEntry } from "./types.ts";
 
@@ -67,6 +67,13 @@ function ordered(entry: X18nGlossaryEntry): X18nGlossaryEntry {
 
 const text = (node: unknown): string | undefined =>
   isScalar(node) && typeof node.value === "string" ? node.value : undefined;
+
+/** Whether the entry's `doNotTranslate` is `true`, with an alias such as `*locked` resolved to its anchor. */
+function marked(doc: Document, map: YAMLMap): boolean {
+  const node = map.get("doNotTranslate", true);
+  const value = isAlias(node) ? node.resolve(doc) : node;
+  return isScalar(value) && value.value === true;
+}
 
 /** A match key: the text in lowercase without hyphens and spaces. Other punctuation stays, so `C#` is not `C++`. */
 const matchKey = (value: string): string => value.toLowerCase().replace(/[\s\-‐‑]+/g, "");
@@ -150,7 +157,7 @@ export function mergeX18nGlossary(
     const term = text(map.get("term", true))!;
     // x18n reads doNotTranslate before translations, so an entry with both is never translated.
     const locales = Object.keys(entry.translations ?? {});
-    if (locales.length > 0 && map.get("doNotTranslate") === true)
+    if (locales.length > 0 && marked(doc, map))
       throw new X18nMergeError(
         `"${term}" has doNotTranslate: true, and the glossary's "${entry.term}" gives it translations (${locales.join(", ")}).`,
         `Remove doNotTranslate: true from "${term}" in the file to translate it, or remove Translations from "${entry.term}" in the glossary to keep it as written.`,
@@ -182,7 +189,7 @@ function mergeEntry(
     fields.push("note");
   }
   // An entry the file translates is not marked untranslatable because the glossary has no translations.
-  if (entry.doNotTranslate && map.get("doNotTranslate") !== true && !map.has("translations")) {
+  if (entry.doNotTranslate && !marked(doc, map) && !map.has("translations")) {
     map.set("doNotTranslate", true);
     fields.push("doNotTranslate");
   }

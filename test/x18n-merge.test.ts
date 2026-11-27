@@ -159,6 +159,17 @@ describe("mergeX18nGlossary", () => {
     ).toThrow(
       '"Nuxt" has doNotTranslate: true, and the glossary\'s "nuxt" gives it translations (fr).',
     );
+    // An alias resolves to its anchor's value.
+    const aliased =
+      "- term: Nuxt\n  doNotTranslate: &locked true\n- term: eBike\n  doNotTranslate: *locked\n";
+    expect(() =>
+      mergeX18nGlossary(aliased, [
+        { term: "eBike", note: "An electric bike.", translations: { fr: "vélo électrique" } },
+      ]),
+    ).toThrow('"eBike" has doNotTranslate: true');
+    const kept = mergeX18nGlossary(aliased, [{ term: "eBike", doNotTranslate: true }]);
+    expect(kept.text).toBe(aliased);
+    expect(kept.unchanged).toEqual(["eBike"]);
   });
 
   it("starts an empty file and throws on YAML that is not a list of entries", () => {
