@@ -3,7 +3,6 @@
 import { isMap, isScalar, isSeq, parseDocument, Scalar, stringify } from "yaml";
 import type { Document, Pair, YAMLMap } from "yaml";
 import type { X18nGlossaryEntry } from "./types.ts";
-import { termKey } from "./words.ts";
 
 /** Options of `mergeX18nGlossary`. */
 export interface X18nMergeOptions {
@@ -36,9 +35,16 @@ export interface X18nMergeResult {
   conflicts: X18nMergeConflict[];
 }
 
-/** Why `mergeX18nGlossary` could not read the file. */
+/** Why `mergeX18nGlossary` could not read the file or merge into it. Nothing is merged. */
 export class X18nMergeError extends Error {
   override name = "X18nMergeError";
+  /** How to fix it, when the file is a glossary but the merge would make it wrong. */
+  readonly fix: string | undefined;
+
+  constructor(message: string, fix?: string) {
+    super(message);
+    this.fix = fix;
+  }
 }
 
 const YAML_OPTIONS = { lineWidth: 0 } as const;
@@ -62,19 +68,23 @@ function ordered(entry: X18nGlossaryEntry): X18nGlossaryEntry {
 const text = (node: unknown): string | undefined =>
   isScalar(node) && typeof node.value === "string" ? node.value : undefined;
 
+/** A match key: the text in lowercase without hyphens and spaces. Other punctuation stays, so `C#` is not `C++`. */
+const matchKey = (value: string): string => value.toLowerCase().replace(/[\s\-‐‑]+/g, "");
+
 /** The source-locale forms of an entry, as keys. */
 function formKeys(map: YAMLMap, locale: string): string[] {
   const forms = map.get("forms");
   if (!isMap(forms)) return [];
   const list = forms.get(locale);
-  return isSeq(list) ? list.items.flatMap((item) => text(item) ?? []).map(termKey) : [];
+  return isSeq(list) ? list.items.flatMap((item) => text(item) ?? []).map(matchKey) : [];
 }
 
 /**
  * Merges glossary entries into the text of an x18n glossary YAML file, a list of `{ term, … }` maps.
  * An entry matches one in the file when the two share a term or a source-locale form, in any case and with
  * hyphens and spaces ignored, so "Prerendering" matches "prerendering", and "Prerender" with the form
- * "prerendering" matches it too. A match keeps the file's `term` and every field and translation it has:
+ * "prerendering" matches it too. Other punctuation counts, so "C#" does not match "C++". An entry that
+ * matches more than one in the file throws an `X18nMergeError` naming them. A match keeps the file's `term` and every field and translation it has:
  * the glossary sets `note`, adds `doNotTranslate: true`, adds translations for locales the entry lacks, and
  * adds forms the entry lacks. Every other entry is added at the end. Comments and order are kept.
  */
@@ -94,19 +104,32 @@ export function mergeX18nGlossary(
     throw new X18nMergeError("The file is not a list of glossary entries, such as `- term: Nuxt`.");
 
   // A term wins over a form: "prerendering" the entry beats "prerendering" a form of another entry.
-  const byTerm = new Map<string, YAMLMap>();
-  const byForm = new Map<string, YAMLMap>();
+  const byTerm = new Map<string, YAMLMap[]>();
+  const byForm = new Map<string, YAMLMap[]>();
+  const index = (map: Map<string, YAMLMap[]>, key: string, item: YAMLMap) => {
+    const items = map.get(key) ?? [];
+    if (!items.includes(item)) map.set(key, [...items, item]);
+  };
   for (const item of list.items) {
     if (!isMap(item)) continue;
     const term = text(item.get("term", true));
     if (term === undefined) continue;
-    if (!byTerm.has(termKey(term))) byTerm.set(termKey(term), item);
-    for (const key of formKeys(item, locale)) if (!byForm.has(key)) byForm.set(key, item);
+    index(byTerm, matchKey(term), item);
+    for (const key of formKeys(item, locale)) index(byForm, key, item);
   }
   const find = (entry: X18nGlossaryEntry): YAMLMap | undefined => {
-    const keys = [entry.term, ...(entry.forms?.[locale] ?? [])].map(termKey);
-    for (const map of [byTerm, byForm])
-      for (const key of keys) if (map.has(key)) return map.get(key);
+    const keys = [entry.term, ...(entry.forms?.[locale] ?? [])].map(matchKey);
+    for (const map of [byTerm, byForm]) {
+      const found = [...new Set(keys.flatMap((key) => map.get(key) ?? []))];
+      if (found.length > 1) {
+        const names = found.map((item) => `"${text(item.get("term", true))}"`);
+        throw new X18nMergeError(
+          `"${entry.term}" matches ${found.length} entries: ${names.slice(0, -1).join(", ")} and ${names.at(-1)}.`,
+          "Merge those entries into one, or rename the term or the form in the glossary that matches the wrong one.",
+        );
+      }
+      if (found.length === 1) return found[0];
+    }
     return undefined;
   };
 

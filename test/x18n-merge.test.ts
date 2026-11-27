@@ -122,6 +122,34 @@ describe("mergeX18nGlossary", () => {
     expect(second.unchanged).toEqual(["Nuxt", "route middleware", "NuxtApp"]);
   });
 
+  it("keeps punctuation other than hyphens and spaces in the match, so C# does not match C++", () => {
+    const result = mergeX18nGlossary('- term: C++\n  doNotTranslate: true\n- term: "C#"\n', [
+      { term: "C#", note: "A language." },
+    ]);
+    expect(result.updated).toEqual([{ term: "C#", from: "C#", fields: ["note"] }]);
+    expect(parse(result.text)).toEqual([
+      { term: "C++", doNotTranslate: true },
+      { term: "C#", note: "A language." },
+    ]);
+  });
+
+  it("throws, naming the entries, when one glossary term matches more than one entry", () => {
+    const file = "- term: prerender\n- term: prerendering\n";
+    expect(() =>
+      mergeX18nGlossary(file, [{ term: "Prerender", forms: { en: ["prerendering"] } }]),
+    ).toThrow('"Prerender" matches 2 entries: "prerender" and "prerendering".');
+    expect(() =>
+      mergeX18nGlossary("- term: Nuxt app\n- term: nuxt-app\n", [{ term: "NuxtApp" }]),
+    ).toThrow('"NuxtApp" matches 2 entries: "Nuxt app" and "nuxt-app".');
+    // A term still wins over a form of another entry.
+    expect(
+      mergeX18nGlossary(
+        "- term: prerendering\n- term: render\n  forms:\n    en: [prerendering]\n",
+        [{ term: "Prerendering", note: "At build time." }],
+      ).updated,
+    ).toEqual([{ term: "prerendering", from: "Prerendering", fields: ["note"] }]);
+  });
+
   it("starts an empty file and throws on YAML that is not a list of entries", () => {
     expect(mergeX18nGlossary("", [{ term: "Dock" }]).text).toBe("- term: Dock\n");
     expect(() => mergeX18nGlossary("term: Dock\n", [])).toThrow("not a list of glossary entries");

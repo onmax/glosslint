@@ -112,6 +112,21 @@ describe("glosslint export", () => {
 `);
   });
 
+  it("exits 2 and writes nothing when a term matches more than one entry", async () => {
+    const file = "- term: prerender\n- term: prerendering\n";
+    writeFileSync(join(dir, "glossary.yml"), file);
+    const result = await run(
+      ["export", "--glossary", "GLOSSARY.md", "--merge", "glossary.yml"],
+      dir,
+    );
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain(
+      'glossary.yml: "Prerender" matches 2 entries: "prerender" and "prerendering".',
+    );
+    expect(result.stderr).toContain("Merge those entries into one");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(file);
+  });
+
   it("exits 2 on a missing file, a file that is not a list, or another --note", async () => {
     const missing = await run(["export", "--glossary", "GLOSSARY.md", "--merge", "no.yml"], dir);
     expect(missing.code).toBe(2);
