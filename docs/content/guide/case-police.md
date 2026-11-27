@@ -25,7 +25,7 @@ glosslint builds its `tech` preset from [case-police](https://github.com/antfu/c
 
 ## What glosslint adds
 
-- Your own product terms and [built-in presets](/guide/presets) in [`.agents/glossary.md`](/guide/glossary).
+- Your own product terms and [built-in presets](/guide/presets) in [`.agents/glossary.md`](/glossary).
 - Avoid words with reasons, descriptions, and links printed on every finding.
 - [Context casing](/guide/casing) that adapts between labels, headers, and sentences.
 - Checks across [ESLint](/integrations/eslint), [Oxlint](/integrations/oxlint), [x18n](/integrations/x18n), and [the CLI](/integrations/cli).

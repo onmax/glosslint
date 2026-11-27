@@ -1,18 +1,18 @@
 ---
 title: The glossary file
 description: Format rules, corpus and term fields, avoid reasons, casing inference, and how doctor repairs the glossary file.
-navigation.order: 3
+navigation.order: 1
 icon: i-lucide-file-text
 ---
 
 The CLI, ESLint (`glosslint()`), Oxlint, and `fromGlossary()` load `.agents/glossary.md` by default. Override the path with `--glossary <path>`, `glossary` in ESLint, `settings.glosslint.glossary` in Oxlint, or `fromGlossary(path)`.
 
-To read the file from your own tool, follow the [glossary spec](/reference/spec), which lists every rule the parser applies.
+To read the file from your own tool, follow the [glossary spec](/glossary/spec), which lists every rule the parser applies.
 
 ```md [.agents/glossary.md]
 # Glossary
 
-<!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
+<!-- Format and checks: https://glosslint.onmax.me/glossary -->
 
 The words the rider app and the help center use.
 
@@ -121,6 +121,6 @@ npx glosslint doctor --fix  # rewrite G001-G003 into canonical form
 - `GLOSSLINT_G002`: wrong field casing (`what:`), aliases (`Description` or `Meaning` for `What`, `Notes` or `Nuance` for `How`, `See`, `Related`, or `Related links` for `Links`, `Extends` for `Presets`), or close typos.
 - `GLOSSLINT_G003`: layout issues: blank lines inside a term, `*` or `+` bullets, bare URLs under `Links`, out-of-order fields, CRLF, trailing spaces, or missing final newline.
 
-Loaders still read files with only `G001` to `G003` as their fixed form would read. `GLOSSLINT_G004` through `GLOSSLINT_G008` block loading, and `doctor --fix` leaves the file untouched ([Config and glossary errors](/reference/config-errors)). `glosslint check` always skips the glossary file it loaded directly.
+Loaders still read files with only `G001` to `G003` as their fixed form would read. `GLOSSLINT_G004` through `GLOSSLINT_G008` block loading, and `doctor --fix` leaves the file untouched ([Config and glossary errors](/guide/config-errors)). `glosslint check` always skips the glossary file it loaded directly.
 
 For options the glossary has no field for (`skip`, `forms`, `translations`, `wholeLabel`) or to merge corpora, build a corpus with [`defineCorpus`](/guide/corpus) on top of `.agents/glossary.md` and pass it to the tool that needs it.

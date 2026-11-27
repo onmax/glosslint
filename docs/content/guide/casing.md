@@ -5,7 +5,7 @@ navigation.order: 5
 icon: i-lucide-case-sensitive
 ---
 
-Use the default `spelling` mode for most terms, `exact` for names that keep one form, and `context` when capitals change between labels and sentences. Set `Case:` per term in [`.agents/glossary.md`](/guide/glossary), and `Casing:` to style `context` terms in labels, headers, and sentences, at the top for the whole glossary or under one term. `wholeLabel` lives in [`defineCorpus`](/guide/corpus).
+Use the default `spelling` mode for most terms, `exact` for names that keep one form, and `context` when capitals change between labels and sentences. Set `Case:` per term in [`.agents/glossary.md`](/glossary), and `Casing:` to style `context` terms in labels, headers, and sentences, at the top for the whole glossary or under one term. `wholeLabel` lives in [`defineCorpus`](/guide/corpus).
 
 ## Case modes
 

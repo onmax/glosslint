@@ -1,7 +1,8 @@
 ---
 title: JavaScript API
 description: "Reference for glosslint's JavaScript API: every entry point, including the Oxlint plugin and glossary readers, with functions and types."
-navigation.order: 4
+navigation.order: 12
+navigation.group: Reference
 icon: i-lucide-braces
 ---
 
@@ -17,7 +18,7 @@ The main entry point exports glossary file readers, `defineCorpus`, the matcher,
 function fromGlossary(path?: string | URL): Corpus
 ```
 
-Reads a glossary Markdown file synchronously and returns a validated flat `Corpus`. Defaults to `".agents/glossary.md"`; a string resolves from `process.cwd()`, and a `URL` resolves as a file URL. Throws `GlosslintConfigError` with `GLOSSLINT_C009` when the file is missing, or with the first `GLOSSLINT_G004` to `GLOSSLINT_G008` problem when the file cannot be loaded. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. See [The glossary file](/guide/glossary).
+Reads a glossary Markdown file synchronously and returns a validated flat `Corpus`. Defaults to `".agents/glossary.md"`; a string resolves from `process.cwd()`, and a `URL` resolves as a file URL. Throws `GlosslintConfigError` with `GLOSSLINT_C009` when the file is missing, or with the first `GLOSSLINT_G004` to `GLOSSLINT_G008` problem when the file cannot be loaded. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. See [The glossary file](/glossary).
 
 ### readGlossary
 
@@ -53,7 +54,7 @@ Compiles `corpus` into a reusable `Matcher` with a readonly `corpus` property an
 function check(matcher: Matcher, text: string, kind?: TextKind): Finding[]
 ```
 
-Calls `matcher.check(text, kind)` and returns every finding in `text`, read as `kind`, which defaults to `"unknown"`. See [Findings format](/reference/findings) for the returned `Finding` shape.
+Calls `matcher.check(text, kind)` and returns every finding in `text`, read as `kind`, which defaults to `"unknown"`. See [Findings format](/guide/findings) for the returned `Finding` shape.
 
 ### kindOf
 
@@ -131,7 +132,7 @@ class GlosslintConfigError extends Error {
 }
 ```
 
-Error class thrown by `defineCorpus`, `fromGlossary`, and `glosslint/eslint` on an invalid corpus, missing or broken glossary file, or conflicting ESLint options. See [Config and glossary errors](/reference/config-errors) for every error code and fix.
+Error class thrown by `defineCorpus`, `fromGlossary`, and `glosslint/eslint` on an invalid corpus, missing or broken glossary file, or conflicting ESLint options. See [Config and glossary errors](/guide/config-errors) for every error code and fix.
 
 ### CONFIG_ERRORS
 

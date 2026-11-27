@@ -1,7 +1,8 @@
 ---
 title: Findings format
 description: "Reference for glosslint findings: the JSON and tree output, every field, the three codes, and fix kinds."
-navigation.order: 2
+navigation.order: 10
+navigation.group: Reference
 icon: i-lucide-list-checks
 ---
 
@@ -115,4 +116,4 @@ In [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint), the findin
 
 ## Findings in JavaScript
 
-`createMatcher(corpus).check(text, kind)` returns `Finding[]`, which drops `file`, `line`, `column`, and `fix.result` and attaches the full `Term` object. Pass them to `formatFindings` or `toJson` to format them; see [JavaScript API](/reference/api).
+`createMatcher(corpus).check(text, kind)` returns `Finding[]`, which drops `file`, `line`, `column`, and `fix.result` and attaches the full `Term` object. Pass them to `formatFindings` or `toJson` to format them; see [JavaScript API](/guide/api).

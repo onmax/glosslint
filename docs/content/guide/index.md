@@ -6,7 +6,7 @@ navigation.title: Introduction
 icon: i-lucide-book-open
 ---
 
-glosslint checks your product vocabulary across code, translations, and Markdown docs from one file, [`.agents/glossary.md`](/guide/glossary).
+glosslint checks your product vocabulary across code, translations, and Markdown docs from one file, [`.agents/glossary.md`](/glossary).
 
 ```md [.agents/glossary.md]
 # Glossary
@@ -52,4 +52,4 @@ Markdown docs, doctor, test, and explain
 | `GLOSSLINT_AVOID` | Avoid words, such as `rack` instead of `Dock` | `suggestion` with reason and meaning |
 | `GLOSSLINT_CASE` | Wrong capitals on `exact`, `context`, or abbreviated terms | `autofix`, or `suggestion` when kind is guessed |
 
-See [Findings](/reference/findings) for the JSON shape. Examples in this guide come from [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic).
+See [Findings](/guide/findings) for the JSON shape. Examples in this guide come from [`examples/basic`](https://github.com/onmax/glosslint/blob/main/examples/basic).

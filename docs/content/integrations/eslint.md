@@ -6,7 +6,7 @@ navigation.order: 2
 icon: i-simple-icons-eslint
 ---
 
-`glosslint/eslint` checks JavaScript, TypeScript, Vue templates, YAML and JSON locale files, comments, and declared identifiers. It requires ESLint 9.15 or later and reads [`.agents/glossary.md`](/guide/glossary) by default.
+`glosslint/eslint` checks JavaScript, TypeScript, Vue templates, YAML and JSON locale files, comments, and declared identifiers. It requires ESLint 9.15 or later and reads [`.agents/glossary.md`](/glossary) by default.
 
 For Nuxt projects using `@nuxt/eslint` and `vue-i18n`, see [Nuxt and vue-i18n](/integrations/nuxt).
 
@@ -123,7 +123,7 @@ Checks how declared variable, function, parameter, class, and property names spl
 
 ## Message format
 
-Each diagnostic is one line combining the headline, the avoid or term reason, `Term: description`, the nuance, and `See <url>` when those fields exist. Its ESLint `messageId` is the finding code, listed in [Findings](/reference/findings).
+Each diagnostic is one line combining the headline, the avoid or term reason, `Term: description`, the nuance, and `See <url>` when those fields exist. Its ESLint `messageId` is the finding code, listed in [Findings](/guide/findings).
 
 ## Worked example
 

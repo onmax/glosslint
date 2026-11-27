@@ -6,7 +6,7 @@ navigation.order: 3
 icon: i-simple-icons-oxc
 ---
 
-Use `glosslint/oxlint` to run glosslint's four rules inside [Oxlint](https://oxc.rs/docs/guide/usage/linter.html) on JavaScript, TypeScript, and `<script>` blocks inside Vue files. It reads [`.agents/glossary.md`](/guide/glossary) from Oxlint's working directory on the first file and requires Oxlint 1.94 or later as an optional peer dependency.
+Use `glosslint/oxlint` to run glosslint's four rules inside [Oxlint](https://oxc.rs/docs/guide/usage/linter.html) on JavaScript, TypeScript, and `<script>` blocks inside Vue files. It reads [`.agents/glossary.md`](/glossary) from Oxlint's working directory on the first file and requires Oxlint 1.94 or later as an optional peer dependency.
 
 > [!WARNING]
 > JavaScript plugins in Oxlint 1.94 are alpha. The `glosslint/oxlint` entry point or `.oxlintrc.json` shape may change as Oxlint's JS plugin API evolves.

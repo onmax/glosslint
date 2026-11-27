@@ -62,7 +62,7 @@ export default defineNuxtConfig({
       links: [
         { label: 'Guide', to: '/guide' },
         { label: 'Integrations', to: '/integrations' },
-        { label: 'Reference', to: '/reference' },
+        { label: 'glossary.md', to: '/glossary' },
         { label: 'Playground', to: '/playground', icon: 'i-lucide-play' },
       ],
     },
@@ -90,10 +90,17 @@ export default defineNuxtConfig({
       : true,
     console: true,
   },
-  // The terms page joined the glossary page.
+  // Old URLs: the terms page joined the glossary page, the glossary page and the spec moved to /glossary, and the
+  // other Reference pages joined the guide.
   routeRules: {
-    '/guide/terms': { redirect: { to: '/guide/glossary', statusCode: 301 } },
-    '/spec': { redirect: { to: '/reference/spec', statusCode: 301 } },
+    '/guide/terms': { redirect: { to: '/glossary', statusCode: 301 } },
+    '/guide/glossary': { redirect: { to: '/glossary', statusCode: 301 } },
+    '/spec': { redirect: { to: '/glossary/spec', statusCode: 301 } },
+    '/reference': { redirect: { to: '/guide/findings', statusCode: 301 } },
+    '/reference/spec': { redirect: { to: '/glossary/spec', statusCode: 301 } },
+    '/reference/findings': { redirect: { to: '/guide/findings', statusCode: 301 } },
+    '/reference/config-errors': { redirect: { to: '/guide/config-errors', statusCode: 301 } },
+    '/reference/api': { redirect: { to: '/guide/api', statusCode: 301 } },
   },
   nitro: {
     cloudflare: {

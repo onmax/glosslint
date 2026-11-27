@@ -2,11 +2,12 @@
 title: Config and glossary errors
 navigation.title: Config errors
 description: "Reference for glosslint config and glossary errors: the C001 to C012 and G001 to G009 codes, what triggers each, and how to fix it."
-navigation.order: 3
+navigation.order: 11
+navigation.group: Reference
 icon: i-lucide-shield-alert
 ---
 
-glosslint validates [`.agents/glossary.md`](/guide/glossary) and [`defineCorpus`](/guide/corpus) as soon as they load, so typos, bad fields, and invalid glossary entries fail with a stable code, a reason, and a fix. Read this reference when `fromGlossary`, `readGlossary`, `defineCorpus`, `glosslint/eslint`, or the CLI reports a config or glossary problem.
+glosslint validates [`.agents/glossary.md`](/glossary) and [`defineCorpus`](/guide/corpus) as soon as they load, so typos, bad fields, and invalid glossary entries fail with a stable code, a reason, and a fix. Read this reference when `fromGlossary`, `readGlossary`, `defineCorpus`, `glosslint/eslint`, or the CLI reports a config or glossary problem.
 
 ## Error output and exit code
 
@@ -31,7 +32,7 @@ In code, `defineCorpus`, `fromGlossary`, and `glosslint/eslint` throw a `Glossli
 
 The error's `message` is `why`, with ` (term "<term>")` appended when `term` is set.
 
-`CONFIG_ERRORS`, exported from `glosslint`, maps corpus and loader error names to their codes (`GLOSSLINT_C001` through `GLOSSLINT_C009`, `GLOSSLINT_C011`, and `GLOSSLINT_C012`). The CLI also reports `GLOSSLINT_C010` when importing the `--corpus` module throws and `GLOSSLINT_USAGE` when command-line flags or paths are wrong. See [JavaScript API](/reference/api).
+`CONFIG_ERRORS`, exported from `glosslint`, maps corpus and loader error names to their codes (`GLOSSLINT_C001` through `GLOSSLINT_C009`, `GLOSSLINT_C011`, and `GLOSSLINT_C012`). The CLI also reports `GLOSSLINT_C010` when importing the `--corpus` module throws and `GLOSSLINT_USAGE` when command-line flags or paths are wrong. See [JavaScript API](/guide/api).
 
 ## All error codes
 
@@ -173,7 +174,7 @@ Fix: narrow the avoid word or adjust the example so `Good` passes and `Bad` trig
 { term: "Dock", avoid: ["rack"] }
 ```
 
-See [Term fields](/guide/glossary#term-fields) and [TypeScript-only term fields](/guide/corpus#typescript-only-term-fields) for all accepted field names.
+See [Term fields](/glossary#term-fields) and [TypeScript-only term fields](/guide/corpus#typescript-only-term-fields) for all accepted field names.
 
 ### GLOSSLINT_C002
 

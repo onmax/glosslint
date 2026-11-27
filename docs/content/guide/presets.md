@@ -17,7 +17,7 @@ glosslint ships two presets, `tech` and `inclusive`. Their keys do not overlap, 
 
 ## Use a preset
 
-List presets under `Presets:` in [`.agents/glossary.md`](/guide/glossary):
+List presets under `Presets:` in [`.agents/glossary.md`](/glossary):
 
 ```md [.agents/glossary.md]
 # Glossary

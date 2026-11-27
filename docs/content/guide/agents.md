@@ -5,7 +5,7 @@ navigation.order: 9
 icon: i-lucide-bot
 ---
 
-Coding agents read [`.agents/glossary.md`](/guide/glossary) directly, the same file ESLint, Oxlint, x18n, and the CLI check. Add a script in `package.json` and run it in CI:
+Coding agents read [`.agents/glossary.md`](/glossary) directly, the same file ESLint, Oxlint, x18n, and the CLI check. Add a script in `package.json` and run it in CI:
 
 ```json [package.json]
 {
@@ -28,7 +28,7 @@ Put a link to the format guide under the glossary's title so an agent opening th
 ```md [.agents/glossary.md]
 # Glossary
 
-<!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
+<!-- Format and checks: https://glosslint.onmax.me/glossary -->
 ```
 
 If you also use [`defineCorpus`](/guide/corpus), pass its module with `--corpus`: export the merged corpus with `npx glosslint print --corpus <module>` and run `npx glosslint test --corpus <module>` after changes. See [CLI](/integrations/cli#print).
@@ -54,7 +54,7 @@ Dock
   Related: Station
 ```
 
-See [Findings](/reference/findings) for the JSON output and [CLI](/integrations/cli) for all commands.
+See [Findings](/guide/findings) for the JSON output and [CLI](/integrations/cli) for all commands.
 
 ## Markdown docs
 

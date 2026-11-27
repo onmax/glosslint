@@ -5,7 +5,7 @@ navigation.order: 4
 icon: i-lucide-book-marked
 ---
 
-Most projects only need [`.agents/glossary.md`](/guide/glossary). Build a corpus in TypeScript with `defineCorpus` when you need options the glossary has no field for (`skip`, `forms`, `translations`, `wholeLabel`) or want to merge corpora across packages, then pass it to the tool that needs it. There is no config file that glosslint finds on its own.
+Most projects only need [`.agents/glossary.md`](/glossary). Build a corpus in TypeScript with `defineCorpus` when you need options the glossary has no field for (`skip`, `forms`, `translations`, `wholeLabel`) or want to merge corpora across packages, then pass it to the tool that needs it. There is no config file that glosslint finds on its own.
 
 ```ts
 import { defineCorpus, fromGlossary } from "glosslint";
@@ -29,7 +29,7 @@ const corpus = defineCorpus({
 });
 ```
 
-`fromGlossary()` reads `.agents/glossary.md` from the working directory; pass `fromGlossary(new URL("./docs/glossary.md", import.meta.url))` for another path. `defineCorpus` validates on load and throws `GlosslintConfigError` on mistakes ([Config and glossary errors](/reference/config-errors)).
+`fromGlossary()` reads `.agents/glossary.md` from the working directory; pass `fromGlossary(new URL("./docs/glossary.md", import.meta.url))` for another path. `defineCorpus` validates on load and throws `GlosslintConfigError` on mistakes ([Config and glossary errors](/guide/config-errors)).
 
 ## Pass the corpus to a tool
 
@@ -45,14 +45,14 @@ Write the corpus inline in the tool's config, or export it from any module and i
 | Field | What it does |
 | --- | --- |
 | `extends` | Corpora merged first: `fromGlossary(...)`, [presets](/guide/presets), or another `defineCorpus(...)` ([Merge order](#merge-order)). |
-| `terms` | Term objects. Shared fields match [The glossary file](/guide/glossary); TypeScript-only fields follow below. |
+| `terms` | Term objects. Shared fields match [The glossary file](/glossary); TypeScript-only fields follow below. |
 | `allow` | Phrases never reported ([Allowing phrases](#allowing-phrases)). |
 | `casing` | Default style for `context` terms: `{ label, header, sentence }` ([Casing rules](/guide/casing)). |
 | `wholeLabel` | Set `true` to check every word of a label or header holding a `context` term ([Casing rules](/guide/casing)). |
 
 ## TypeScript-only term fields
 
-Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `examples`, `links`, `case`, `casing`) are documented in [The glossary file](/guide/glossary). These three exist only in `defineCorpus`:
+Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `examples`, `links`, `case`, `casing`) are documented in [The glossary file](/glossary). These three exist only in `defineCorpus`:
 
 | Property | What it does |
 | --- | --- |

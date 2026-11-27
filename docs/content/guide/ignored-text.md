@@ -5,7 +5,7 @@ navigation.order: 6
 icon: i-lucide-eye-off
 ---
 
-glosslint blanks code-like spans before matching so only user-facing words are checked. To ignore a real phrase, add it to `Allow:` in [`.agents/glossary.md`](/guide/glossary) or `allow` in [`defineCorpus`](/guide/corpus).
+glosslint blanks code-like spans before matching so only user-facing words are checked. To ignore a real phrase, add it to `Allow:` in [`.agents/glossary.md`](/glossary) or `allow` in [`defineCorpus`](/guide/corpus).
 
 ## Everywhere
 

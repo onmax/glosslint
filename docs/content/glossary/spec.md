@@ -1,14 +1,14 @@
 ---
 title: Glossary spec
 navigation.title: Glossary spec
-navigation.order: 5
+navigation.order: 2
 description: File format specification for .agents/glossary.md, covering structure, fields, value rules, validation, and parsed JSON output.
 icon: i-lucide-file-code
 ---
 
 `.agents/glossary.md` is a plain UTF-8 Markdown file (without a byte order mark) that defines a project's vocabulary: preferred terms, meanings, usage notes, words to avoid, examples, links, and casing rules. It is written to be read as raw source by people and coding agents, and parsed by any tool that needs a shared glossary, such as a linter, editor plugin, translation tool, or documentation script.
 
-Tools look for `.agents/glossary.md` relative to the project root by default. For glosslint's CLI, linter integrations, and `doctor` command, see [The glossary file](/guide/glossary).
+Tools look for `.agents/glossary.md` relative to the project root by default. For glosslint's CLI, linter integrations, and `doctor` command, see [The glossary file](/glossary).
 
 In this spec, **must** marks a rule that makes a file invalid when broken, **should** marks canonical form that a tolerant reader may still accept and normalize, and **may** marks an optional feature.
 
@@ -191,7 +191,7 @@ When building a term object:
 
 ## Validation and errors
 
-Readers separate structural errors (which must reject the file) from canonical-form warnings (which tolerant readers may normalize and load). For glosslint's exact error codes, `GlosslintConfigError` shape, and exit codes, see [Config and glossary errors](/reference/config-errors).
+Readers separate structural errors (which must reject the file) from canonical-form warnings (which tolerant readers may normalize and load). For glosslint's exact error codes, `GlosslintConfigError` shape, and exit codes, see [Config and glossary errors](/guide/config-errors).
 
 ### Blocking errors
 
@@ -225,7 +225,7 @@ This canonical glossary file parses with no warnings into the JSON object shown 
 ```md [.agents/glossary.md]
 # Glossary
 
-<!-- Format spec: https://glosslint.onmax.me/spec -->
+<!-- Format spec: https://glosslint.onmax.me/glossary/spec -->
 
 The words the rider app and the help center use.
 

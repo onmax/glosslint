@@ -33,7 +33,7 @@ Bad:
 ## eBike
 ```
 
-`eBike` defaults to `Case: exact` because of its inner capital. See [The glossary file](/guide/glossary) for every field.
+`eBike` defaults to `Case: exact` because of its inner capital. See [The glossary file](/glossary) for every field.
 
 ### Validate with `doctor`
 

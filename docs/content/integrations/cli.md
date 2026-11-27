@@ -38,13 +38,13 @@ Passing both `--corpus` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. A mis
 | `1` | `check` found something, `doctor` has problems remaining, a `test` example failed, or `explain` found no term. |
 | `2` | The glossary or corpus module is missing or invalid, or the command line is wrong. The error goes to stderr. |
 
-See [Config and glossary errors](/reference/config-errors) for every error code.
+See [Config and glossary errors](/guide/config-errors) for every error code.
 
 ## check
 
 `check` is the default command. It reads files, folders, and glob patterns. With no path, it reads the current folder.
 
-When given a folder, `check` reads `.md`, `.mdx`, and `.txt` files while skipping `node_modules` and `.git`. The glossary file loaded directly (`.agents/glossary.md` or `--glossary <path>`) is always skipped, even if you name it or check its parent folder. Pass `--ext md,mdx` to change which extensions it reads in folders. Pass `--format json` to print machine-readable output; see [Findings](/reference/findings) for the JSON schema.
+When given a folder, `check` reads `.md`, `.mdx`, and `.txt` files while skipping `node_modules` and `.git`. The glossary file loaded directly (`.agents/glossary.md` or `--glossary <path>`) is always skipped, even if you name it or check its parent folder. Pass `--ext md,mdx` to change which extensions it reads in folders. Pass `--format json` to print machine-readable output; see [Findings](/guide/findings) for the JSON schema.
 
 In Markdown files, `check` skips frontmatter, fenced and inline code, HTML comments and tags, link targets, and reference definitions. In MDX files, it also skips `import` and `export` lines. It reads headings as labels, each table cell on its own with the first row as headers, and paragraphs and list items as sentences. In `.md` and `.markdown` files, it skips Comark (MDC) component markup like `::note` and `#title`, starts a new paragraph on the first line inside a component, and still checks component and slot text plus text props, reading `title` as a label.
 
@@ -87,7 +87,7 @@ The heading "Buying a day pass" is a label, so Day Pass takes Title Case there. 
 
 ## doctor
 
-`doctor` lints `.agents/glossary.md` (or `--glossary <path>`) against the [glossary file format](/guide/glossary) (`GLOSSLINT_G001` to `GLOSSLINT_G008`) and tests every term's `Good` and `Bad` examples against the file's own corpus (`GLOSSLINT_G009`). Pass `--format json` to print `{ problems, summary }`.
+`doctor` lints `.agents/glossary.md` (or `--glossary <path>`) against the [glossary file format](/glossary) (`GLOSSLINT_G001` to `GLOSSLINT_G008`) and tests every term's `Good` and `Bad` examples against the file's own corpus (`GLOSSLINT_G009`). Pass `--format json` to print `{ problems, summary }`.
 
 On a clean file such as `examples/basic/.agents/glossary.md`, `doctor` exits `0`:
 
@@ -135,7 +135,7 @@ When the file has problems, `doctor` prints each one with its code, file and lin
 
 Pass `--fix` to rewrite fixable problems (`GLOSSLINT_G001` to `GLOSSLINT_G003`) into canonical form while keeping term order, introduction prose, and field text. If any problem from `GLOSSLINT_G004` to `GLOSSLINT_G008` is present, `--fix` leaves the file untouched so it never drops text and exits `1`. Running `doctor --fix` a second time on a clean file changes no byte.
 
-See [Config and glossary errors](/reference/config-errors#glossary-problem-codes) for every `GLOSSLINT_G00x` code.
+See [Config and glossary errors](/guide/config-errors#glossary-problem-codes) for every `GLOSSLINT_G00x` code.
 
 ## test
 
