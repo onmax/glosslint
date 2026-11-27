@@ -173,6 +173,29 @@ describe("readGlossary", () => {
     expect(codes(`${head}## Dock\nWhat:\n`)).toEqual(["GLOSSLINT_G006"]);
   });
 
+  it("reads an HTML comment as its own block: fine in the introduction, G004 among the fields", () => {
+    const allow = "Allow: roof rack\n\n## Dock\nAvoid: rack\n";
+    const before = readGlossary(`# Glossary\n\n<!-- kept for the anchors -->\n${allow}`);
+    expect(before.problems.map((problem) => `${problem.code} ${problem.line}`)).toEqual([
+      "GLOSSLINT_G003 4",
+    ]);
+    expect(before.corpus?.allow).toEqual(["roof rack"]);
+    expect(before.fixed).toBe(`# Glossary\n\n<!-- kept for the anchors -->\n\n${allow}`);
+    expect(readGlossary(`# Glossary\n\nIntro.\n<!-- a note -->\n${allow}`).corpus?.allow).toEqual([
+      "roof rack",
+    ]);
+    const after = readGlossary(
+      `# Glossary\n\nAllow: roof rack\n<!-- a note -->\n\n## Dock\nAvoid: rack\n`,
+    );
+    expect(
+      after.problems.map((problem) => `${problem.code} ${problem.line} ${problem.why}`),
+    ).toEqual(["GLOSSLINT_G004 4 An HTML comment among the fields has no place in a glossary."]);
+    const term = readGlossary("# Glossary\n\n## Dock\n<!-- a note -->\nAvoid: rack\n");
+    expect(
+      term.problems.map((problem) => `${problem.code} ${problem.line} ${problem.term}`),
+    ).toEqual(["GLOSSLINT_G004 4 Dock"]);
+  });
+
   it("reads Extends as Presets and rewrites it as G002", () => {
     const text = "# Glossary\n\nExtends: tech\n\n## Dock\nAvoid: rack\n";
     const result = readGlossary(text);

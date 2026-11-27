@@ -416,6 +416,22 @@ function spellingWhy(term: Term, written: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Whether `written` is a phrase rather than a split of an exact one-word name: `NuxtApp` is a name,
+ * but "Nuxt app" is two words a space apart, each a word of its own. "E Bike" is still `eBike`, since
+ * `E` is no word, and so is "Nuxt-app", which joins its words. Listing the spaced form as an avoid
+ * word, as the tech preset does for "web assembly", reports it again.
+ */
+function isPhrase(entry: Entry, written: string): boolean {
+  if (entry.mode !== "exact" || /\s/.test(entry.canonical)) return false;
+  const words = written.trim().split(/\s+/);
+  if (words.length < 2 || words.some((word) => word.replace(/[^\p{L}\p{N}]/gu, "").length < 2))
+    return false;
+  return !entry.term.avoid?.some(
+    (avoid) => squash(typeof avoid === "string" ? avoid : avoid.word) === squash(written),
+  );
+}
+
 /** A lowercase word against a slash, as in `nuxt/nuxt` or `nuxt/modules`, names a repository or path. */
 function againstSlash(text: string, hit: { start: number; end: number }): boolean {
   return (
@@ -524,6 +540,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
   const withSymbols =
     (text: string) =>
     (hit: Hit<Entry>): Hit<Entry> | undefined => {
+      if (isPhrase(hit.value, text.slice(hit.start, hit.end - hit.suffix.length))) return undefined;
       const { lead, trail } = hit.value;
       if (lead === "" && trail === "") return hit;
       if (trail !== "" && hit.suffix !== "") return undefined;

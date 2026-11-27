@@ -108,6 +108,20 @@ describe("CASE", () => {
     expect(hits("Bikeshare")).toEqual(["CASE Bikeshare -> BikeShare"]);
   });
 
+  it("exact: reads a CamelCase name split at spaces as a phrase, not the name", () => {
+    expect(hits("Join the bike share, or the Bike Share app")).toEqual([]);
+    expect(hits("two bike shares")).toEqual([]);
+    expect(hits("the Bike-Share")).toEqual(["TERM Bike-Share -> BikeShare"]);
+    // A one-letter word is still part of the name.
+    expect(hits("an E Bike")).toEqual(["TERM E Bike -> eBike"]);
+    const listed = createMatcher(
+      defineCorpus({ terms: [{ term: "WebAssembly", case: "exact", avoid: ["web assembly"] }] }),
+    );
+    expect(hits("Web assembly and web assemblies", undefined, listed)).toEqual([
+      "TERM Web assembly -> WebAssembly",
+    ]);
+  });
+
   it("abbr: always exact, whatever the term's mode, and plurals keep a lowercase s", () => {
     expect(hits("Your Dp")).toEqual(["CASE Dp -> DP"]);
     expect(hits("Two DPs and two DPS")).toEqual([]);

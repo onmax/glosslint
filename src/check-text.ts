@@ -12,6 +12,8 @@ const FRONTMATTER = /^(?:---|\+\+\+)\r?\n[\s\S]*?\r?\n(?:---|\+\+\+|\.\.\.)[ \t]
 // A fence may sit in a list item or a blockquote: `- ```ts`, `> ~~~`.
 const FENCE = /^[ \t]*((?:>[ \t]?)*)[ \t]*((?:[-*+]|\d{1,9}[.)])[ \t]+)?(`{3,}|~{3,})([^\n]*)$/;
 const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
+/** `<!-- glosslint-ignore -->`, with an optional reason after a space or colon. */
+const IGNORE = /<!--\s*glosslint-ignore(?:[\s:][\s\S]*?)?-->/;
 // A code span never crosses a blank line, written with LF or CRLF.
 const INLINE_CODE = /(?<!`)(`+)(?!`)(?:(?!\r?\n[ \t]*\r?\n)[\s\S])*?[^`]\1(?!`)/g;
 const LINK_REFERENCE = /(?<=\])\[[^\]\n]*\]/g;
@@ -32,11 +34,32 @@ export function maskMarkdown(text: string, options: { mdx?: boolean } = {}): str
   return maskMarkdownParts(text, options).masked;
 }
 
+/**
+ * The lines `<!-- glosslint-ignore -->` comments skip, 0-based: a comment alone on its line skips the
+ * next line with text, such as a heading kept for its anchor, and one beside text skips its own line.
+ * `lines` has its fenced code blanked, so a comment inside a code block skips nothing.
+ */
+function ignoredLines(lines: readonly string[]): Set<number> {
+  const ignored = new Set<number>();
+  for (const [index, line] of lines.entries()) {
+    const comment = IGNORE.exec(line);
+    if (!comment) continue;
+    if (line.replace(comment[0], "").trim() !== "") {
+      ignored.add(index);
+      continue;
+    }
+    let next = index + 1;
+    while (next < lines.length && lines[next]!.trim() === "") next++;
+    if (next < lines.length) ignored.add(next);
+  }
+  return ignored;
+}
+
 /** {@link maskMarkdown}, plus the Comark text props it blanked, which are checked on their own. */
 function maskMarkdownParts(
   text: string,
   options: { mdx?: boolean },
-): { masked: string; props: ComarkProp[] } {
+): { masked: string; props: ComarkProp[]; ignored: Set<number> } {
   let out = text.replace(FRONTMATTER, blank);
   const lines = out.split("\n");
   // The open fence's marker and blockquote depth; it closes only at the same depth, never on a list item.
@@ -63,6 +86,7 @@ function maskMarkdownParts(
       lines[index] = blank(line);
     }
   }
+  const ignored = ignoredLines(lines);
   out = lines.join("\n").replace(HTML_COMMENT, blank).replace(INLINE_CODE, blank);
   // MDX reads `{...}` as code and has no Comark syntax.
   let props: ComarkProp[] = [];
@@ -84,7 +108,7 @@ function maskMarkdownParts(
       return masked;
     })
     .join("\n");
-  return { masked, props };
+  return { masked, props, ignored };
 }
 
 const TABLE_DELIMITER = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*\r?$/;
@@ -155,9 +179,9 @@ export function checkFileText(
   options: { markdown?: boolean; mdx?: boolean } = {},
 ): CliFinding[] {
   const markdown = options.markdown ?? false;
-  const { masked, props } = markdown
+  const { masked, props, ignored } = markdown
     ? maskMarkdownParts(text, { mdx: options.mdx ?? false })
-    : { masked: text, props: [] };
+    : { masked: text, props: [], ignored: new Set<number>() };
   const lineStarts = [0];
   for (let index = text.indexOf("\n"); index !== -1; index = text.indexOf("\n", index + 1))
     lineStarts.push(index + 1);
@@ -188,6 +212,7 @@ export function checkFileText(
       const start = block.start + finding.start;
       const end = block.start + finding.end;
       const line = lineOf(start);
+      if (ignored.has(line)) continue;
       const lineStart = lineStarts[line]!;
       findings.push(
         toCliFinding(finding, {

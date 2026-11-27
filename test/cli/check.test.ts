@@ -206,6 +206,25 @@ describe("Markdown masking", () => {
     expect(check(text)).toEqual([]);
   });
 
+  it("skips the line after a glosslint-ignore comment, or the line it sits on", () => {
+    const text = [
+      "<!-- glosslint-ignore: the #racks anchor -->",
+      "",
+      "## Racks",
+      "A rack. <!-- glosslint-ignore -->",
+      "Another rack.",
+      "",
+      "```md",
+      "<!-- glosslint-ignore -->",
+      "```",
+      "A rack after a fence.",
+    ].join("\n");
+    expect(check(text).map((finding) => [finding.line, finding.text])).toEqual([
+      [5, "rack"],
+      [10, "rack"],
+    ]);
+  });
+
   it("masks fences in list items and blockquotes", () => {
     expect(check("- ```\n  rack\n  ```\n\n> ~~~\n> rack\n> ~~~\n")).toEqual([]);
   });
