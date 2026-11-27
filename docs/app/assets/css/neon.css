@@ -275,6 +275,31 @@ html.vh-docs .vh-docs-header button[aria-label^="Switch to"] .iconify {
 
 /* ---- Playground ---- */
 
+/* The workspace fills the page up to the viewport edges and the sidebar's rule, so it needs no frame or rounded corners. */
+html.vh-docs .vh-ws-shell {
+  border: 0;
+  border-radius: 0;
+}
+
+/* The output (Output, Issues, Terminal) sits under the files and the editor, as a terminal does in an editor, so code
+   lines and terminal lines both get the full width. ViteHub's code/output handle measures across, so it hides here. */
+html.vh-docs .vh-ws-shell--side > .vh-ws-body {
+  flex-direction: column;
+}
+
+html.vh-docs .vh-ws-shell--side > .vh-ws-body > .vh-ws-code {
+  flex: 1 1 0 !important;
+}
+
+html.vh-docs .vh-ws-shell--side > .vh-ws-body > .vh-ws-separator {
+  display: none;
+}
+
+html.vh-docs .vh-ws-shell--side > .vh-ws-body > .vh-ws-pane--output {
+  flex: 0 0 40%;
+  border-top: 1px solid var(--vh-border);
+}
+
 /* The workspace bar (issue count, Reset, Download, Copy link) sits under the code and the terminal, not over them. */
 html.vh-docs .vh-ws-shell > .vh-ws-bar {
   order: 1;
