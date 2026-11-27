@@ -125,7 +125,7 @@ For short lists, put entries on one line separated by commas, wrapping any word 
 Avoid: rack, stand, `bay, berth`: Old words.
 ```
 
-A finding prints the avoid entry's own reason first, then falls back to the term's `Why` and `How`. Plurals ending in `s` or `es` match automatically, so `rack` also flags `"racks"` and suggests `"docks"`. An avoid word cannot be the term itself or another term in the same file, so use `Case: exact` if you only want to enforce capitalization.
+A finding prints the avoid entry's own reason first, then falls back to the term's `Why` and `How`. Plurals ending in `s` or `es` match automatically, so `rack` also flags `"racks"` and suggests `"docks"`. An avoid word that ends in `ed` or `ing` where the term ends in the same word without it keeps that ending in its fix: `automatically imported` under `Auto-import` suggests `"auto-imported"`. An avoid word cannot be the term itself or another term in the same file, so use `Case: exact` if you only want to enforce capitalization. An avoid word split by a space or hyphen that spells a form of the term, such as `pre-rendered` under `Prerendering`, is a spelling: glosslint reports it as `GLOSSLINT_TERM` with the entry's reason and leaves `"prerendered"` alone.
 
 ## Layout
 

@@ -15,6 +15,8 @@ Use the default `spelling` mode for most terms, `exact` for names that keep one 
 | `exact` | One form must appear everywhere. | `"E-bike"` and `"Ebike"` → `"eBike"` |
 | `context` | Capitals depend on where the text is: Title Case in labels, lowercase in sentences. | `"Buy a day pass"` → `"Buy a Day Pass"` on a button; `"Buy a day pass at the kiosk."` in a sentence |
 
+Every term matches its plurals. Outside `exact`, it also matches its `ed` and `ing` forms, and a term ending in `ing` matches its stem: under `Prerendering`, `"pre-rendered"` → `"prerendered"` and `"pre-renders"` → `"prerenders"`. glosslint checks only the spelling of an `ed` or `ing` form, so `"Another Day Passed"` in a label is not a `Day Pass`. It doesn't read doubled consonants, as in `"shipped"`.
+
 ```md [.agents/glossary.md]
 # Glossary
 

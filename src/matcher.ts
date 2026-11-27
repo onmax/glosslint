@@ -47,6 +47,8 @@ interface AvoidEntry {
   word: string;
   why?: string;
   caseSensitive: boolean;
+  /** The `ed` or `ing` the avoid word ends with, which the fix keeps, or "". */
+  ending: string;
 }
 
 interface Hit<T> {
@@ -55,8 +57,21 @@ interface Hit<T> {
   end: number;
   /** Index of the first word past the hit. */
   next: number;
-  /** The plural ending as written, such as `s` or `ES`, or "". */
+  /** The ending as written past the matched form, such as `s`, `ES`, `ed` or `ing`, or "". */
   suffix: string;
+  /** Letters to drop from the end of the canonical form before the ending goes on: the `e` of `cache` before `ing`, the `ing` of `prerendering`. */
+  cut: number;
+  /** Whether the ending is `ed` or `ing`, or a form of a term that ends in `ing`, which only a different spelling reports. */
+  verb: boolean;
+}
+
+/** A key found as written or as one of its inflected forms. */
+interface Found<T> {
+  value: T;
+  /** Letters of the key past the form, which the text holds as the ending. */
+  suffix: number;
+  cut?: number;
+  verb?: boolean;
 }
 
 interface Word {
@@ -171,6 +186,40 @@ function plural(word: string): string {
   return word + (isAllCaps(word) ? ending.toUpperCase() : ending);
 }
 
+/**
+ * The `ed` or `ing` that `word` ends with where `canonical` ends with the same word without it, as
+ * `automatically imported` does for Auto-import, so the fix is "auto-imported". Else "".
+ */
+function endingOf(word: string, canonical: string): string {
+  const last = splitWords(word).at(-1)?.toLowerCase() ?? "";
+  const key = termKey(canonical);
+  for (const ending of ["ing", "ed"]) {
+    if (!last.endsWith(ending)) continue;
+    const stem = last.slice(0, -ending.length);
+    if (!(stem.length >= 3 && (key.endsWith(stem) || key.endsWith(`${stem}e`)))) continue;
+    // `canceling` avoided for Cancel wants another form than glosslint writes, so its fix is the term.
+    return termKey(inflect(canonical, ending)) === termKey(word) ? "" : ending;
+  }
+  return "";
+}
+
+/**
+ * Adds `ed` or `ing` to `word`. After a final `e`, `ed` adds only `d` (freed, tied). Before `ing`,
+ * `ie` becomes `y` (tying), `ee`, `ye` and `oe` keep their `e` (freeing, dyeing, hoeing), and any
+ * other final `e` drops (caching).
+ */
+function inflect(word: string, ending: string): string {
+  if (ending === "") return word;
+  const upper = isAllCaps(word);
+  let out = word + ending;
+  if (/e$/i.test(word)) {
+    if (ending === "ed") out = `${word}d`;
+    else if (/ie$/i.test(word)) out = `${word.slice(0, -2)}ying`;
+    else if (!/[eyo]e$/i.test(word)) out = `${word.slice(0, -1)}ing`;
+  }
+  return upper ? out.toUpperCase() : out;
+}
+
 function withSuffix(replace: string, suffix: string, abbr: boolean): string {
   if (suffix === "") return replace;
   if (hasLower(replace) || abbr) return replace + suffix.toLowerCase();
@@ -233,10 +282,7 @@ function makeFinding(
 }
 
 /** Finds a key in `map`, as written or as a plural ending in `s` or `es`. */
-function lookup<T>(
-  map: ReadonlyMap<string, T>,
-  key: string,
-): { value: T; suffix: number } | undefined {
+function lookup<T>(map: ReadonlyMap<string, T>, key: string): Found<T> | undefined {
   const exact = map.get(key);
   if (exact) return { value: exact, suffix: 0 };
   if (key.length > 2 && key.endsWith("s")) {
@@ -248,6 +294,33 @@ function lookup<T>(
   return undefined;
 }
 
+/**
+ * Words of a term in another form: `ed` and `ing` endings, with the `e` of `cache` dropped before
+ * `ing`, from `verbs`; and the stem forms of a term that ends in `ing`, so `prerendered` and
+ * `prerenders` find Prerendering, from `stems`. A doubled consonant, as in `shipped`, is not read.
+ */
+function inflected<T>(
+  verbs: ReadonlyMap<string, T>,
+  stems: ReadonlyMap<string, T>,
+  key: string,
+): Found<T> | undefined {
+  const tries: Array<[stem: string, suffix: number, cut: number, map: ReadonlyMap<string, T>]> = [];
+  if (key.endsWith("ing"))
+    tries.push([key.slice(0, -3), 3, 0, verbs], [`${key.slice(0, -3)}e`, 3, 1, verbs]);
+  if (key.endsWith("ed"))
+    tries.push([key.slice(0, -2), 2, 0, verbs], [key.slice(0, -1), 1, 0, verbs]);
+  // A stem is its term's key without `ing`, so the term's own canonical form loses three letters.
+  tries.push([key, 0, 3, stems]);
+  if (key.endsWith("s")) tries.push([key.slice(0, -1), 1, 3, stems]);
+  if (key.endsWith("ed")) tries.push([key.slice(0, -2), 2, 3, stems]);
+  for (const [stem, suffix, cut, map] of tries) {
+    if (stem.length < 3) continue;
+    const value = map.get(stem);
+    if (value) return { value, suffix, cut, verb: true };
+  }
+  return undefined;
+}
+
 /** The longest run of words from `index` whose joined key `find` knows, up to `max` words. */
 function longest<T>(
   text: string,
@@ -255,12 +328,7 @@ function longest<T>(
   index: number,
   max: number,
   gap: (between: string) => boolean,
-  find: (
-    key: string,
-  ) =>
-    | { value: T; suffix: number }
-    | ReadonlyArray<{ value: T; suffix: number } | undefined>
-    | undefined,
+  find: (key: string) => Found<T> | ReadonlyArray<Found<T> | undefined> | undefined,
   accept: (hit: Hit<T>) => Hit<T> | undefined = (hit) => hit,
 ): Hit<T> | undefined {
   let count = 1;
@@ -283,6 +351,8 @@ function longest<T>(
         end,
         next: index + n,
         suffix: text.slice(end - candidate.suffix, end),
+        cut: candidate.cut ?? 0,
+        verb: candidate.verb ?? false,
       });
       if (hit) return hit;
     }
@@ -340,6 +410,15 @@ function allowPattern(phrase: string): RegExp {
     .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("[\\s\\-‐‑_]+");
   return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?:e?s)?(?![\\p{L}\\p{N}])`, "giu");
+}
+
+/** The reason of the term's avoid entry written like `written`, such as `pre-rendered: One word.` */
+function spellingWhy(term: Term, written: string): string | undefined {
+  const flat = (text: string) => spaced(text).toLowerCase();
+  for (const avoid of term.avoid ?? [])
+    if (typeof avoid !== "string" && avoid.why && flat(avoid.word) === flat(written))
+      return avoid.why;
+  return undefined;
 }
 
 /**
@@ -404,14 +483,26 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
       maxWords = Math.max(maxWords, words.length);
     }
   }
+  // Only words take `ed` and `ing`: an exact term is a name, and a term with symbols, such as `C#`, takes no ending.
+  const verbs = new Map<string, Entry>();
+  const stems = new Map<string, Entry>();
+  for (const [key, entry] of terms) {
+    if (entry.mode === "exact" || entry.lead || entry.trail) continue;
+    verbs.set(key, entry);
+    if (key.length > 5 && key.endsWith("ing") && /ing$/i.test(entry.canonical))
+      stems.set(key.slice(0, -3), entry);
+  }
+  const findForm = (key: string) => lookup(terms, key) ?? inflected(verbs, stems, key);
   const avoids = new Map<string, AvoidEntry>();
   let maxAvoidWords = 1;
   for (const entry of terms.values()) {
     for (const avoid of entry.term.avoid ?? []) {
       const { word, why } = typeof avoid === "string" ? { word: avoid, why: undefined } : avoid;
       const key = termKey(word);
-      // An avoid word with a term's key is a spelling of that term, which the TERM pass reports.
-      if (terms.has(key)) continue;
+      // An avoid word with a term's key is a spelling of that term, which the TERM pass reports, and
+      // so is one split by a space or hyphen with the key of a term's form, such as `pre-rendered`.
+      // `canceling`, written as one word, is a form the writer wants avoided.
+      if (terms.has(key) || (/[\s\-‐‑_]/.test(word.trim()) && findForm(key))) continue;
       avoids.delete(key);
       avoids.set(key, {
         term: entry.term,
@@ -419,6 +510,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         word,
         ...(why ? { why } : {}),
         caseSensitive: /\p{Lu}{2}/u.test(word),
+        ending: endingOf(word, entry.canonical),
       });
       maxAvoidWords = Math.max(maxAvoidWords, splitWords(word).length);
     }
@@ -448,7 +540,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
   const textGap = (between: string): boolean => WORD_GAP.test(between);
   const avoidGap = (between: string): boolean => WORD_GAP.test(between.replace(/^\./, ""));
   // `C++` and the abbreviation `C#` share the key `c`, so both are tried until one's symbols fit.
-  const findTerm = (key: string) => [lookup(terms, key), lookup(abbrs, key)];
+  const findTerm = (key: string) => [findForm(key), lookup(abbrs, key)];
   // A term with symbols, such as `C#` or `.NET`, matches only where the text holds them too, and its hit covers them.
   const withSymbols =
     (text: string) =>
@@ -467,6 +559,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     const written = text.slice(hit.start, hit.end);
     const surface = written.slice(0, written.length - hit.suffix.length);
     const exact = entry.mode === "exact" || entry.mode === "abbr";
+    const canonical = hit.cut ? entry.canonical.slice(0, -hit.cut) : entry.canonical;
     // An abbreviation in lowercase prose is usually another word or a unit: leave it.
     if (entry.mode === "abbr" && !/\p{Lu}/u.test(surface)) return undefined;
     // case-police's rule: a preset term written all lowercase or all caps passes, whatever its spelling.
@@ -478,17 +571,22 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     const style = styleOf(entry.term, kind);
     const contextWant =
       entry.mode === "context" && style
-        ? applyStyle(style, entry.canonical, startsSentence(text, hit.start))
+        ? applyStyle(style, canonical, startsSentence(text, hit.start))
         : undefined;
     // Where the style is ALL CAPS, any term written in capitals fits, abbreviations and exact terms too.
     const shouted = style === "upper" && !hasLower(surface);
-    if (squash(surface) !== squash(entry.canonical)) {
+    if (squash(surface) !== squash(canonical)) {
       const base = shouted
-        ? entry.canonical.toUpperCase()
+        ? canonical.toUpperCase()
         : exact
-          ? entry.canonical
-          : (contextWant ?? keepCapitals(entry.canonical, surface));
-      const replace = withSuffix(base, hit.suffix, entry.mode === "abbr");
+          ? canonical
+          : (contextWant ?? keepCapitals(canonical, surface));
+      // `cache-ed` and `cache-ing` keep the `e` of `cache` in the text, so the fix inflects it: "cached", "caching".
+      const ending = hit.verb ? hit.suffix.toLowerCase() : "";
+      const replace =
+        ending === "ed" || ending === "ing"
+          ? inflect(base, ending)
+          : withSuffix(base, hit.suffix, entry.mode === "abbr");
       return makeFinding(
         "GLOSSLINT_TERM",
         hit.start,
@@ -497,9 +595,11 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
         entry.term,
         `"${written}" is spelled "${replace}".`,
         fixable ? { kind: "autofix", replace } : undefined,
+        spellingWhy(entry.term, written),
       );
     }
-    if (shouted) return undefined;
+    // "Day Passed" in a label is a day that passed, not the term: an `ed` or `ing` form reports only its spelling.
+    if (shouted || hit.verb) return undefined;
     if (againstSlash(text, hit)) return undefined;
     const want = exact ? entry.canonical : contextWant;
     const where = exact || contextWant === undefined ? "" : ` in ${kind}s`;
@@ -542,7 +642,7 @@ export function createMatcher(corpus: Corpus, options: MatcherOptions = {}): Mat
     else if (isAllCaps(surface) && hasLower(avoid.word)) base = entry.canonical.toUpperCase();
     else if (isUpper(surface.charAt(0))) base = upperFirst(entry.canonical);
     else base = lowerCase(entry.canonical);
-    const replace = hit.suffix ? plural(base) : base;
+    const replace = hit.suffix ? plural(base) : inflect(base, avoid.ending);
     // "a box crate" holds the avoid word "crate", but "a box box" is no fix.
     const words = splitWords(replace).map((word) => word.toLowerCase());
     const before = /([\p{L}\p{N}]+)\s+$/u.exec(text.slice(0, hit.start))?.[1]?.toLowerCase();
