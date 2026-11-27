@@ -7,8 +7,8 @@ import { pathToFileURL } from "node:url";
 import { cac } from "cac";
 import { escapePath, glob, isDynamicPattern } from "tinyglobby";
 import pkg from "../package.json" with { type: "json" };
-import { checkFileText } from "./check-text.ts";
-import { formatDoctor, formatFindings, toJson } from "./format.ts";
+import { checkFileText, fixFileText } from "./check-text.ts";
+import { formatDoctor, formatFindings, formatFixed, toJson } from "./format.ts";
 import { DEFAULT_GLOSSARY, GLOSSARY_PROBLEMS, readGlossary } from "./glossary.ts";
 import type { GlossaryProblem } from "./glossary.ts";
 import { createMatcher } from "./matcher.ts";
@@ -46,6 +46,8 @@ export interface CheckOptions extends CommandOptions {
   format?: string;
   /** File extensions read in folders, comma-separated. Default: `md,mdx,txt`. */
   ext?: string;
+  /** Write every autofix into the files, then report what is left. */
+  fix?: boolean;
 }
 
 /** Options of `glosslint print`. */
@@ -325,7 +327,10 @@ function parseExtensions(ext: string | undefined): string[] {
   return list;
 }
 
-/** `glosslint check`: reports every finding in the files, as text or JSON. Exits 1 on findings. */
+/**
+ * `glosslint check`: reports every finding in the files, as text or JSON, and with `fix` first writes
+ * every autofix into them. Exits 1 on findings left.
+ */
 export async function runCheck(
   paths: readonly string[],
   options: CheckOptions,
@@ -342,20 +347,38 @@ export async function runCheck(
     (file) => loaded.from !== "glossary" || file !== loaded.file,
   );
   const findings: CliFinding[] = [];
+  let fixed = 0;
+  let fixedFiles = 0;
   for (const file of files) {
     const extension = extname(file).toLowerCase();
-    findings.push(
-      ...checkFileText(matcher, readFileSync(file, "utf8"), displayPath(io.cwd, file), {
-        markdown: MARKDOWN.has(extension),
-        mdx: extension === ".mdx",
-      }),
+    const text = readFileSync(file, "utf8");
+    const shown = displayPath(io.cwd, file);
+    const as = { markdown: MARKDOWN.has(extension), mdx: extension === ".mdx" };
+    if (!options.fix) {
+      findings.push(...checkFileText(matcher, text, shown, as));
+      continue;
+    }
+    const result = fixFileText(matcher, text, shown, as);
+    if (result.fixed > 0) {
+      writeFileSync(file, result.text);
+      fixed += result.fixed;
+      fixedFiles++;
+    }
+    findings.push(...result.findings);
+  }
+  if (format === "json") {
+    const report = toJson(findings, files.length, options.fix ? fixed : undefined);
+    io.stdout(`${JSON.stringify(report, null, 2)}\n`);
+  } else {
+    const color = useColor(options, io);
+    io.stdout(
+      `${
+        fixed > 0
+          ? formatFixed(findings, { color, files: files.length, fixed, fixedFiles })
+          : formatFindings(findings, { color, files: files.length })
+      }\n`,
     );
   }
-  if (format === "json") io.stdout(`${JSON.stringify(toJson(findings, files.length), null, 2)}\n`);
-  else
-    io.stdout(
-      `${formatFindings(findings, { color: useColor(options, io), files: files.length })}\n`,
-    );
   return findings.length > 0 ? 1 : 0;
 }
 
@@ -584,6 +607,7 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
     .option("--corpus <module>", corpusOption)
     .option("--format <format>", "Output format: text or json", { default: "text" })
     .option("--ext <list>", "Extensions read in folders, comma-separated (default: md,mdx,txt)")
+    .option("--fix", "Write every finding with one replacement into the files")
     .option("--color", colorOption)
     .action((paths: string[], options: CheckOptions) => {
       run = () => runCheck(paths, options, io);

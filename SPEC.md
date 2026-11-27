@@ -80,6 +80,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 15. **The package.** `glosslint` exports `fromGlossary` and `readGlossary` and no `fromGlossaryTable`, `glosslint/oxlint` resolves, and the built plugin loads in `oxlint`. `test/dist.test.ts`
 16. **The example.** `examples/basic` has `.agents/glossary.md` and no corpus module. Every CLI output the README and docs show, `doctor` included, is what the CLI prints there. `test/example.test.ts`
 17. **`export --merge`.** `export` prints the glossary's own terms, not its presets', as x18n glossary YAML. `--merge` writes them into a YAML file, matching by term or source-locale form with only case, hyphens and spaces ignored, a term before a form, and keeps the file's translations and comments. A term that matches two entries, two terms that match one entry, or translations for an entry marked `doNotTranslate`, exit 2 and write nothing. `test/x18n-merge.test.ts`, `test/cli/export.test.ts`
+18. **`check --fix`.** Every `GLOSSLINT_TERM` and `GLOSSLINT_CASE` fix is written into its file; avoid words, code, frontmatter and ignored lines are left alone. It prints the findings left and exits 1 only on those, a second run changes no byte, and `--format json` adds `fixed` to the summary. `test/cli/fix.test.ts`
 
 ## Shape
 
@@ -101,7 +102,7 @@ glosslint(options?: { glossary?: string | URL, corpus?: Corpus, sourceLocale?, k
 //   "settings": { "glosslint": { "glossary"?: string, "ignoreCallees"?: string[], "identifierAvoid"?: boolean } } }
 
 // CLI
-// glosslint [check] [...paths] [--glossary <path> | --corpus <module>] [--format text|json] [--ext <list>]
+// glosslint [check] [...paths] [--glossary <path> | --corpus <module>] [--format text|json] [--ext <list>] [--fix]
 // glosslint doctor [--glossary <path>] [--fix]
 // glosslint test | print | explain <query>   (same two flags)
 // glosslint export [--merge <file>] [--note full|short] [--source-locale <locale>]   (same two flags)
