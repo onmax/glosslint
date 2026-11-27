@@ -81,6 +81,8 @@ const TERM_FIELDS: readonly FieldSpec[] = [
   { name: "Links", kind: "list" },
   { name: "Case", kind: "value" },
   { name: "Casing", kind: "list", comma: true },
+  { name: "Translations", kind: "list", comma: true },
+  { name: "Forms", kind: "list" },
 ];
 const ALIASES: Record<string, string> = {
   extends: "Presets",
@@ -99,6 +101,10 @@ const FIELD_NAMES = new Set([
 ]);
 const CASE_MODES: readonly CaseMode[] = ["exact", "spelling", "context"];
 const CASING = /^(label|header|sentence)\s+(title|sentence|lower|upper|as-written)$/;
+/** A BCP 47 tag such as `fr`, `de` or `pt-BR`. */
+const LOCALE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+/** The fields whose items are `locale: value`. */
+const LOCALE_FIELDS: ReadonlySet<string> = new Set(["Translations", "Forms"]);
 
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
@@ -281,6 +287,13 @@ function parseAvoid(raw: string): { word: string; why?: string } {
   if (at < 0) return { word: raw.trim() };
   const why = raw.slice(at + 1).trim();
   return why ? { word: raw.slice(0, at).trim(), why } : { word: raw.slice(0, at).trim() };
+}
+
+/** `fr: route serveur` as its locale and value, split at the first colon. */
+function parseLocaleItem(raw: string): { locale: string; value: string } | undefined {
+  const at = raw.indexOf(":");
+  if (at < 0) return undefined;
+  return { locale: raw.slice(0, at).trim(), value: raw.slice(at + 1).trim() };
 }
 
 /** A single word that is one capital or has a capital after its first letter, such as `DP`, `D` or `eB`. */
@@ -729,8 +742,13 @@ class Reader {
     }
     if (name === "Case" && !CASE_MODES.includes(node.value as CaseMode))
       bad(node.line, `Case is "${node.value}".`, `Use ${quoteList(CASE_MODES)}.`);
+    const locales = new Map<string, string>();
     for (const item of node.items) {
       const text = itemText(item);
+      if (text !== "" && LOCALE_FIELDS.has(name)) {
+        this.checkLocaleItem(node, item, locales, term);
+        continue;
+      }
       if (text === "")
         bad(item.line, `An item of ${name} is empty.`, "Write the item, or remove its line.");
       else if (name === "Presets" && !Object.hasOwn(PRESETS, text))
@@ -762,6 +780,64 @@ class Reader {
           );
       }
     }
+  }
+
+  /** Reports a `Translations` or `Forms` item that is not `locale: value`, or whose locale is listed twice. */
+  private checkLocaleItem(
+    node: FieldNode,
+    item: Item,
+    seen: Map<string, string>,
+    term: string | undefined,
+  ): void {
+    const { name } = node.spec;
+    const text = itemText(item);
+    const example = name === "Forms" ? "`fr: routes serveur`" : "`fr: route serveur`";
+    const parsed = parseLocaleItem(text);
+    if (!parsed || parsed.locale === "") {
+      this.add(
+        P.badValue,
+        item.line,
+        `"${text}" in ${name} has no locale.`,
+        `Write it as ${example}: a locale, a colon, then the ${name === "Forms" ? "forms" : "translation"}.`,
+        term,
+      );
+      return;
+    }
+    if (!LOCALE.test(parsed.locale)) {
+      this.add(
+        P.badValue,
+        item.line,
+        `"${parsed.locale}" in ${name} is not a locale.`,
+        "Use a BCP 47 tag such as `fr`, `de` or `pt-BR`.",
+        term,
+      );
+      return;
+    }
+    if (parsed.value === "" || (name === "Forms" && splitCommas(parsed.value).length === 0)) {
+      this.add(
+        P.badValue,
+        item.line,
+        `${parsed.locale} in ${name} has no ${name === "Forms" ? "forms" : "translation"}.`,
+        `Write it after "${parsed.locale}:", or remove the line.`,
+        term,
+      );
+      return;
+    }
+    const key = parsed.locale.toLowerCase();
+    const previous = seen.get(key);
+    if (previous !== undefined) {
+      this.add(
+        P.twice,
+        item.line,
+        `${name} lists ${parsed.locale} twice${term === undefined ? "" : ` in "${term}"`}.`,
+        name === "Forms"
+          ? `Merge the two into one \`${previous}:\` line, with the forms separated by commas.`
+          : `Keep one \`${previous}:\` line.`,
+        term,
+      );
+      return;
+    }
+    seen.set(key, parsed.locale);
   }
 }
 
@@ -844,11 +920,24 @@ function buildTerm(node: TermNode): Term {
   if (links.length) term.links = links;
   const casing = parseCasing(items("Casing"));
   if (Object.keys(casing).length) term.casing = casing;
+  const translations = localeItems(items("Translations"));
+  if (translations.length) term.translations = Object.fromEntries(translations);
+  const forms = localeItems(items("Forms"));
+  if (forms.length)
+    term.forms = Object.fromEntries(forms.map(([locale, value]) => [locale, splitCommas(value)]));
   const mode = field("Case")?.value as CaseMode | undefined;
   if (mode) term.case = mode;
   // Casing without Case makes the term `context`, as in defineCorpus, whatever its name.
   else if (!term.casing && isExactName(node.name)) term.case = "exact";
   return term;
+}
+
+/** `fr: route serveur` items as `[locale, value]` pairs, in file order. */
+function localeItems(raw: readonly string[]): [string, string][] {
+  return raw.map((text) => {
+    const { locale, value } = parseLocaleItem(text)!;
+    return [locale, value];
+  });
 }
 
 /** `label sentence, sentence as-written` as a `Casing`. */

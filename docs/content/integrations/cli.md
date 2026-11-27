@@ -9,7 +9,7 @@ Use the glosslint CLI to check Markdown and text files, validate and repair `.ag
 
 ## Corpus and flags
 
-`check`, `test`, `print`, and `explain` read `.agents/glossary.md` in the current folder. `--glossary <path>` reads another glossary file, and `--corpus <module>` imports a module whose default export is a [`defineCorpus`](/guide/corpus) corpus:
+`check`, `test`, `print`, `explain`, and `export` read `.agents/glossary.md` in the current folder. `--glossary <path>` reads another glossary file, and `--corpus <module>` imports a module whose default export is a [`defineCorpus`](/guide/corpus) corpus:
 
 ```sh
 npx glosslint check docs --corpus ./glossary.ts
@@ -26,6 +26,7 @@ Passing both `--corpus` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. A mis
 | `glosslint test` | Check every term's good and bad examples across the loaded corpus. |
 | `glosslint print [--format md\|json]` | Print the corpus as a Markdown glossary or as JSON. |
 | `glosslint explain <query>` | Show what the corpus says about a word or phrase. |
+| `glosslint export [--merge <file>] [--note full\|short]` | Print the corpus as an x18n glossary in YAML, or merge it into one. |
 
 > [!NOTE]
 > `glosslint check` has no `--fix` and never edits checked docs. Use `glosslint doctor --fix` to repair `.agents/glossary.md`, and [ESLint](/integrations/eslint) or [Oxlint](/integrations/oxlint) to autofix code.
@@ -114,7 +115,7 @@ When the file has problems, `doctor` prints each one with its code, file and lin
 
 [GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case" or "Casing", or reword the line so it does not start with "Note:".
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations" or "Forms", or reword the line so it does not start with "Note:".
 
 [GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
 ├▶ term: Dock
@@ -214,3 +215,24 @@ eBike
 ```
 
 A word the corpus does not know prints `No term in the corpus matches "scooter".` and exits `1`.
+
+## export
+
+`export` prints the corpus's own terms as an [x18n glossary](/integrations/x18n#exporting-your-corpus-to-x18ns-glossary) in YAML, leaving out those its `Presets` add: `term`, `note`, `translations` and `forms` from the glossary's [`Translations` and `Forms`](/guide/glossary#translations-and-forms), and `doNotTranslate`. `--note short` writes the term's `What` alone as the note, instead of `What` and `How`.
+
+```sh
+npx glosslint export --note short > glossary.yml
+```
+
+`--merge <file>` merges the corpus into an existing x18n glossary YAML and writes it in place. It matches entries by term or source-locale form, keeps their translations, comments and order, adds new terms at the end, and prints one line per change: `+` for an added term, `~` for an entry that got fields, and `!` for a translation it kept over the glossary's.
+
+```sh
+npx glosslint export --note short --merge ../translations/glossary.yml
+```
+
+```txt
+../translations/glossary.yml: 3 terms merged, 2 added, 1 updated, 0 unchanged.
++ Server route
++ NuxtApp
+~ prerendering (Prerender): note, forms
+```

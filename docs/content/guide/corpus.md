@@ -1,11 +1,11 @@
 ---
 title: defineCorpus
-description: Build a corpus in TypeScript with defineCorpus for skip, forms, translations, wholeLabel, and merging corpora, then pass it to the tool that needs it.
+description: Build a corpus in TypeScript with defineCorpus for skip, wholeLabel, and merging corpora, then pass it to the tool that needs it.
 navigation.order: 4
 icon: i-lucide-book-marked
 ---
 
-Most projects only need [`.agents/glossary.md`](/guide/glossary). Build a corpus in TypeScript with `defineCorpus` when you need options the glossary has no field for (`skip`, `forms`, `translations`, `wholeLabel`) or want to merge corpora across packages, then pass it to the tool that needs it. There is no config file that glosslint finds on its own.
+Most projects only need [`.agents/glossary.md`](/guide/glossary). Build a corpus in TypeScript with `defineCorpus` when you need options the glossary has no field for (`skip`, `wholeLabel`) or want to merge corpora across packages, then pass it to the tool that needs it. There is no config file that glosslint finds on its own.
 
 ```ts
 import { defineCorpus, fromGlossary } from "glosslint";
@@ -52,7 +52,7 @@ Write the corpus inline in the tool's config, or export it from any module and i
 
 ## TypeScript-only term fields
 
-Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `examples`, `links`, `case`, `casing`) are documented in [The glossary file](/guide/glossary). These three exist only in `defineCorpus`:
+Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `examples`, `links`, `case`, `casing`, `translations`, `forms`) are documented in [The glossary file](/guide/glossary). `skip` exists only in `defineCorpus`, and `forms` and `translations` are written as objects here:
 
 | Property | What it does |
 | --- | --- |
@@ -60,7 +60,7 @@ Shared term fields (`term`, `abbr`, `description`, `nuance`, `why`, `avoid`, `ex
 | `forms` | Locale forms such as `{ de: ["Dockingstation", "Dockingstationen"] }`, passed to [x18n](/integrations/x18n) and matched by `glosslint explain`. |
 | `translations` | Locale translations such as `{ de: "Dock" }`, passed to [x18n](/integrations/x18n). |
 
-To add `forms` or `translations` to a term from the glossary, write the whole term in `terms`: it replaces the glossary's term with the same key ([Merge order](#merge-order)).
+In `.agents/glossary.md` they are the `Forms` and `Translations` fields ([Translations and forms](/guide/glossary#translations-and-forms)).
 
 ## Allowing phrases
 

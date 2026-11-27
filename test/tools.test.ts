@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../src/corpus.ts";
+import tech from "../src/presets/tech.ts";
 import { explain, explainMatches, printCorpus, testCorpus, toX18nGlossary } from "../src/tools.ts";
 import { bike, bikeTerms } from "./core/bike.ts";
 
@@ -197,5 +198,36 @@ describe("toX18nGlossary", () => {
       { term: "BikeShare", translations: { de: "Radverleih" } },
       { term: "Checkout" },
     ]);
+  });
+
+  it("writes the description alone as the note with note: short", () => {
+    const corpus = defineCorpus({
+      terms: [
+        {
+          term: "Dock",
+          description: "A powered stand where one bike is locked",
+          nuance: "A station is a group of docks.",
+        },
+        { term: "Station", nuance: "A group of docks." },
+      ],
+    });
+    expect(toX18nGlossary(corpus, { note: "short" })).toEqual([
+      { term: "Dock", note: "A powered stand where one bike is locked." },
+      { term: "Station" },
+    ]);
+    expect(toX18nGlossary(corpus, { note: "full" })).toEqual(toX18nGlossary(corpus));
+  });
+
+  it("leaves out the terms a preset adds, through any corpus that extends it, and keeps a term that replaces one", () => {
+    const corpus = defineCorpus({
+      extends: [tech],
+      terms: [{ term: "Dock" }, { term: "GitHub", description: "Where the code lives" }],
+    });
+    expect(toX18nGlossary(corpus)).toEqual([
+      { term: "Dock" },
+      { term: "GitHub", note: "Where the code lives." },
+    ]);
+    const outer = defineCorpus({ extends: [corpus], terms: [{ term: "Station" }] });
+    expect(toX18nGlossary(outer).map((entry) => entry.term)).toEqual(["Dock", "GitHub", "Station"]);
   });
 });

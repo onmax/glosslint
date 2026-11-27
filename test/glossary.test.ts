@@ -244,13 +244,93 @@ describe("readGlossary", () => {
     ]);
   });
 
+  it("reads Translations and Forms as defineCorpus's translations and forms", () => {
+    const text = `# Glossary
+
+## Server route
+What: A handler that answers HTTP requests at a path.
+Translations:
+- fr: route serveur
+- pt-BR: rota de servidor
+Forms:
+- en: server routes
+- fr: routes serveur, route du serveur
+
+## Dock
+Translations: de: Dock, fr: \`borne, station\`
+`;
+    const result = readGlossary(text);
+    expect(result.problems).toEqual([]);
+    expect(result.fixed).toBeUndefined();
+    expect(result.corpus).toEqual(
+      defineCorpus({
+        terms: [
+          {
+            term: "Server route",
+            description: "A handler that answers HTTP requests at a path.",
+            translations: { fr: "route serveur", "pt-BR": "rota de servidor" },
+            forms: { en: ["server routes"], fr: ["routes serveur", "route du serveur"] },
+          },
+          { term: "Dock", translations: { de: "Dock", fr: "`borne, station`" } },
+        ],
+      }),
+    );
+  });
+
+  it("reports a Translations or Forms item with no locale, a bad locale, no value or a locale twice", () => {
+    const term = (fields: string) => `# Glossary\n\n## Server route\n${fields}\n`;
+    const problem = (fields: string) => {
+      const [first, ...rest] = readGlossary(term(fields)).problems;
+      expect(rest).toEqual([]);
+      return `${first?.code} ${first?.line} ${first?.why}`;
+    };
+    expect(problem("Translations:\n- route serveur")).toBe(
+      'GLOSSLINT_G006 5 "route serveur" in Translations has no locale.',
+    );
+    expect(problem("Translations:\n- : route serveur")).toBe(
+      'GLOSSLINT_G006 5 ": route serveur" in Translations has no locale.',
+    );
+    expect(problem("Translations:\n- french: route serveur")).toBe(
+      'GLOSSLINT_G006 5 "french" in Translations is not a locale.',
+    );
+    expect(problem("Forms:\n- fr:")).toBe("GLOSSLINT_G006 5 fr in Forms has no forms.");
+    expect(problem("Translations:\n- fr: route serveur\n- FR: route du serveur")).toBe(
+      'GLOSSLINT_G005 6 Translations lists FR twice in "Server route".',
+    );
+    expect(problem("Forms:\n- fr: routes serveur\n- fr: route du serveur")).toBe(
+      'GLOSSLINT_G005 6 Forms lists fr twice in "Server route".',
+    );
+    expect(problem("Translations:")).toBe("GLOSSLINT_G006 4 Translations is empty.");
+    // Each one leaves no corpus, so a typo never ships a wrong translation.
+    expect(readGlossary(term("Translations:\n- route serveur")).corpus).toBeUndefined();
+  });
+
+  it("puts Translations and Forms last in the canonical form and keeps how each is written", () => {
+    const text =
+      "# Glossary\n\n## Server route\nForms:\n- fr: routes serveur\nTranslations: fr: route serveur\nWhat: A handler.\n";
+    const result = readGlossary(text);
+    expect(new Set(result.problems.map((problem) => problem.code))).toEqual(
+      new Set(["GLOSSLINT_G003"]),
+    );
+    expect(result.fixed).toBe(
+      "# Glossary\n\n## Server route\nWhat: A handler.\nTranslations: fr: route serveur\nForms:\n- fr: routes serveur\n",
+    );
+    expect(readGlossary(result.fixed!)).toEqual({ problems: [], corpus: result.corpus });
+  });
+
+  it("reports Translations and Forms above the first term as term fields", () => {
+    expect(codes("# Glossary\n\nTranslations: fr: route serveur\n\n## Dock\n")).toEqual([
+      "GLOSSLINT_G004",
+    ]);
+  });
+
   it("gives each problem its line, term, fix and whether --fix rewrites it", () => {
     const [problem] = readGlossary(read("g004.md")).problems;
     expect(problem).toEqual({
       code: "GLOSSLINT_G004",
       line: 5,
       why: '"Note" is not a field.',
-      fix: 'Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case" or "Casing", or reword the line so it does not start with "Note:".',
+      fix: 'Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations" or "Forms", or reword the line so it does not start with "Note:".',
       fixable: false,
       term: "Dock",
     });

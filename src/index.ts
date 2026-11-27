@@ -8,6 +8,7 @@ export type { MatcherOptions } from "./matcher.ts";
 export { fromGlossary, readGlossary } from "./glossary.ts";
 export type { GlossaryProblem } from "./glossary.ts";
 export { explain, printCorpus, testCorpus, toX18nGlossary } from "./tools.ts";
+export type { X18nGlossaryOptions } from "./tools.ts";
 export type {
   Avoid,
   CaseMode,
