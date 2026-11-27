@@ -1,6 +1,6 @@
 ---
 title: glosslint
-description: Keep one .agents/glossary.md file and enforce your product vocabulary in ESLint, Oxlint, x18n translations and Markdown docs.
+description: Keep one .agents/glossary.md file and enforce your product vocabulary in ESLint, Oxlint, x18n source messages and Markdown docs.
 layout: home
 seo.title: glosslint · Lint your product vocabulary
 ---
@@ -8,7 +8,7 @@ seo.title: glosslint · Lint your product vocabulary
 ::glosslint-hero
 # Lint your product's words
 
-Keep your terms in `.agents/glossary.md` and check code, translations, and docs against it.
+Keep your terms in `.agents/glossary.md` and check code, source-locale messages, and docs against it.
 
 #agents
 ```text
