@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { parse } from "yaml";
 import { run } from "./run.ts";
 
 const glossary = `# Glossary
@@ -59,6 +60,19 @@ describe("glosslint export", () => {
   note: The per-request runtime app.
   doNotTranslate: true
 `);
+  });
+
+  it("exports the glossary's own terms, without the ones its Presets add", async () => {
+    writeFileSync(
+      join(dir, "PRESETS.md"),
+      "# Glossary\n\nPresets: tech\n\n## Dock\nWhat: A powered stand.\n\n## eBike\nWhat: An electric bike.\n",
+    );
+    const result = await run(["export", "--glossary", "PRESETS.md"], dir);
+    expect(result.code).toBe(0);
+    expect(parse(result.stdout)).toEqual([
+      { term: "Dock", note: "A powered stand." },
+      { term: "eBike", note: "An electric bike.", doNotTranslate: true },
+    ]);
   });
 
   it("merges into the file with --merge, keeping its translations and comments, and prints what changed", async () => {

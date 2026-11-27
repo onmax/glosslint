@@ -218,7 +218,7 @@ A word the corpus does not know prints `No term in the corpus matches "scooter".
 
 ## export
 
-`export` prints the corpus as an [x18n glossary](/integrations/x18n#exporting-your-corpus-to-x18ns-glossary) in YAML: `term`, `note`, `translations` and `forms` from the glossary's [`Translations` and `Forms`](/guide/glossary#translations-and-forms), and `doNotTranslate`. `--note short` writes the term's `What` alone as the note, instead of `What` and `How`.
+`export` prints the corpus's own terms as an [x18n glossary](/integrations/x18n#exporting-your-corpus-to-x18ns-glossary) in YAML, leaving out those its `Presets` add: `term`, `note`, `translations` and `forms` from the glossary's [`Translations` and `Forms`](/guide/glossary#translations-and-forms), and `doNotTranslate`. `--note short` writes the term's `What` alone as the note, instead of `What` and `How`.
 
 ```sh
 npx glosslint export --note short > glossary.yml

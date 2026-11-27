@@ -1,5 +1,7 @@
 import { kindOf } from "./kind.ts";
 import { createMatcher } from "./matcher.ts";
+import inclusive from "./presets/inclusive.ts";
+import tech from "./presets/tech.ts";
 import type { Corpus, CorpusTestFailure, Finding, Term, X18nGlossaryEntry } from "./types.ts";
 import { capitalise, splitWords, termKey } from "./words.ts";
 
@@ -253,13 +255,20 @@ export interface X18nGlossaryOptions {
   note?: "full" | "short";
 }
 
-/** The corpus as x18n `glossary` entries, with only the fields x18n accepts. */
+// `defineCorpus` keeps the term objects of what it extends, so a preset's terms are these same objects.
+const PRESET_TERMS: ReadonlySet<Term> = new Set([...tech.terms, ...inclusive.terms]);
+
+/**
+ * The corpus as x18n `glossary` entries, with only the fields x18n accepts. The terms the `tech` and
+ * `inclusive` presets add are left out; a term of your own with the same name as one is kept.
+ */
 export function toX18nGlossary(
   corpus: Corpus,
   options: X18nGlossaryOptions = {},
 ): X18nGlossaryEntry[] {
   const short = options.note === "short";
-  return corpus.terms.map((term) => {
+  const own = corpus.terms.filter((term) => !PRESET_TERMS.has(term));
+  return own.map((term) => {
     const note = (short ? [term.description] : [term.description, term.nuance])
       .filter((part): part is string => Boolean(part))
       .map(sentence)
