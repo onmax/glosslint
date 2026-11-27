@@ -259,9 +259,22 @@ html.vh-docs a[href] > :is(svg, .iconify) {
   scale: none !important;
 }
 
-/* The narrow strip beside the playground only opens the sidebar or search, so its buttons don't squash either. */
-html.vh-docs .vh-docs-strip button,
-html.vh-docs .vh-docs-strip button > :is(svg, .iconify) {
+/* The sidebar only finds and shows pages: Search docs, hiding or opening it, the color mode and the narrow strip beside
+   the playground. None of that acts on the page, so nothing in it squashes, nor the lone icon the layer squashes inside. */
+html.vh-docs .vh-docs-sidebars :is(button, summary),
+html.vh-docs .vh-docs-sidebars :is(button, summary) > :is(svg, .iconify) {
+  scale: none !important;
+}
+
+/* A terminal finding row only opens its card, as a link would. */
+html.vh-docs .pg-finding,
+html.vh-docs .pg-finding > * {
+  scale: none !important;
+}
+
+/* The fallen sign is held and thrown, and it squashes on its own when it lands. Pressed smaller in the hand, it would
+   also move its nail holes off where the wall measures them to hang it back up. */
+html.vh-docs .gl-fallen {
   scale: none !important;
 }
 
