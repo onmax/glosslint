@@ -81,6 +81,8 @@ const TERM_FIELDS: readonly FieldSpec[] = [
   { name: "Links", kind: "list" },
   { name: "Case", kind: "value" },
   { name: "Casing", kind: "list", comma: true },
+  { name: "Translations", kind: "list", comma: true },
+  { name: "Forms", kind: "list" },
 ];
 const ALIASES: Record<string, string> = {
   extends: "Presets",
@@ -99,11 +101,16 @@ const FIELD_NAMES = new Set([
 ]);
 const CASE_MODES: readonly CaseMode[] = ["exact", "spelling", "context"];
 const CASING = /^(label|header|sentence)\s+(title|sentence|lower|upper|as-written)$/;
+/** A BCP 47 tag such as `fr`, `de` or `pt-BR`. */
+const LOCALE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+/** The fields whose items are `locale: value`. */
+const LOCALE_FIELDS: ReadonlySet<string> = new Set(["Translations", "Forms"]);
 
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const ITEM = /^ {0,3}([-*+])(?:[ \t]+(.*))?$/;
 const TABLE = /^ {0,3}\|/;
+const COMMENT = /^ {0,3}<!--/;
 const FIELD = /^ {0,3}([A-Za-z]+(?: [A-Za-z]+){0,2}):(?:[ \t]+(.*))?$/;
 const LINK = /^\[([^\]]*\S[^\]]*)\]\((https?:\/\/[^\s()]+)\)$/;
 const BARE_URL = /^<?(https?:\/\/[^\s<>()]+)>?$/;
@@ -128,7 +135,7 @@ interface Item {
 }
 
 interface Block {
-  kind: "h1" | "h2" | "heading" | "paragraph" | "list" | "table" | "fence";
+  kind: "h1" | "h2" | "heading" | "paragraph" | "list" | "table" | "fence" | "comment";
   /** 1-based first and last line. */
   start: number;
   end: number;
@@ -136,6 +143,8 @@ interface Block {
   /** A heading's text. */
   text?: string;
   items?: Item[];
+  /** Whether an HTML comment runs to the end of the file with no `-->`. */
+  unclosed?: boolean;
 }
 
 /** Splits the file into Markdown blocks. Blank lines end every block but a fence. */
@@ -144,7 +153,11 @@ function scan(lines: readonly string[]): Block[] {
   let i = 0;
   const isBlank = (line: string | undefined) => line === undefined || line.trim() === "";
   const startsBlock = (line: string) =>
-    HEADING.test(line) || FENCE.test(line) || ITEM.test(line) || TABLE.test(line);
+    HEADING.test(line) ||
+    FENCE.test(line) ||
+    ITEM.test(line) ||
+    TABLE.test(line) ||
+    COMMENT.test(line);
   while (i < lines.length) {
     const line = lines[i]!;
     if (isBlank(line)) {
@@ -159,6 +172,25 @@ function scan(lines: readonly string[]): Block[] {
       while (i < lines.length && !close.test(lines[i]!)) i++;
       i = Math.min(i + 1, lines.length);
       blocks.push({ kind: "fence", start: first + 1, end: i, lines: lines.slice(first, i) });
+      continue;
+    }
+    // An HTML comment is a block of its own, so one right above `Allow:` doesn't pull the field into
+    // the introduction, and one right below doesn't join its last entry.
+    if (COMMENT.test(line)) {
+      while (
+        i < lines.length &&
+        !lines[i]!.slice(i === first ? line.indexOf("<!--") + 4 : 0).includes("-->")
+      )
+        i++;
+      const unclosed = i === lines.length;
+      i = Math.min(i + 1, lines.length);
+      blocks.push({
+        kind: "comment",
+        start: first + 1,
+        end: i,
+        lines: lines.slice(first, i),
+        ...(unclosed ? { unclosed } : {}),
+      });
       continue;
     }
     const heading = HEADING.exec(line);
@@ -257,6 +289,13 @@ function parseAvoid(raw: string): { word: string; why?: string } {
   return why ? { word: raw.slice(0, at).trim(), why } : { word: raw.slice(0, at).trim() };
 }
 
+/** `fr: route serveur` as its locale and value, split at the first colon. */
+function parseLocaleItem(raw: string): { locale: string; value: string } | undefined {
+  const at = raw.indexOf(":");
+  if (at < 0) return undefined;
+  return { locale: raw.slice(0, at).trim(), value: raw.slice(at + 1).trim() };
+}
+
 /** A single word that is one capital or has a capital after its first letter, such as `DP`, `D` or `eB`. */
 function isAbbr(word: string): boolean {
   return /^(?:\p{Lu}|\S+\p{Lu}\S*)$/u.test(word);
@@ -288,6 +327,15 @@ class Reader {
 
   constructor(lines: readonly string[]) {
     this.blocks = scan(lines);
+    // Everything after an unclosed comment is inside it, so the glossary would read as empty.
+    for (const block of this.blocks)
+      if (block.unclosed)
+        this.add(
+          P.noPlace,
+          block.start,
+          "An HTML comment has no closing `-->`, so it hides the rest of the file.",
+          "Close the comment with `-->`, or remove it.",
+        );
   }
 
   add(code: string, line: number, why: string, fix: string, term?: string): void {
@@ -434,14 +482,14 @@ class Reader {
       lists: 0,
     };
     let current: FieldNode | undefined;
-    const noPlace = (line: number, what: string) =>
+    const noPlace = (line: number, what: string, fix?: string) =>
       this.add(
         P.noPlace,
         line,
         `${what} has no place in a glossary${term === undefined ? "" : " term"}.`,
         term === undefined
           ? "Move it to the introduction above the first field, or remove it."
-          : "Write it as a field, such as `How:`, or remove it.",
+          : (fix ?? "Write it as a field, such as `How:`, or remove it."),
         term,
       );
 
@@ -491,7 +539,14 @@ class Reader {
       }
       if (block.kind !== "paragraph") {
         if (block.kind === "h1") this.secondTitle(block);
-        else
+        else if (block.kind === "comment") {
+          if (!block.unclosed)
+            noPlace(
+              block.start,
+              "An HTML comment among the fields",
+              "Move it to the introduction, or remove it.",
+            );
+        } else
           noPlace(
             block.start,
             block.kind === "heading"
@@ -687,8 +742,13 @@ class Reader {
     }
     if (name === "Case" && !CASE_MODES.includes(node.value as CaseMode))
       bad(node.line, `Case is "${node.value}".`, `Use ${quoteList(CASE_MODES)}.`);
+    const locales = new Map<string, string>();
     for (const item of node.items) {
       const text = itemText(item);
+      if (text !== "" && LOCALE_FIELDS.has(name)) {
+        this.checkLocaleItem(node, item, locales, term);
+        continue;
+      }
       if (text === "")
         bad(item.line, `An item of ${name} is empty.`, "Write the item, or remove its line.");
       else if (name === "Presets" && !Object.hasOwn(PRESETS, text))
@@ -720,6 +780,64 @@ class Reader {
           );
       }
     }
+  }
+
+  /** Reports a `Translations` or `Forms` item that is not `locale: value`, or whose locale is listed twice. */
+  private checkLocaleItem(
+    node: FieldNode,
+    item: Item,
+    seen: Map<string, string>,
+    term: string | undefined,
+  ): void {
+    const { name } = node.spec;
+    const text = itemText(item);
+    const example = name === "Forms" ? "`fr: routes serveur`" : "`fr: route serveur`";
+    const parsed = parseLocaleItem(text);
+    if (!parsed || parsed.locale === "") {
+      this.add(
+        P.badValue,
+        item.line,
+        `"${text}" in ${name} has no locale.`,
+        `Write it as ${example}: a locale, a colon, then the ${name === "Forms" ? "forms" : "translation"}.`,
+        term,
+      );
+      return;
+    }
+    if (!LOCALE.test(parsed.locale)) {
+      this.add(
+        P.badValue,
+        item.line,
+        `"${parsed.locale}" in ${name} is not a locale.`,
+        "Use a BCP 47 tag such as `fr`, `de` or `pt-BR`.",
+        term,
+      );
+      return;
+    }
+    if (parsed.value === "" || (name === "Forms" && splitCommas(parsed.value).length === 0)) {
+      this.add(
+        P.badValue,
+        item.line,
+        `${parsed.locale} in ${name} has no ${name === "Forms" ? "forms" : "translation"}.`,
+        `Write it after "${parsed.locale}:", or remove the line.`,
+        term,
+      );
+      return;
+    }
+    const key = parsed.locale.toLowerCase();
+    const previous = seen.get(key);
+    if (previous !== undefined) {
+      this.add(
+        P.twice,
+        item.line,
+        `${name} lists ${parsed.locale} twice${term === undefined ? "" : ` in "${term}"`}.`,
+        name === "Forms"
+          ? `Merge the two into one \`${previous}:\` line, with the forms separated by commas.`
+          : `Keep one \`${previous}:\` line.`,
+        term,
+      );
+      return;
+    }
+    seen.set(key, parsed.locale);
   }
 }
 
@@ -802,11 +920,24 @@ function buildTerm(node: TermNode): Term {
   if (links.length) term.links = links;
   const casing = parseCasing(items("Casing"));
   if (Object.keys(casing).length) term.casing = casing;
+  const translations = localeItems(items("Translations"));
+  if (translations.length) term.translations = Object.fromEntries(translations);
+  const forms = localeItems(items("Forms"));
+  if (forms.length)
+    term.forms = Object.fromEntries(forms.map(([locale, value]) => [locale, splitCommas(value)]));
   const mode = field("Case")?.value as CaseMode | undefined;
   if (mode) term.case = mode;
   // Casing without Case makes the term `context`, as in defineCorpus, whatever its name.
   else if (!term.casing && isExactName(node.name)) term.case = "exact";
   return term;
+}
+
+/** `fr: route serveur` items as `[locale, value]` pairs, in file order. */
+function localeItems(raw: readonly string[]): [string, string][] {
+  return raw.map((text) => {
+    const { locale, value } = parseLocaleItem(text)!;
+    return [locale, value];
+  });
 }
 
 /** `label sentence, sentence as-written` as a `Casing`. */

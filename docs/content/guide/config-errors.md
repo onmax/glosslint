@@ -54,8 +54,8 @@ The error's `message` is `why`, with ` (term "<term>")` appended when `term` is 
 | `GLOSSLINT_G002` | Field name in another case, a known alias, or a close typo. Fixable with `doctor --fix`. |
 | `GLOSSLINT_G003` | Glossary layout problem (bullets, bare URL, field order, blank lines, endings). Fixable with `doctor --fix`. |
 | `GLOSSLINT_G004` | Unknown field, misplaced field, second H1, or disallowed block (stray text, table, fence, H3+). |
-| `GLOSSLINT_G005` | Duplicate term or duplicate field in the glossary file. |
-| `GLOSSLINT_G006` | Invalid or empty field value in the glossary file (`Case`, `Casing`, `Presets`, `Avoid`, `Links`). |
+| `GLOSSLINT_G005` | Duplicate term, duplicate field, or a locale listed twice in `Translations` or `Forms`. |
+| `GLOSSLINT_G006` | Invalid or empty field value in the glossary file (`Case`, `Casing`, `Presets`, `Avoid`, `Links`, `Translations`, `Forms`). |
 | `GLOSSLINT_G007` | Term heading has no words, or parentheses hold something other than abbreviations. |
 | `GLOSSLINT_G008` | An avoid word matches the term itself or another term defined in the same glossary file. |
 | `GLOSSLINT_G009` | A `Good` example was reported or a `Bad` example was not reported in `doctor` / `readGlossary`. |
@@ -109,7 +109,7 @@ Fix: move the text into an accepted field such as `How:`, reword the line so it 
 
 ### GLOSSLINT_G005
 
-The same term (by normalized key) or the same field appears twice in the same section.
+The same term (by normalized key) or the same field appears twice in the same section, or `Translations` or `Forms` lists a locale twice, in any case.
 
 ```md
 ## Station
@@ -117,7 +117,7 @@ The same term (by normalized key) or the same field appears twice in the same se
 ## station
 ```
 
-Fix: merge the two sections or duplicate fields into one.
+Fix: merge the two sections or duplicate fields into one. For a locale in `Forms`, put its forms on one line, separated by commas.
 
 ### GLOSSLINT_G006
 
@@ -128,6 +128,7 @@ A field or list item is empty, or holds an invalid value:
 - `Casing` is not a `<kind> <style>` pair (`label`, `header`, `sentence` with `title`, `sentence`, `lower`, `upper`, `as-written`)
 - `Avoid` has an item with no letters or digits
 - `Links` has an item that is neither `[title](http(s)://...)` nor a bare http/https URL
+- `Translations` or `Forms` has an item with no `locale:` before its value, a locale that is not a BCP 47 tag such as `fr` or `pt-BR`, or no value after the colon
 
 Fix: replace the value with a valid one, or remove the empty field.
 

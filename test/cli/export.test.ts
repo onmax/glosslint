@@ -1,0 +1,195 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { parse } from "yaml";
+import { run } from "./run.ts";
+
+const glossary = `# Glossary
+
+## Server route
+What: A handler that answers HTTP requests at a path.
+How: An API route is a server route under \`/api\`.
+Translations: fr: route serveur
+
+## Prerender
+What: Render a route to HTML at build time.
+Forms:
+- en: prerendering, prerendered
+
+## NuxtApp
+What: The per-request runtime app.
+`;
+
+const shared = `# Shared terms, in x18n's glossary shape.
+- term: Nuxt
+  doNotTranslate: true
+- term: prerendering
+  translations:
+    fr: prérendu
+    de: Prerendering
+`;
+
+let dir: string;
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), "glosslint-export-"));
+  writeFileSync(join(dir, "GLOSSARY.md"), glossary);
+  writeFileSync(join(dir, "glossary.yml"), shared);
+});
+afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+describe("glosslint export", () => {
+  it("prints the corpus as x18n glossary YAML, with the What alone as the note under --note short", async () => {
+    const full = await run(["export", "--glossary", "GLOSSARY.md"], dir);
+    expect(full).toMatchObject({ code: 0, stderr: "" });
+    expect(full.stdout).toContain(
+      "  note: A handler that answers HTTP requests at a path. An API route is a server route under `/api`.\n",
+    );
+    const short = await run(["export", "--glossary", "GLOSSARY.md", "--note", "short"], dir);
+    expect(short.stdout).toBe(`- term: Server route
+  note: A handler that answers HTTP requests at a path.
+  translations:
+    fr: route serveur
+- term: Prerender
+  note: Render a route to HTML at build time.
+  forms:
+    en:
+      - prerendering
+      - prerendered
+- term: NuxtApp
+  note: The per-request runtime app.
+  doNotTranslate: true
+`);
+  });
+
+  it("exports the glossary's own terms, without the ones its Presets add", async () => {
+    writeFileSync(
+      join(dir, "PRESETS.md"),
+      "# Glossary\n\nPresets: tech\n\n## Dock\nWhat: A powered stand.\n\n## eBike\nWhat: An electric bike.\n",
+    );
+    const result = await run(["export", "--glossary", "PRESETS.md"], dir);
+    expect(result.code).toBe(0);
+    expect(parse(result.stdout)).toEqual([
+      { term: "Dock", note: "A powered stand." },
+      { term: "eBike", note: "An electric bike.", doNotTranslate: true },
+    ]);
+  });
+
+  it("merges into the file with --merge, keeping its translations and comments, and prints what changed", async () => {
+    const result = await run(
+      ["export", "--glossary", "GLOSSARY.md", "--note", "short", "--merge", "glossary.yml"],
+      dir,
+    );
+    expect(result).toEqual({
+      code: 0,
+      stdout: `glossary.yml: 3 terms merged, 2 added, 1 updated, 0 unchanged.
++ Server route
++ NuxtApp
+~ prerendering (Prerender): note, forms
+`,
+      stderr: "",
+    });
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8"))
+      .toBe(`# Shared terms, in x18n's glossary shape.
+- term: Nuxt
+  doNotTranslate: true
+- term: prerendering
+  note: Render a route to HTML at build time.
+  translations:
+    fr: prérendu
+    de: Prerendering
+  forms:
+    en:
+      - prerendering
+      - prerendered
+- term: Server route
+  note: A handler that answers HTTP requests at a path.
+  translations:
+    fr: route serveur
+- term: NuxtApp
+  note: The per-request runtime app.
+  doNotTranslate: true
+`);
+  });
+
+  it("exits 2 and writes nothing when a term matches more than one entry", async () => {
+    const file = "- term: Nuxt app\n- term: nuxt-app\n";
+    writeFileSync(join(dir, "glossary.yml"), file);
+    const result = await run(
+      ["export", "--glossary", "GLOSSARY.md", "--merge", "glossary.yml"],
+      dir,
+    );
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain(
+      'glossary.yml: "NuxtApp" matches 2 entries: "Nuxt app" and "nuxt-app".',
+    );
+    expect(result.stderr).toContain("Merge those entries into one");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(file);
+  });
+
+  it("changes nothing on a second merge when a term is a form of another, and exits 2 when two terms match one entry", async () => {
+    writeFileSync(
+      join(dir, "RENDER.md"),
+      "# Glossary\n\n## Render\nWhat: Turn components into HTML.\nForms: en: Rendering\n\n## Rendering\nWhat: The act of rendering.\n",
+    );
+    writeFileSync(join(dir, "glossary.yml"), "");
+    const args = ["export", "--glossary", "RENDER.md", "--merge", "glossary.yml"];
+    expect((await run(args, dir)).stdout).toBe(
+      "glossary.yml: 2 terms merged, 2 added, 0 updated, 0 unchanged.\n+ Render\n+ Rendering\n",
+    );
+    const first = readFileSync(join(dir, "glossary.yml"), "utf8");
+    const second = await run(args, dir);
+    expect(second.code).toBe(0);
+    expect(second.stdout).toContain("2 terms merged, 0 added, 0 updated, 2 unchanged.");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(first);
+
+    writeFileSync(join(dir, "glossary.yml"), "- term: rendering\n");
+    const claimed = await run(args, dir);
+    expect(claimed.code).toBe(2);
+    expect(claimed.stderr).toContain(
+      'glossary.yml: "Render" and "Rendering" both match the entry "rendering".',
+    );
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe("- term: rendering\n");
+  });
+
+  it("does not mark a translated exact term doNotTranslate, and fails when a merge would translate an entry marked so", async () => {
+    const exact = "# Glossary\n\n## eBike\nWhat: An electric bike.\n";
+    writeFileSync(join(dir, "EBIKE.md"), exact);
+    writeFileSync(join(dir, "glossary.yml"), "");
+    const args = ["export", "--glossary", "EBIKE.md", "--merge", "glossary.yml"];
+    expect((await run(args, dir)).code).toBe(0);
+    const first = readFileSync(join(dir, "glossary.yml"), "utf8");
+    expect(parse(first)).toEqual([
+      { term: "eBike", note: "An electric bike.", doNotTranslate: true },
+    ]);
+
+    writeFileSync(join(dir, "EBIKE.md"), `${exact}Translations: fr: vélo électrique\n`);
+    expect(parse((await run(["export", "--glossary", "EBIKE.md"], dir)).stdout)).toEqual([
+      { term: "eBike", note: "An electric bike.", translations: { fr: "vélo électrique" } },
+    ]);
+    const second = await run(args, dir);
+    expect(second.code).toBe(2);
+    expect(second.stderr).toContain(
+      'glossary.yml: "eBike" has doNotTranslate: true, and the glossary\'s "eBike" gives it translations (fr).',
+    );
+    expect(second.stderr).toContain("Remove doNotTranslate: true from");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(first);
+  });
+
+  it("exits 2 on a missing file, a file that is not a list, or another --note", async () => {
+    const missing = await run(["export", "--glossary", "GLOSSARY.md", "--merge", "no.yml"], dir);
+    expect(missing.code).toBe(2);
+    expect(missing.stderr).toContain('The x18n glossary "no.yml" does not exist.');
+    writeFileSync(join(dir, "glossary.yml"), "term: Nuxt\n");
+    const notList = await run(
+      ["export", "--glossary", "GLOSSARY.md", "--merge", "glossary.yml"],
+      dir,
+    );
+    expect(notList.code).toBe(2);
+    expect(notList.stderr).toContain("glossary.yml: The file is not a list of glossary entries");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe("term: Nuxt\n");
+    const note = await run(["export", "--glossary", "GLOSSARY.md", "--note", "long"], dir);
+    expect(note.code).toBe(2);
+    expect(note.stderr).toContain('--note is "long".');
+  });
+});

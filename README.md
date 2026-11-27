@@ -49,7 +49,7 @@ Links:
 Case: context
 ```
 
-`eBike` gets `Case: exact` automatically because of its inner capital. `Day Pass (DP)` sets the abbreviation `DP` and enforces Title Case in labels and lowercase in sentences. Every runner reads `.agents/glossary.md` by default. When you need fields such as `skip`, `forms` or `translations`, build a corpus with `defineCorpus` and pass it to the runner: `glosslint({ corpus })` in ESLint or x18n, `--corpus <module>` in the CLI.
+`eBike` gets `Case: exact` automatically because of its inner capital. `Day Pass (DP)` sets the abbreviation `DP` and enforces Title Case in labels and lowercase in sentences. Every runner reads `.agents/glossary.md` by default. When you need fields such as `skip` or `wholeLabel`, build a corpus with `defineCorpus` and pass it to the runner: `glosslint({ corpus })` in ESLint or x18n, `--corpus <module>` in the CLI.
 
 ## Install
 
