@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
-import { extname, relative, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { cac } from "cac";
 import { escapePath, glob, isDynamicPattern } from "tinyglobby";
 import pkg from "../package.json" with { type: "json" };
-import { checkFileText } from "./check-text.ts";
-import { formatDoctor, formatFindings, toJson } from "./format.ts";
+import { checkFileText, fixFileText } from "./check-text.ts";
+import { formatDoctor, formatFindings, formatFixed, toJson } from "./format.ts";
 import { DEFAULT_GLOSSARY, GLOSSARY_PROBLEMS, readGlossary } from "./glossary.ts";
 import type { GlossaryProblem } from "./glossary.ts";
 import { createMatcher } from "./matcher.ts";
@@ -28,7 +29,10 @@ export interface CliIo {
 
 /** Options every command takes. */
 export interface CommandOptions {
-  /** A module whose default export is a corpus, such as one that calls `defineCorpus`. */
+  /**
+   * A module whose default export is a corpus, such as one that calls `defineCorpus`: a path, or a
+   * package specifier such as `glosslint/presets/tech`, resolved from `cwd` and then from glosslint.
+   */
   corpus?: string;
   /** The glossary file, read when there is no `corpus`. Default: `.agents/glossary.md` in `cwd`. */
   glossary?: string;
@@ -42,6 +46,8 @@ export interface CheckOptions extends CommandOptions {
   format?: string;
   /** File extensions read in folders, comma-separated. Default: `md,mdx,txt`. */
   ext?: string;
+  /** Write every autofix into the files, then report what is left. */
+  fix?: boolean;
 }
 
 /** Options of `glosslint print`. */
@@ -217,16 +223,38 @@ function loadGlossary(cwd: string, path: string, given: boolean): LoadedCorpus {
   });
 }
 
+/** A package specifier such as `glosslint/presets/tech`, not a path such as `./glossary.ts`. */
+function isBareSpecifier(given: string): boolean {
+  return !isAbsolute(given) && !/^\.\.?(?:[/\\]|$)/.test(given);
+}
+
+/**
+ * Resolves a package specifier from `cwd`, so the project's own install wins, then from glosslint's,
+ * so `glosslint/presets/tech` works wherever glosslint runs from.
+ */
+function resolveSpecifier(cwd: string, given: string): string | undefined {
+  for (const from of [join(cwd, "noop.js"), import.meta.url]) {
+    try {
+      return createRequire(from).resolve(given);
+    } catch {}
+  }
+  return undefined;
+}
+
 /** Imports the module given to `--corpus` and returns its default export, which must be a corpus. */
 async function importCorpus(cwd: string, given: string): Promise<LoadedCorpus> {
-  const file = resolve(cwd, given);
-  if (!existsSync(file))
+  const path = resolve(cwd, given);
+  const bare = isBareSpecifier(given);
+  const file = existsSync(path) ? path : bare ? resolveSpecifier(cwd, given) : undefined;
+  if (file === undefined)
     throw new CliError({
       code: CLI_ERRORS.noCorpus,
       why: `The corpus module "${given}" does not exist.`,
-      fix: "Check the path given to --corpus.",
+      fix: bare
+        ? "Check the path given to --corpus, or install the package that exports it."
+        : "Check the path given to --corpus.",
     });
-  const shown = displayPath(cwd, file);
+  const shown = file === path ? displayPath(cwd, file) : given;
   let loaded: { default?: unknown };
   try {
     loaded = (await import(pathToFileURL(file).href)) as { default?: unknown };
@@ -299,7 +327,10 @@ function parseExtensions(ext: string | undefined): string[] {
   return list;
 }
 
-/** `glosslint check`: reports every finding in the files, as text or JSON. Exits 1 on findings. */
+/**
+ * `glosslint check`: reports every finding in the files, as text or JSON, and with `fix` first writes
+ * every autofix into them. Exits 1 on findings left.
+ */
 export async function runCheck(
   paths: readonly string[],
   options: CheckOptions,
@@ -316,20 +347,38 @@ export async function runCheck(
     (file) => loaded.from !== "glossary" || file !== loaded.file,
   );
   const findings: CliFinding[] = [];
+  let fixed = 0;
+  let fixedFiles = 0;
   for (const file of files) {
     const extension = extname(file).toLowerCase();
-    findings.push(
-      ...checkFileText(matcher, readFileSync(file, "utf8"), displayPath(io.cwd, file), {
-        markdown: MARKDOWN.has(extension),
-        mdx: extension === ".mdx",
-      }),
+    const text = readFileSync(file, "utf8");
+    const shown = displayPath(io.cwd, file);
+    const as = { markdown: MARKDOWN.has(extension), mdx: extension === ".mdx" };
+    if (!options.fix) {
+      findings.push(...checkFileText(matcher, text, shown, as));
+      continue;
+    }
+    const result = fixFileText(matcher, text, shown, as);
+    if (result.fixed > 0) {
+      writeFileSync(file, result.text);
+      fixed += result.fixed;
+      fixedFiles++;
+    }
+    findings.push(...result.findings);
+  }
+  if (format === "json") {
+    const report = toJson(findings, files.length, options.fix ? fixed : undefined);
+    io.stdout(`${JSON.stringify(report, null, 2)}\n`);
+  } else {
+    const color = useColor(options, io);
+    io.stdout(
+      `${
+        fixed > 0
+          ? formatFixed(findings, { color, files: files.length, fixed, fixedFiles })
+          : formatFindings(findings, { color, files: files.length })
+      }\n`,
     );
   }
-  if (format === "json") io.stdout(`${JSON.stringify(toJson(findings, files.length), null, 2)}\n`);
-  else
-    io.stdout(
-      `${formatFindings(findings, { color: useColor(options, io), files: files.length })}\n`,
-    );
   return findings.length > 0 ? 1 : 0;
 }
 
@@ -546,7 +595,8 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
   const cli = cac("glosslint");
   let run: (() => Promise<number>) | undefined;
   let color = io.color ?? false;
-  const corpusOption = "Module whose default export is a corpus, instead of a glossary file";
+  const corpusOption =
+    "Module or package whose default export is a corpus, instead of a glossary file";
   const glossaryOption = `Glossary file (default: ${DEFAULT_GLOSSARY})`;
   const colorOption = "Color the output (default: when writing to a terminal)";
 
@@ -557,6 +607,7 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
     .option("--corpus <module>", corpusOption)
     .option("--format <format>", "Output format: text or json", { default: "text" })
     .option("--ext <list>", "Extensions read in folders, comma-separated (default: md,mdx,txt)")
+    .option("--fix", "Write every finding with one replacement into the files")
     .option("--color", colorOption)
     .action((paths: string[], options: CheckOptions) => {
       run = () => runCheck(paths, options, io);

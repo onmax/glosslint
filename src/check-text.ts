@@ -1,6 +1,6 @@
 // Checks one file's text the way `glosslint check` does, without a file system, so a browser can run it too.
 import { type ComarkProp, LINK_TARGET, maskComark } from "./comark.ts";
-import { kindOf } from "./kind.ts";
+import { caseModeOf, classify } from "./kind.ts";
 import type { CliFinding, Finding, Matcher, Term, TermSummary, TextKind } from "./types.ts";
 
 /** Blanks a span with spaces, keeping line breaks, so every offset and line stays where it was. */
@@ -117,6 +117,8 @@ interface Block {
   start: number;
   end: number;
   kind: TextKind;
+  /** Whether only the text's shape decided `kind`, so a `context` term's fix there needs a person. */
+  guessed?: boolean;
   /** The text to check, when it isn't the masked text at these offsets, as for a Comark prop. */
   text?: string;
 }
@@ -144,12 +146,12 @@ function blocks(original: string, masked: string, markdown: boolean): Block[] {
       const header = TABLE_DELIMITER.test(lines[index + 1] ?? "");
       let cellStart = start;
       for (const cell of line.split("|")) {
-        if (cell.trim() !== "")
-          found.push({
-            start: cellStart,
-            end: cellStart + cell.length,
-            kind: header ? "header" : kindOf({ text: cell }),
-          });
+        if (cell.trim() !== "") {
+          const { kind, guessed } = header
+            ? { kind: "header" as const, guessed: false }
+            : classify({ text: cell });
+          found.push({ start: cellStart, end: cellStart + cell.length, kind, guessed });
+        }
         cellStart += cell.length + 1;
       }
     } else if (markdown && LIST_ITEM.test(source)) {
@@ -171,13 +173,19 @@ function summarize(term: Term): TermSummary {
   };
 }
 
-/** Checks one file's text. Markdown is masked first, so code and link targets are never reported. */
-export function checkFileText(
+/** A finding at its offsets in the file, and whether `--fix` may apply it unasked. */
+interface Placed {
+  finding: CliFinding;
+  autofix: boolean;
+}
+
+/** Every finding of one file's text, in file order. Markdown is masked first. */
+function scan(
   matcher: Matcher,
   text: string,
   file: string,
-  options: { markdown?: boolean; mdx?: boolean } = {},
-): CliFinding[] {
+  options: { markdown?: boolean; mdx?: boolean },
+): Placed[] {
   const markdown = options.markdown ?? false;
   const { masked, props, ignored } = markdown
     ? maskMarkdownParts(text, { mdx: options.mdx ?? false })
@@ -196,13 +204,13 @@ export function checkFileText(
     return low;
   };
   const lineEnd = (line: number): number => (lineStarts[line + 1] ?? text.length + 1) - 1;
-  const findings: CliFinding[] = [];
+  const placed: Placed[] = [];
   const all: Block[] = [
     ...blocks(text, masked, markdown),
     ...props.map((prop) => ({
       start: prop.start,
       end: prop.end,
-      kind: kindOf({ text: prop.text, name: prop.name, shown: true }),
+      ...classify({ text: prop.text, name: prop.name, shown: true }),
       text: prop.text,
     })),
   ].sort((a, b) => a.start - b.start);
@@ -214,8 +222,8 @@ export function checkFileText(
       const line = lineOf(start);
       if (ignored.has(line)) continue;
       const lineStart = lineStarts[line]!;
-      findings.push(
-        toCliFinding(finding, {
+      placed.push({
+        finding: toCliFinding(finding, {
           file,
           text,
           start,
@@ -224,11 +232,58 @@ export function checkFileText(
           lineStart,
           lineEnd: lineEnd(lineOf(end)),
         }),
-      );
+        // As in ESLint: where only the text's shape decided its kind, a `context` term's fix may be wrong.
+        autofix:
+          finding.fix?.kind === "autofix" &&
+          finding.fix.replace !== finding.text &&
+          text.slice(start, end) === finding.text &&
+          !(block.guessed && caseModeOf(finding.term) === "context"),
+      });
     }
   }
   // A prop's findings can fall between two findings of the prose around it.
-  return findings.sort((a, b) => a.start - b.start);
+  return placed.sort((a, b) => a.finding.start - b.finding.start);
+}
+
+/** Checks one file's text. Markdown is masked first, so code and link targets are never reported. */
+export function checkFileText(
+  matcher: Matcher,
+  text: string,
+  file: string,
+  options: { markdown?: boolean; mdx?: boolean } = {},
+): CliFinding[] {
+  return scan(matcher, text, file, options).map((placed) => placed.finding);
+}
+
+/** As ESLint does, a fix can make another, so fixing repeats until nothing changes, at most this often. */
+const FIX_PASSES = 10;
+
+/**
+ * Applies every autofix `checkFileText` would report, never two that overlap, and repeats on the
+ * result so a second run changes nothing. Suggestions, such as an avoid word's, are left for a person.
+ */
+export function fixFileText(
+  matcher: Matcher,
+  text: string,
+  file: string,
+  options: { markdown?: boolean; mdx?: boolean } = {},
+): { text: string; fixed: number; findings: CliFinding[] } {
+  let fixed = 0;
+  for (let pass = 0; pass < FIX_PASSES; pass++) {
+    const edits: CliFinding[] = [];
+    for (const { finding, autofix } of scan(matcher, text, file, options))
+      if (autofix && finding.start >= (edits.at(-1)?.end ?? 0)) edits.push(finding);
+    if (edits.length === 0) break;
+    let out = "";
+    let at = 0;
+    for (const edit of edits) {
+      out += text.slice(at, edit.start) + edit.fix!.replace;
+      at = edit.end;
+    }
+    text = out + text.slice(at);
+    fixed += edits.length;
+  }
+  return { text, fixed, findings: checkFileText(matcher, text, file, options) };
 }
 
 function toCliFinding(

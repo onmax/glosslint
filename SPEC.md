@@ -68,7 +68,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 3. **Loaders throw on what they cannot read.** `fromGlossary` throws a `GlosslintConfigError` with the code, `path:line` and the fix for `G004` to `G008`. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. `test/glossary.test.ts`
 4. **No glossary.** A missing file throws `GLOSSLINT_C009`, naming the path it looked for. `test/glossary.test.ts`
 5. **`Why` in findings.** An avoid finding prints the avoid word's own reason, else the term's `why`, else its `nuance`. `explain` prints `why`. `test/core/matcher.test.ts`, `test/tools.test.ts`
-6. **CLI loading.** `check`, `test`, `print`, `explain` and `export` take the corpus from the `--corpus` module's default export, else the `--glossary` file, else `.agents/glossary.md`. A `glosslint.config.*` file is no longer discovered; it loads only when named with `--corpus`. Both flags together exit 2 with `GLOSSLINT_USAGE`. A missing file exits 2 with `GLOSSLINT_C009`. `test/cli/load.test.ts`
+6. **CLI loading.** `check`, `test`, `print`, `explain` and `export` take the corpus from the `--corpus` module's default export, else the `--glossary` file, else `.agents/glossary.md`. A `glosslint.config.*` file is no longer discovered; it loads only when named with `--corpus`. `--corpus` takes a path or a package specifier, such as `glosslint/presets/tech`, resolved from the current folder and then from glosslint's own install. Both flags together exit 2 with `GLOSSLINT_USAGE`. A missing file exits 2 with `GLOSSLINT_C009`. `test/cli/load.test.ts`
 7. **`check` leaves the glossary alone.** The file loaded by `--glossary` or by default is never checked, even when named or inside a checked folder. `test/cli/check.test.ts`
 8. **`doctor` reports.** On a fixture with one problem of each code it prints each with its line and fix and exits 1. A clean file exits 0. A missing file exits 2. `test/cli/doctor.test.ts`
 9. **`doctor --fix` repairs.** A file with `G001` to `G003` problems is rewritten in canonical form, `doctor` then exits 0, and a second `--fix` changes no byte. Term order, introduction and text are kept. `test/cli/doctor.test.ts`
@@ -80,6 +80,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 15. **The package.** `glosslint` exports `fromGlossary` and `readGlossary` and no `fromGlossaryTable`, `glosslint/oxlint` resolves, and the built plugin loads in `oxlint`. `test/dist.test.ts`
 16. **The example.** `examples/basic` has `.agents/glossary.md` and no corpus module. Every CLI output the README and docs show, `doctor` included, is what the CLI prints there. `test/example.test.ts`
 17. **`export --merge`.** `export` prints the glossary's own terms, not its presets', as x18n glossary YAML. `--merge` writes them into a YAML file, matching by term or source-locale form with only case, hyphens and spaces ignored, a term before a form, and keeps the file's translations and comments. A term that matches two entries, two terms that match one entry, or translations for an entry marked `doNotTranslate`, exit 2 and write nothing. `test/x18n-merge.test.ts`, `test/cli/export.test.ts`
+18. **`check --fix`.** Every `GLOSSLINT_TERM` and `GLOSSLINT_CASE` fix is written into its file; avoid words, code, frontmatter and ignored lines are left alone. It prints the findings left and exits 1 only on those, a second run changes no byte, and `--format json` adds `fixed` to the summary. `test/cli/fix.test.ts`
 
 ## Shape
 
@@ -101,7 +102,7 @@ glosslint(options?: { glossary?: string | URL, corpus?: Corpus, sourceLocale?, k
 //   "settings": { "glosslint": { "glossary"?: string, "ignoreCallees"?: string[], "identifierAvoid"?: boolean } } }
 
 // CLI
-// glosslint [check] [...paths] [--glossary <path> | --corpus <module>] [--format text|json] [--ext <list>]
+// glosslint [check] [...paths] [--glossary <path> | --corpus <module>] [--format text|json] [--ext <list>] [--fix]
 // glosslint doctor [--glossary <path>] [--fix]
 // glosslint test | print | explain <query>   (same two flags)
 // glosslint export [--merge <file>] [--note full|short] [--source-locale <locale>]   (same two flags)

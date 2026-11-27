@@ -274,7 +274,7 @@ If the CLI reports `<file> does not export a corpus as its default export.`, end
 
 ### GLOSSLINT_C009
 
-`fromGlossary` throws `GLOSSLINT_C009` when `.agents/glossary.md` (or the path given to it) does not exist. The CLI reports `GLOSSLINT_C009` when `.agents/glossary.md` does not exist in the current folder, or when `--glossary` or `--corpus` points to a missing file.
+`fromGlossary` throws `GLOSSLINT_C009` when `.agents/glossary.md` (or the path given to it) does not exist. The CLI reports `GLOSSLINT_C009` when `.agents/glossary.md` does not exist in the current folder, or when `--glossary` or `--corpus` points to a missing file or a package specifier that does not resolve.
 
 ```sh
 # Triggers GLOSSLINT_C009: The glossary "missing.md" does not exist.
