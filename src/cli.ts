@@ -11,7 +11,7 @@ import { formatDoctor, formatFindings, toJson } from "./format.ts";
 import { DEFAULT_GLOSSARY, GLOSSARY_PROBLEMS, readGlossary } from "./glossary.ts";
 import type { GlossaryProblem } from "./glossary.ts";
 import { createMatcher } from "./matcher.ts";
-import { explain, explainMatches, printCorpus, testCorpus } from "./tools.ts";
+import { explain, explainMatches, printCorpus, testCorpus, toX18nGlossary } from "./tools.ts";
 import type { CliFinding, Corpus, CorpusTestFailure, Finding } from "./types.ts";
 
 export { checkFileText, maskMarkdown } from "./check-text.ts";
@@ -48,6 +48,16 @@ export interface CheckOptions extends CommandOptions {
 export interface PrintOptions extends CommandOptions {
   /** `md` (default) or `json`. */
   format?: string;
+}
+
+/** Options of `glosslint export`. */
+export interface ExportOptions extends CommandOptions {
+  /** An x18n glossary YAML file to merge the corpus into, written in place. Without it the YAML goes to stdout. */
+  merge?: string;
+  /** `full` (default): the note is the term's What and How. `short`: its What alone. */
+  note?: string;
+  /** The locale whose `forms` spell the term itself, used to match entries in `merge`. Default: `en`. */
+  sourceLocale?: string;
 }
 
 /** Options of `glosslint doctor`. */
@@ -403,6 +413,62 @@ export async function runPrint(options: PrintOptions, io: CliIo): Promise<number
   return 0;
 }
 
+/**
+ * `glosslint export`: prints the corpus as an x18n glossary in YAML, or with `merge` merges it into that file
+ * and prints what changed.
+ */
+export async function runExport(options: ExportOptions, io: CliIo): Promise<number> {
+  const note = options.note ?? "full";
+  if (note !== "full" && note !== "short")
+    throw usage(`--note is "${note}".`, "Use --note full or --note short.");
+  const { corpus } = await loadCorpus(io.cwd, options);
+  const entries = toX18nGlossary(corpus, { note });
+  // `yaml` loads only for this command.
+  const { mergeX18nGlossary, stringifyX18nGlossary, X18nMergeError } =
+    await import("./x18n-merge.ts");
+  if (options.merge === undefined) {
+    io.stdout(stringifyX18nGlossary(entries));
+    return 0;
+  }
+  const file = resolve(io.cwd, String(options.merge));
+  const shown = displayPath(io.cwd, file);
+  if (!existsSync(file))
+    throw usage(
+      `The x18n glossary "${shown}" does not exist.`,
+      "Check the path given to --merge, or run glosslint export without it and save the output.",
+    );
+  let result;
+  try {
+    result = mergeX18nGlossary(
+      readFileSync(file, "utf8"),
+      entries,
+      options.sourceLocale === undefined ? {} : { sourceLocale: String(options.sourceLocale) },
+    );
+  } catch (error) {
+    if (!(error instanceof X18nMergeError)) throw error;
+    throw new CliError({
+      code: CLI_ERRORS.failed,
+      why: `${shown}: ${error.message}`,
+      fix: "Pass --merge an x18n glossary: a YAML list of entries, each with a `term`.",
+    });
+  }
+  writeFileSync(file, result.text);
+  const lines = [
+    `${shown}: ${count(entries.length, "term")} merged, ${result.added.length} added, ${result.updated.length} updated, ${result.unchanged.length} unchanged.`,
+    ...result.added.map((term) => `+ ${term}`),
+    ...result.updated.map(
+      ({ term, from, fields }) =>
+        `~ ${term}${from === term ? "" : ` (${from})`}: ${fields.join(", ")}`,
+    ),
+    ...result.conflicts.map(
+      ({ term, locale, kept, dropped }) =>
+        `! ${term}: kept ${locale} "${kept}" over "${dropped}" from the glossary`,
+    ),
+  ];
+  io.stdout(`${lines.join("\n")}\n`);
+  return 0;
+}
+
 /** `glosslint explain`: what the corpus says about a word or phrase. Exits 1 when no term matches. */
 export async function runExplain(
   query: string,
@@ -519,6 +585,19 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
     .option("--corpus <module>", corpusOption)
     .action((query: string, options: CommandOptions) => {
       run = () => runExplain(String(query), options, io);
+    });
+
+  cli
+    .command("export", "Print the corpus as an x18n glossary in YAML, or merge it into one")
+    .option("--glossary <path>", glossaryOption)
+    .option("--corpus <module>", corpusOption)
+    .option("--merge <file>", "x18n glossary YAML to merge into, keeping its entries and comments")
+    .option("--note <length>", "Note per term: full (What and How) or short (What)", {
+      default: "full",
+    })
+    .option("--source-locale <locale>", "Locale whose forms match entries in --merge (default: en)")
+    .action((options: ExportOptions) => {
+      run = () => runExport(options, io);
     });
 
   cli
