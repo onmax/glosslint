@@ -1,0 +1,39 @@
+diff --git a/dist/runtime/app/components/AppHeader.vue b/dist/runtime/app/components/AppHeader.vue
+index 2e16cd5cc10fe73425360927062f3a0111516b35..5e04fde053bb5bab25c8c42138e1278c42ddc1ae 100644
+--- a/dist/runtime/app/components/AppHeader.vue
++++ b/dist/runtime/app/components/AppHeader.vue
+@@ -61,7 +61,7 @@ const touchIconButton = "pointer-coarse:size-11 max-[22.5rem]:pointer-coarse:w-1
+           ignore-non-keyboard-focus
+           :ui="{ content: 'h-auto max-w-64 whitespace-normal px-3 py-2 text-left leading-5' }"
+         >
+-          <ULink :to="isDocsRoute && docsHome ? docsHome : '/'" class="vh-brand" :aria-label="site.badge ? `${site.name} ${site.badge.label}` : site.name">
++          <ULink to="/" class="vh-brand" :aria-label="site.badge ? `${site.name} ${site.badge.label}` : site.name">
+             <DocsBrandMark class="vh-brand-mark" />
+             <span class="vh-brand-name">
+               <span>{{ site.name }}</span>
+diff --git a/dist/runtime/app/components/DocsAsideLeftTop.vue b/dist/runtime/app/components/DocsAsideLeftTop.vue
+index 6230e1d029ef8d05eb87efacb05d873d0fa60787..cc7cf93b1faa9293f6313f99ebda326a66306c9d 100644
+--- a/dist/runtime/app/components/DocsAsideLeftTop.vue
++++ b/dist/runtime/app/components/DocsAsideLeftTop.vue
+@@ -35,7 +35,7 @@ onMounted(focusMounted)
+     ignore-non-keyboard-focus
+     :ui="{ content: 'h-auto max-w-64 whitespace-normal px-3 py-2 text-left leading-5' }"
+   >
+-    <NuxtLink :to="docsHome ?? '/'" class="vh-docs-panel-brand" data-focus-inset :aria-label="site.badge ? `${site.name} ${site.badge.label}` : site.name">
++    <NuxtLink to="/" class="vh-docs-panel-brand" data-focus-inset :aria-label="site.badge ? `${site.name} ${site.badge.label}` : site.name">
+       <DocsBrandMark />
+       <span>{{ site.name }}</span>
+       <span v-if="site.badge" class="vh-docs-panel-brand-badge">{{ site.badge.label }}</span>
+diff --git a/dist/runtime/app/components/DocsSidebarStrip.vue b/dist/runtime/app/components/DocsSidebarStrip.vue
+index 680aec92a65ca9ce3d720d3a6eb1a6b81707fbe2..a9c73796b06b8ebee4bfa79163e81efc53a49dc0 100644
+--- a/dist/runtime/app/components/DocsSidebarStrip.vue
++++ b/dist/runtime/app/components/DocsSidebarStrip.vue
+@@ -13,7 +13,7 @@ onMounted(focusMounted)
+ <template>
+   <nav class="vh-docs-strip" :aria-label="`${site.name} navigation`">
+     <UTooltip :text="brandLabel" :content="{ side: 'right', sideOffset: 6 }" :delay-duration="150">
+-      <NuxtLink :to="docsHome ?? '/'" class="vh-docs-strip-brand" data-focus-inset :aria-label="brandLabel">
++      <NuxtLink to="/" class="vh-docs-strip-brand" data-focus-inset :aria-label="brandLabel">
+         <DocsBrandMark v-if="site.logo" />
+         <span v-else class="vh-docs-strip-initial">{{ site.name.charAt(0) }}</span>
+       </NuxtLink>

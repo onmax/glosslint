@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@vite-hub/docs@0.5.1': cd8dbbb7197925ff8b4ae4439a2f0e709281a663efd0d6456c39bbada68c0030
+
 importers:
 
   .:
@@ -256,7 +259,7 @@ importers:
         version: 0.5.1(@typescript/typescript6@6.0.2)(crossws@0.4.17(srvx@1.0.8))(drizzle-kit@1.0.0-rc.6(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(oxc-parser@0.155.0))(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(ocache@0.3.2)(postgres@3.4.9)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))(vue@3.5.46(@typescript/typescript6@6.0.2))
       '@vite-hub/docs':
         specifier: ^0.5.1
-        version: 0.5.1(4070b93c6be5f876db3f569372bea232)
+        version: 0.5.1(patch_hash=cd8dbbb7197925ff8b4ae4439a2f0e709281a663efd0d6456c39bbada68c0030)(4070b93c6be5f876db3f569372bea232)
       '@vite-hub/kv':
         specifier: ^0.5.1
         version: 0.5.1(@typescript/typescript6@6.0.2)(@vite-hub/database@0.5.1(@typescript/typescript6@6.0.2)(crossws@0.4.17(srvx@1.0.8))(drizzle-kit@1.0.0-rc.6(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(oxc-parser@0.155.0))(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(ocache@0.3.2)(postgres@3.4.9)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))(vue@3.5.46(@typescript/typescript6@6.0.2)))(crossws@0.4.17(srvx@1.0.8))(ocache@0.3.2)(supports-color@10.2.2)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))
@@ -289,7 +292,7 @@ importers:
         version: 4.3.5
       vite-hub:
         specifier: ^0.5.1
-        version: 0.5.1(8e8485e97938b891fd93559eec42dda7)
+        version: 0.5.1(6d53078643cf7fd824197919b67320f8)
       vue:
         specifier: ^3.5.44
         version: 3.5.46(@typescript/typescript6@6.0.2)
@@ -11922,7 +11925,7 @@ snapshots:
       - utf-8-validate
       - vue
 
-  '@vite-hub/docs@0.5.1(4070b93c6be5f876db3f569372bea232)':
+  '@vite-hub/docs@0.5.1(patch_hash=cd8dbbb7197925ff8b4ae4439a2f0e709281a663efd0d6456c39bbada68c0030)(4070b93c6be5f876db3f569372bea232)':
     dependencies:
       '@comark/html': 0.9.2(katex@0.19.1)(shiki@4.6.0)
       '@comark/vue': 0.9.2(@nuxt/kit@4.7.0(@nuxt/schema@4.7.0)(confbox@0.3.2)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.155.0)(rolldown@1.2.19)(unplugin@3.7.0(esbuild@0.28.2)(rolldown@1.2.19)(rollup@4.68.8)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))))(@nuxt/schema@4.7.0)(katex@0.19.1)(shiki@4.6.0)(vue@3.5.46(@typescript/typescript6@6.0.2))
@@ -16999,7 +17002,7 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.4
 
-  vite-hub@0.5.1(8e8485e97938b891fd93559eec42dda7):
+  vite-hub@0.5.1(6d53078643cf7fd824197919b67320f8):
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/json-schema': 7.0.15
@@ -17031,7 +17034,7 @@ snapshots:
       '@vite-hub/comments': 0.5.1(07a4c453841933e04b82128523395fb7)
       '@vite-hub/content': 0.5.1(83c8a23c84f72a857d38e6a6d6159d87)
       '@vite-hub/database': 0.5.1(@typescript/typescript6@6.0.2)(crossws@0.4.17(srvx@1.0.8))(drizzle-kit@1.0.0-rc.6(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(oxc-parser@0.155.0))(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(ocache@0.3.2)(postgres@3.4.9)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))(vue@3.5.46(@typescript/typescript6@6.0.2))
-      '@vite-hub/docs': 0.5.1(4070b93c6be5f876db3f569372bea232)
+      '@vite-hub/docs': 0.5.1(patch_hash=cd8dbbb7197925ff8b4ae4439a2f0e709281a663efd0d6456c39bbada68c0030)(4070b93c6be5f876db3f569372bea232)
       '@vite-hub/forge': 0.5.1(@typescript/typescript6@6.0.2)(crossws@0.4.17(srvx@1.0.8))(ocache@0.3.2)
       '@vite-hub/kv': 0.5.1(@typescript/typescript6@6.0.2)(@vite-hub/database@0.5.1(@typescript/typescript6@6.0.2)(crossws@0.4.17(srvx@1.0.8))(drizzle-kit@1.0.0-rc.6(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(oxc-parser@0.155.0))(drizzle-orm@1.0.0-rc.6(@libsql/client@0.18.0)(postgres@3.4.9)(valibot@1.5.0(@typescript/typescript6@6.0.2))(zod@4.6.7))(ocache@0.3.2)(postgres@3.4.9)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))(vue@3.5.46(@typescript/typescript6@6.0.2)))(crossws@0.4.17(srvx@1.0.8))(ocache@0.3.2)(supports-color@10.2.2)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))
       '@vite-hub/markdown-template': 0.5.1(katex@0.19.1)(shiki@4.6.0)(vite@8.3.8(@types/node@26.6.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.4)(yaml@2.9.1))

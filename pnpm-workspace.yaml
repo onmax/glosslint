@@ -12,3 +12,6 @@ allowBuilds:
   esbuild: true
   vue-demi: true
   workerd: true
+
+patchedDependencies:
+  '@vite-hub/docs@0.5.1': patches/@vite-hub__docs@0.5.1.patch
