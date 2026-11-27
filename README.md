@@ -11,7 +11,7 @@
 
 [![docs](https://comark-ui.onmax.me/badge.svg?label=docs&value=glosslint.onmax.me)](https://glosslint.onmax.me)
 
-glosslint checks your product's vocabulary against one Markdown file, `.agents/glossary.md`. People and coding agents read that file directly, while ESLint, Oxlint, x18n and the CLI enforce it on code, translations and docs. Every finding carries the reason and meaning alongside the fix.
+glosslint checks your product's vocabulary against one Markdown file, `.agents/glossary.md`. People and coding agents read that file directly, while ESLint, Oxlint, x18n and the CLI enforce it on code, source-locale messages and docs. Translated messages aren't checked: `toX18nGlossary` hands the terms, with any `translations` and `forms`, to x18n's glossary for translators. Every finding carries the reason and meaning alongside the fix.
 
 [Docs](https://glosslint.onmax.me) · [Installation](https://glosslint.onmax.me/guide/installation) · [The glossary file](https://glosslint.onmax.me/guide/glossary) · [ESLint](https://glosslint.onmax.me/integrations/eslint) · [Oxlint](https://glosslint.onmax.me/integrations/oxlint) · [x18n](https://glosslint.onmax.me/integrations/x18n) · [CLI](https://glosslint.onmax.me/integrations/cli) · [For agents](https://glosslint.onmax.me/guide/agents)
 
