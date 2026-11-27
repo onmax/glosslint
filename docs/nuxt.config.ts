@@ -63,7 +63,6 @@ export default defineNuxtConfig({
         { label: 'Guide', to: '/guide' },
         { label: 'Integrations', to: '/integrations' },
         { label: 'Reference', to: '/reference' },
-        { label: 'Spec', to: '/spec' },
         { label: 'Playground', to: '/playground', icon: 'i-lucide-play' },
       ],
     },
@@ -94,6 +93,7 @@ export default defineNuxtConfig({
   // The terms page joined the glossary page.
   routeRules: {
     '/guide/terms': { redirect: { to: '/guide/glossary', statusCode: 301 } },
+    '/spec': { redirect: { to: '/reference/spec', statusCode: 301 } },
   },
   nitro: {
     cloudflare: {

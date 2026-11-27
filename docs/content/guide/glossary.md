@@ -7,7 +7,7 @@ icon: i-lucide-file-text
 
 The CLI, ESLint (`glosslint()`), Oxlint, and `fromGlossary()` load `.agents/glossary.md` by default. Override the path with `--glossary <path>`, `glossary` in ESLint, `settings.glosslint.glossary` in Oxlint, or `fromGlossary(path)`.
 
-To read the file from your own tool, follow the [glossary format spec](/spec), which lists every rule the parser applies.
+To read the file from your own tool, follow the [glossary format spec](/reference/spec), which lists every rule the parser applies.
 
 ```md [.agents/glossary.md]
 # Glossary
