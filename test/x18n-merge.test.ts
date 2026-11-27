@@ -134,10 +134,11 @@ describe("mergeX18nGlossary", () => {
   });
 
   it("throws, naming the entries, when one glossary term matches more than one entry", () => {
-    const file = "- term: prerender\n- term: prerendering\n";
     expect(() =>
-      mergeX18nGlossary(file, [{ term: "Prerender", forms: { en: ["prerendering"] } }]),
-    ).toThrow('"Prerender" matches 2 entries: "prerender" and "prerendering".');
+      mergeX18nGlossary("- term: prerender\n- term: prerendering\n", [
+        { term: "Prerendered", forms: { en: ["prerender", "prerendering"] } },
+      ]),
+    ).toThrow('"Prerendered" matches 2 entries: "prerender" and "prerendering".');
     expect(() =>
       mergeX18nGlossary("- term: Nuxt app\n- term: nuxt-app\n", [{ term: "NuxtApp" }]),
     ).toThrow('"NuxtApp" matches 2 entries: "Nuxt app" and "nuxt-app".');
@@ -148,6 +149,36 @@ describe("mergeX18nGlossary", () => {
         [{ term: "Prerendering", note: "At build time." }],
       ).updated,
     ).toEqual([{ term: "prerendering", from: "Prerendering", fields: ["note"] }]);
+  });
+
+  it("matches the entry with the glossary's term before one its forms match, so a second merge changes nothing", () => {
+    const entries = [
+      { term: "Render", note: "Turn components into HTML.", forms: { en: ["Rendering"] } },
+      { term: "Rendering", note: "The act of rendering." },
+    ];
+    const first = mergeX18nGlossary("", entries);
+    expect(first.added).toEqual(["Render", "Rendering"]);
+    const second = mergeX18nGlossary(first.text, entries);
+    expect(second).toMatchObject({
+      text: first.text,
+      added: [],
+      updated: [],
+      unchanged: ["Render", "Rendering"],
+    });
+    expect(
+      mergeX18nGlossary("- term: prerender\n- term: prerendering\n", [
+        { term: "Prerender", forms: { en: ["prerendering"] } },
+      ]).updated,
+    ).toEqual([{ term: "prerender", from: "Prerender", fields: ["forms"] }]);
+  });
+
+  it("throws, naming both, when two glossary terms match the same entry", () => {
+    expect(() =>
+      mergeX18nGlossary("- term: rendering\n", [
+        { term: "Render", note: "Turn components into HTML.", forms: { en: ["Rendering"] } },
+        { term: "Rendering", note: "The act of rendering." },
+      ]),
+    ).toThrow('"Render" and "Rendering" both match the entry "rendering".');
   });
 
   it("throws, naming the entry and the flag, when it would translate an entry marked doNotTranslate", () => {

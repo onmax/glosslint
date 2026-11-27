@@ -79,7 +79,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 14. **Oxlint.** With `jsPlugins: ["glosslint/oxlint"]` and the four rules on, the `oxlint` binary reports term, avoid, comment and identifier findings in `.ts` files and in the `<script>` of a `.vue` file, `--fix` applies the autofixes and leaves the suggestions, and `settings.glosslint.glossary` changes the path. `test/oxlint.test.ts`
 15. **The package.** `glosslint` exports `fromGlossary` and `readGlossary` and no `fromGlossaryTable`, `glosslint/oxlint` resolves, and the built plugin loads in `oxlint`. `test/dist.test.ts`
 16. **The example.** `examples/basic` has `.agents/glossary.md` and no corpus module. Every CLI output the README and docs show, `doctor` included, is what the CLI prints there. `test/example.test.ts`
-17. **`export --merge`.** `export` prints the glossary's own terms, not its presets', as x18n glossary YAML. `--merge` writes them into a YAML file, matching by term or source-locale form with only case, hyphens and spaces ignored, and keeps the file's translations and comments. A term that matches two entries, or translations for an entry marked `doNotTranslate`, exit 2 and write nothing. `test/x18n-merge.test.ts`, `test/cli/export.test.ts`
+17. **`export --merge`.** `export` prints the glossary's own terms, not its presets', as x18n glossary YAML. `--merge` writes them into a YAML file, matching by term or source-locale form with only case, hyphens and spaces ignored, a term before a form, and keeps the file's translations and comments. A term that matches two entries, two terms that match one entry, or translations for an entry marked `doNotTranslate`, exit 2 and write nothing. `test/x18n-merge.test.ts`, `test/cli/export.test.ts`
 
 ## Shape
 

@@ -93,8 +93,10 @@ function formKeys(map: YAMLMap, locale: string): string[] {
  * "prerendering" matches it too. Other punctuation counts, so "C#" does not match "C++". A match keeps the
  * file's `term` and every field and translation it has: the glossary sets `note`, adds `doNotTranslate: true`,
  * adds translations for locales the entry lacks, and adds forms the entry lacks. Every other entry is added
- * at the end. Comments and order are kept. Throws an `X18nMergeError`, and merges nothing, when an entry
- * matches more than one in the file or gives translations to one marked `doNotTranslate: true`.
+ * at the end. An entry whose term matches one in the file goes to that one, before any form is compared.
+ * Comments and order are kept. Throws an `X18nMergeError`, and merges nothing, when an entry matches more
+ * than one in the file, when two entries match the same one, or when an entry gives translations to one
+ * marked `doNotTranslate: true`.
  */
 export function mergeX18nGlossary(
   source: string,
@@ -126,9 +128,17 @@ export function mergeX18nGlossary(
     for (const key of formKeys(item, locale)) index(byForm, key, item);
   }
   const find = (entry: X18nGlossaryEntry): YAMLMap | undefined => {
-    const keys = [entry.term, ...(entry.forms?.[locale] ?? [])].map(matchKey);
-    for (const map of [byTerm, byForm]) {
-      const found = [...new Set(keys.flatMap((key) => map.get(key) ?? []))];
+    const term = matchKey(entry.term);
+    const keys = [term, ...(entry.forms?.[locale] ?? []).map(matchKey)];
+    // The glossary's own term goes first: "Render" with the form "Rendering" is the entry "Render", when
+    // the file has one, and not the entry "Rendering".
+    const lookups: [Map<string, YAMLMap[]>, string[]][] = [
+      [byTerm, [term]],
+      [byTerm, keys],
+      [byForm, keys],
+    ];
+    for (const [map, from] of lookups) {
+      const found = [...new Set(from.flatMap((key) => map.get(key) ?? []))];
       if (found.length > 1) {
         const names = found.map((item) => `"${text(item.get("term", true))}"`);
         throw new X18nMergeError(
@@ -147,8 +157,21 @@ export function mergeX18nGlossary(
     unchanged: [],
     conflicts: [],
   };
-  for (const entry of entries) {
-    const map = find(entry);
+  // Every match is found before anything is written, so two glossary terms that match one entry fail
+  // the merge instead of the second overwriting the first's note.
+  const matches = entries.map((entry) => [entry, find(entry)] as const);
+  const claims = new Map<YAMLMap, X18nGlossaryEntry>();
+  for (const [entry, map] of matches) {
+    if (!map) continue;
+    const other = claims.get(map);
+    if (other)
+      throw new X18nMergeError(
+        `"${other.term}" and "${entry.term}" both match the entry "${text(map.get("term", true))}".`,
+        "Merge those terms into one in the glossary, or remove the form that matches the wrong entry.",
+      );
+    claims.set(map, entry);
+  }
+  for (const [entry, map] of matches) {
     if (!map) {
       list.items.push(doc.createNode(ordered(entry)));
       result.added.push(entry.term);
