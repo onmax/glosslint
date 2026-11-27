@@ -21,6 +21,8 @@ function byName(name: string | undefined, text: string): TextKind {
   );
   const last = words.at(-1) ?? "";
   const header = words.some((word) => HEADER_WORD.test(word));
+  // The last word names the text, so `headerTooltip` is the header's tooltip, not a header.
+  if (SENTENCE_WORD.test(last)) return "sentence";
   if (
     (header || words.some((word) => LABEL_WORD.test(word)) || last === "name") &&
     !endsSentence &&
