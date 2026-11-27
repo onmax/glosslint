@@ -203,15 +203,20 @@ function endingOf(word: string, canonical: string): string {
   return "";
 }
 
-/** Adds `ed` or `ing` to `word`, dropping a final `e` before `ing` and writing `d` after one. */
+/**
+ * Adds `ed` or `ing` to `word`. After a final `e`, `ed` adds only `d` (freed, tied). Before `ing`,
+ * `ie` becomes `y` (tying), `ee`, `ye` and `oe` keep their `e` (freeing, dyeing, hoeing), and any
+ * other final `e` drops (caching).
+ */
 function inflect(word: string, ending: string): string {
   if (ending === "") return word;
   const upper = isAllCaps(word);
-  const out = /[^e]e$/i.test(word)
-    ? ending === "ed"
-      ? `${word}d`
-      : `${word.slice(0, -1)}ing`
-    : word + ending;
+  let out = word + ending;
+  if (/e$/i.test(word)) {
+    if (ending === "ed") out = `${word}d`;
+    else if (/ie$/i.test(word)) out = `${word.slice(0, -2)}ying`;
+    else if (!/[eyo]e$/i.test(word)) out = `${word.slice(0, -1)}ing`;
+  }
   return upper ? out.toUpperCase() : out;
 }
 

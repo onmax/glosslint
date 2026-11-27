@@ -203,6 +203,37 @@ describe("inflected forms", () => {
     ]);
   });
 
+  it("follows the final-e rules of English for a split-off ending", () => {
+    const e = createMatcher(
+      defineCorpus({
+        terms: [
+          { term: "Free" },
+          { term: "Tie" },
+          { term: "Dye" },
+          { term: "Hoe" },
+          { term: "Prerender" },
+        ],
+      }),
+    );
+    expect(hits("free-ed, tie-ed, dye-ed, hoe-ed", undefined, e)).toEqual([
+      "TERM free-ed -> freed",
+      "TERM tie-ed -> tied",
+      "TERM dye-ed -> dyed",
+      "TERM hoe-ed -> hoed",
+    ]);
+    expect(hits("free-ing, tie-ing, dye-ing, hoe-ing, prerender-ing", undefined, e)).toEqual([
+      "TERM free-ing -> freeing",
+      "TERM tie-ing -> tying",
+      "TERM dye-ing -> dyeing",
+      "TERM hoe-ing -> hoeing",
+      "TERM prerender-ing -> prerendering",
+    ]);
+    expect(hits("cache-ed, cache-ing", undefined, m)).toEqual([
+      "TERM cache-ed -> cached",
+      "TERM cache-ing -> caching",
+    ]);
+  });
+
   it("reads the stem forms of a term that ends in ing", () => {
     expect(hits("Pre-rendered pages, pre-renders, pre-render", undefined, m)).toEqual([
       "TERM Pre-rendered -> Prerendered",
