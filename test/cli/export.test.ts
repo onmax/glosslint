@@ -113,7 +113,7 @@ describe("glosslint export", () => {
   });
 
   it("exits 2 and writes nothing when a term matches more than one entry", async () => {
-    const file = "- term: prerender\n- term: prerendering\n";
+    const file = "- term: Nuxt app\n- term: nuxt-app\n";
     writeFileSync(join(dir, "glossary.yml"), file);
     const result = await run(
       ["export", "--glossary", "GLOSSARY.md", "--merge", "glossary.yml"],
@@ -121,10 +121,35 @@ describe("glosslint export", () => {
     );
     expect(result.code).toBe(2);
     expect(result.stderr).toContain(
-      'glossary.yml: "Prerender" matches 2 entries: "prerender" and "prerendering".',
+      'glossary.yml: "NuxtApp" matches 2 entries: "Nuxt app" and "nuxt-app".',
     );
     expect(result.stderr).toContain("Merge those entries into one");
     expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(file);
+  });
+
+  it("changes nothing on a second merge when a term is a form of another, and exits 2 when two terms match one entry", async () => {
+    writeFileSync(
+      join(dir, "RENDER.md"),
+      "# Glossary\n\n## Render\nWhat: Turn components into HTML.\nForms: en: Rendering\n\n## Rendering\nWhat: The act of rendering.\n",
+    );
+    writeFileSync(join(dir, "glossary.yml"), "");
+    const args = ["export", "--glossary", "RENDER.md", "--merge", "glossary.yml"];
+    expect((await run(args, dir)).stdout).toBe(
+      "glossary.yml: 2 terms merged, 2 added, 0 updated, 0 unchanged.\n+ Render\n+ Rendering\n",
+    );
+    const first = readFileSync(join(dir, "glossary.yml"), "utf8");
+    const second = await run(args, dir);
+    expect(second.code).toBe(0);
+    expect(second.stdout).toContain("2 terms merged, 0 added, 0 updated, 2 unchanged.");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(first);
+
+    writeFileSync(join(dir, "glossary.yml"), "- term: rendering\n");
+    const claimed = await run(args, dir);
+    expect(claimed.code).toBe(2);
+    expect(claimed.stderr).toContain(
+      'glossary.yml: "Render" and "Rendering" both match the entry "rendering".',
+    );
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe("- term: rendering\n");
   });
 
   it("does not mark a translated exact term doNotTranslate, and fails when a merge would translate an entry marked so", async () => {

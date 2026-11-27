@@ -1,6 +1,6 @@
 // Writes x18n glossary YAML. The `yaml` package's Document API edits the parsed file in place, so the
 // comments, entry order, key order and quoting of a shared glossary survive a merge.
-import { isMap, isScalar, isSeq, parseDocument, Scalar, stringify } from "yaml";
+import { isAlias, isMap, isScalar, isSeq, parseDocument, Scalar, stringify } from "yaml";
 import type { Document, Pair, YAMLMap } from "yaml";
 import type { X18nGlossaryEntry } from "./types.ts";
 
@@ -68,6 +68,13 @@ function ordered(entry: X18nGlossaryEntry): X18nGlossaryEntry {
 const text = (node: unknown): string | undefined =>
   isScalar(node) && typeof node.value === "string" ? node.value : undefined;
 
+/** Whether the entry's `doNotTranslate` is `true`, with an alias such as `*locked` resolved to its anchor. */
+function marked(doc: Document, map: YAMLMap): boolean {
+  const node = map.get("doNotTranslate", true);
+  const value = isAlias(node) ? node.resolve(doc) : node;
+  return isScalar(value) && value.value === true;
+}
+
 /** A match key: the text in lowercase without hyphens and spaces. Other punctuation stays, so `C#` is not `C++`. */
 const matchKey = (value: string): string => value.toLowerCase().replace(/[\s\-‐‑]+/g, "");
 
@@ -86,8 +93,10 @@ function formKeys(map: YAMLMap, locale: string): string[] {
  * "prerendering" matches it too. Other punctuation counts, so "C#" does not match "C++". A match keeps the
  * file's `term` and every field and translation it has: the glossary sets `note`, adds `doNotTranslate: true`,
  * adds translations for locales the entry lacks, and adds forms the entry lacks. Every other entry is added
- * at the end. Comments and order are kept. Throws an `X18nMergeError`, and merges nothing, when an entry
- * matches more than one in the file or gives translations to one marked `doNotTranslate: true`.
+ * at the end. An entry whose term matches one in the file goes to that one, before any form is compared.
+ * Comments and order are kept. Throws an `X18nMergeError`, and merges nothing, when an entry matches more
+ * than one in the file, when two entries match the same one, or when an entry gives translations to one
+ * marked `doNotTranslate: true`.
  */
 export function mergeX18nGlossary(
   source: string,
@@ -119,9 +128,17 @@ export function mergeX18nGlossary(
     for (const key of formKeys(item, locale)) index(byForm, key, item);
   }
   const find = (entry: X18nGlossaryEntry): YAMLMap | undefined => {
-    const keys = [entry.term, ...(entry.forms?.[locale] ?? [])].map(matchKey);
-    for (const map of [byTerm, byForm]) {
-      const found = [...new Set(keys.flatMap((key) => map.get(key) ?? []))];
+    const term = matchKey(entry.term);
+    const keys = [term, ...(entry.forms?.[locale] ?? []).map(matchKey)];
+    // The glossary's own term goes first: "Render" with the form "Rendering" is the entry "Render", when
+    // the file has one, and not the entry "Rendering".
+    const lookups: [Map<string, YAMLMap[]>, string[]][] = [
+      [byTerm, [term]],
+      [byTerm, keys],
+      [byForm, keys],
+    ];
+    for (const [map, from] of lookups) {
+      const found = [...new Set(from.flatMap((key) => map.get(key) ?? []))];
       if (found.length > 1) {
         const names = found.map((item) => `"${text(item.get("term", true))}"`);
         throw new X18nMergeError(
@@ -140,8 +157,21 @@ export function mergeX18nGlossary(
     unchanged: [],
     conflicts: [],
   };
-  for (const entry of entries) {
-    const map = find(entry);
+  // Every match is found before anything is written, so two glossary terms that match one entry fail
+  // the merge instead of the second overwriting the first's note.
+  const matches = entries.map((entry) => [entry, find(entry)] as const);
+  const claims = new Map<YAMLMap, X18nGlossaryEntry>();
+  for (const [entry, map] of matches) {
+    if (!map) continue;
+    const other = claims.get(map);
+    if (other)
+      throw new X18nMergeError(
+        `"${other.term}" and "${entry.term}" both match the entry "${text(map.get("term", true))}".`,
+        "Merge those terms into one in the glossary, or remove the form that matches the wrong entry.",
+      );
+    claims.set(map, entry);
+  }
+  for (const [entry, map] of matches) {
     if (!map) {
       list.items.push(doc.createNode(ordered(entry)));
       result.added.push(entry.term);
@@ -150,7 +180,7 @@ export function mergeX18nGlossary(
     const term = text(map.get("term", true))!;
     // x18n reads doNotTranslate before translations, so an entry with both is never translated.
     const locales = Object.keys(entry.translations ?? {});
-    if (locales.length > 0 && map.get("doNotTranslate") === true)
+    if (locales.length > 0 && marked(doc, map))
       throw new X18nMergeError(
         `"${term}" has doNotTranslate: true, and the glossary's "${entry.term}" gives it translations (${locales.join(", ")}).`,
         `Remove doNotTranslate: true from "${term}" in the file to translate it, or remove Translations from "${entry.term}" in the glossary to keep it as written.`,
@@ -182,7 +212,7 @@ function mergeEntry(
     fields.push("note");
   }
   // An entry the file translates is not marked untranslatable because the glossary has no translations.
-  if (entry.doNotTranslate && map.get("doNotTranslate") !== true && !map.has("translations")) {
+  if (entry.doNotTranslate && !marked(doc, map) && !map.has("translations")) {
     map.set("doNotTranslate", true);
     fields.push("doNotTranslate");
   }
