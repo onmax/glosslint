@@ -64,8 +64,10 @@ Each `##` heading starts one term. All fields below it are optional, so a bare h
 | `Links` | `-` list of `[title](url)` links using `http://` or `https://`. Findings print the first URL. |
 | `Case` | `spelling` by default, `exact` for one form everywhere, or `context` for label, header, and sentence casing. See [Casing rules](/guide/casing). |
 | `Casing` | Overrides the glossary's `Casing` for this term, such as `label as-written`. Setting `Casing` without `Case` treats the term as `context`. See [Casing rules](/guide/casing). |
+| `Translations` | The term's translation per locale, as `locale: translation`. See [Translations and forms](#translations-and-forms). |
+| `Forms` | Other forms of the term per locale, as `locale: form, form`. See [Translations and forms](#translations-and-forms). |
 
-For options this file has no field for, such as `skip`, `forms`, `translations`, `wholeLabel`, or merging corpora, use [`defineCorpus`](/guide/corpus).
+For options this file has no field for, such as `skip`, `wholeLabel`, or merging corpora, use [`defineCorpus`](/guide/corpus).
 
 ## Term headings, abbreviations, and case
 
@@ -126,6 +128,25 @@ Avoid: rack, stand, `bay, berth`: Old words.
 ```
 
 A finding prints the avoid entry's own reason first, then falls back to the term's `Why` and `How`. Plurals ending in `s` or `es` match automatically, so `rack` also flags `"racks"` and suggests `"docks"`. An avoid word cannot be the term itself or another term in the same file, so use `Case: exact` if you only want to enforce capitalization.
+
+## Translations and forms
+
+`Translations` and `Forms` hold what translators decide per locale. glosslint checks the source text only; it passes both to [x18n's glossary](/integrations/x18n#exporting-your-corpus-to-x18ns-glossary), and `glosslint explain` finds a term by its forms.
+
+```md
+## Server route
+What: A handler that answers HTTP requests at a path.
+Translations:
+- fr: route serveur
+- de: Server-Route
+Forms:
+- en: server routes
+- fr: routes serveur, route du serveur
+```
+
+Each item is a locale, a colon, then the value. A `Translations` item holds one translation, and a `Forms` item lists the forms of that locale separated by commas; wrap a value holding a comma in backticks. Short `Translations` fit on the field's line: `Translations: fr: route serveur, de: Server-Route`. `Forms` is always a `-` list.
+
+The locale is a BCP 47 tag such as `fr`, `de` or `pt-BR`. An item with no locale, a locale that is not a tag, or no value is `GLOSSLINT_G006`, and a locale listed twice is `GLOSSLINT_G005`. Both keep the file from loading, so a typo never reaches a translator. The source locale's forms, such as `en` above, are other spellings of the term itself, which `glosslint export --merge` uses to find the term in a shared glossary.
 
 ## Layout
 

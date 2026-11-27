@@ -247,10 +247,20 @@ export function explain(corpus: Corpus, query: string): string {
   return matches.map((match) => explainEntry(corpus, match)).join("\n\n");
 }
 
+/** Options of `toX18nGlossary`. */
+export interface X18nGlossaryOptions {
+  /** `full` (default): the description and the nuance. `short`: the description alone, the glossary's `What`. */
+  note?: "full" | "short";
+}
+
 /** The corpus as x18n `glossary` entries, with only the fields x18n accepts. */
-export function toX18nGlossary(corpus: Corpus): X18nGlossaryEntry[] {
+export function toX18nGlossary(
+  corpus: Corpus,
+  options: X18nGlossaryOptions = {},
+): X18nGlossaryEntry[] {
+  const short = options.note === "short";
   return corpus.terms.map((term) => {
-    const note = [term.description, term.nuance]
+    const note = (short ? [term.description] : [term.description, term.nuance])
       .filter((part): part is string => Boolean(part))
       .map(sentence)
       .join(" ");

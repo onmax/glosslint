@@ -198,4 +198,22 @@ describe("toX18nGlossary", () => {
       { term: "Checkout" },
     ]);
   });
+
+  it("writes the description alone as the note with note: short", () => {
+    const corpus = defineCorpus({
+      terms: [
+        {
+          term: "Dock",
+          description: "A powered stand where one bike is locked",
+          nuance: "A station is a group of docks.",
+        },
+        { term: "Station", nuance: "A group of docks." },
+      ],
+    });
+    expect(toX18nGlossary(corpus, { note: "short" })).toEqual([
+      { term: "Dock", note: "A powered stand where one bike is locked." },
+      { term: "Station" },
+    ]);
+    expect(toX18nGlossary(corpus, { note: "full" })).toEqual(toX18nGlossary(corpus));
+  });
 });

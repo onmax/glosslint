@@ -115,10 +115,10 @@ Looks up what `corpus` says about a word or phrase, matching terms, abbreviation
 ### toX18nGlossary
 
 ```ts
-function toX18nGlossary(corpus: Corpus): X18nGlossaryEntry[]
+function toX18nGlossary(corpus: Corpus, options?: X18nGlossaryOptions): X18nGlossaryEntry[]
 ```
 
-Converts each term in `corpus` into an `X18nGlossaryEntry` with `term`, `translations`, `forms`, a `note` combining `description` and `nuance`, and `doNotTranslate: true` for `exact` terms without `translations`.
+Converts each term in `corpus` into an `X18nGlossaryEntry` with `term`, `translations`, `forms`, a `note` combining `description` and `nuance`, and `doNotTranslate: true` for `exact` terms without `translations`. With `{ note: "short" }`, the note is the `description` alone. `glosslint export` writes these entries as YAML, or merges them into an existing file with `--merge`.
 
 ### GlosslintConfigError
 
@@ -246,3 +246,4 @@ Every type below is exported from `glosslint`, except `GlosslintEslintOptions` (
 - `TermSummary`: `Pick<Term, "term" | "description" | "nuance">`, carried on each `CliFinding`.
 - `TextKind`: Context of a checked string: `"label" | "header" | "sentence" | "comment" | "identifier" | "unknown"`.
 - `X18nGlossaryEntry`: Entry produced by `toX18nGlossary` with `term` and optional `translations`, `forms`, `note`, and `doNotTranslate`.
+- `X18nGlossaryOptions`: Options for `toX18nGlossary`: `{ note?: "full" | "short" }`. `full` (default) joins `description` and `nuance`; `short` keeps `description`.
