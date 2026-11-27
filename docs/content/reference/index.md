@@ -13,7 +13,7 @@ Use this section when you parse glosslint output in CI or editor tooling, troubl
 - [Findings format](/reference/findings): the JSON report printed by `glosslint check --format json`, the tree output format, every finding field, the three finding codes (`GLOSSLINT_TERM`, `GLOSSLINT_AVOID`, `GLOSSLINT_CASE`), and the `fix.kind` rules (`autofix`, `suggestion`, `rename`).
 - [Config and glossary errors](/reference/config-errors): `GlosslintConfigError`, exit code `2`, corpus and config codes (`GLOSSLINT_C001` to `GLOSSLINT_C012`), and glossary file problem codes (`GLOSSLINT_G001` to `GLOSSLINT_G009`) reported by `readGlossary`, `fromGlossary`, and `glosslint doctor`.
 - [JavaScript API](/reference/api): all six package entry points, every exported function signature, the `glosslint` CLI binary, and every TypeScript type.
-- [Glossary format spec](/reference/spec): the `.agents/glossary.md` format for tools of your own: its structure, every corpus and term field, how values parse, what blocks and what warns, and the JSON a parser should produce.
+- [Glossary spec](/reference/spec): the `.agents/glossary.md` format for tools of your own: its structure, every corpus and term field, how values parse, what blocks and what warns, and the JSON a parser should produce.
 
 ## Package entry points
 

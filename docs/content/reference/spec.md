@@ -1,6 +1,6 @@
 ---
-title: Glossary format spec
-navigation.title: Spec
+title: Glossary spec
+navigation.title: Glossary spec
 navigation.order: 5
 description: File format specification for .agents/glossary.md, covering structure, fields, value rules, validation, and parsed JSON output.
 icon: i-lucide-file-code
