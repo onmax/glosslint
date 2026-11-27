@@ -63,6 +63,7 @@ export default defineNuxtConfig({
         { label: 'Guide', to: '/guide' },
         { label: 'Integrations', to: '/integrations' },
         { label: 'Reference', to: '/reference' },
+        { label: 'Spec', to: '/spec' },
         { label: 'Playground', to: '/playground', icon: 'i-lucide-play' },
       ],
     },
