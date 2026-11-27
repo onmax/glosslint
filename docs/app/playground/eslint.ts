@@ -1,18 +1,23 @@
 // Runs glosslint's ESLint rules with ESLint's own Linter, the browser build that the ESLint playground uses too.
 import { Linter } from 'eslint/universal'
+import vueParser from 'vue-eslint-parser'
 import { createRules } from '../../../src/eslint/rules.ts'
 import { DEFAULT_IGNORE_CALLEES } from '../../../src/eslint/sites.ts'
 import type { Corpus } from '../../../src/types.ts'
 import { edit, type Files, type PlaygroundFinding, type QuickFix } from './findings.ts'
 
-/** The files ESLint reads: plain JavaScript, which espree parses in the browser. */
-export const SOURCE_FILE = /^src\/.+\.(?:js|mjs)$/
+/** The files ESLint reads: JavaScript, which espree parses, and Vue components, which vue-eslint-parser parses. */
+export const SOURCE_FILE = /^src\/.+\.(?:js|mjs|vue)$/
 
-// `glosslint()` in eslint.config.js turns on these four rules at these levels.
+// `glosslint()` in eslint.config.js turns on these four rules at these levels, and the project gives .vue files
+// vue-eslint-parser, as the ESLint guide shows.
 function config(corpus: Corpus): Linter.Config[] {
   const settings = { ignoreCallees: DEFAULT_IGNORE_CALLEES, identifierAvoid: false }
   return [{
-    files: ['**/*.js', '**/*.mjs'],
+    files: ['**/*.vue'],
+    languageOptions: { parser: vueParser },
+  }, {
+    files: ['**/*.js', '**/*.mjs', '**/*.vue'],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
     plugins: { glosslint: { rules: createRules(() => ({ corpus, settings })) } },
     rules: {

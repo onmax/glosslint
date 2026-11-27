@@ -179,6 +179,9 @@ const fallenWidth = ref(0)
 // Whether the sign had power when it fell, so its fallen copy sputters out rather than lying there dark already.
 const fellLit = ref(false)
 const fallenPosition = ref({ x: 0, y: 0 })
+// While the sign falls it takes no pointer. It starts over the nail, so a fast click after the last turn would grab it
+// and end the fall before it plays.
+const landing = ref(false)
 
 const centre = (el: Element) => {
   const r = el.getBoundingClientRect()
@@ -193,8 +196,6 @@ const throwable = useThrowable(fallenSign, {
   position: fallenPosition,
   bounds: () => ({ left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }),
   reducedMotion: prefersReducedMotion,
-  // Picked up mid-fall, the sign stops falling where it is headed.
-  onGrab: () => fallenBody.value?.getAnimations().forEach(animation => animation.finish()),
   // The board's nail holes over the wall's.
   magnet: () => {
     const anchor = fallenSign.value && midpoint(fallenSign.value.querySelectorAll('.gl-hole-mark'))
@@ -224,6 +225,7 @@ async function fall() {
     el.animate([{ opacity: 0, translate: '0 -16px' }, { opacity: 1, translate: '0 0' }], { duration: 200, easing: 'ease-out' })
     return
   }
+  landing.value = true
 
   // Start the fallen copy exactly where the hanging board is: the same box, turned the same way about its nail. The
   // copy turns about its bottom middle, so the turn about the nail becomes that turn plus a shift.
@@ -236,7 +238,7 @@ async function fall() {
   const y = rect.top - (window.innerHeight - height) + toNail[1]! - turned[1]!
   const duration = Math.min(1400, Math.max(650, 480 + Math.sqrt(Math.abs(y)) * 22))
   // It hits the floor, squashes flat about its bottom edge, bounces once, stretching as it leaves, and lands again.
-  el.animate([
+  const landed = el.animate([
     { translate: `${x}px ${y}px`, rotate: `${angle.value}deg`, scale: '1', easing: 'cubic-bezier(.45,0,.9,.55)' },
     { offset: 0.62, translate: '0 0', rotate: '1.6deg', scale: '1', easing: 'cubic-bezier(.2,.7,.4,1)' },
     { offset: 0.7, translate: '0 0', rotate: '0.8deg', scale: '1.05 0.88', easing: 'cubic-bezier(.3,.6,.4,1)' },
@@ -244,6 +246,7 @@ async function fall() {
     { offset: 0.91, translate: '0 0', rotate: '-1.5deg', scale: '1.02 0.97', easing: 'cubic-bezier(.2,.7,.4,1)' },
     { translate: '0 0', rotate: '-1.2deg', scale: '1' },
   ], { duration })
+  landed.onfinish = landed.oncancel = () => { landing.value = false }
 }
 
 // Back on its nails, still unplugged.
@@ -255,6 +258,7 @@ async function hangBack(fromKeyboard = false) {
   }
   pivot.value = undefined
   angle.value = 0
+  landing.value = false
   state.value = 'hung-dark'
   announcement.value = 'The sign is back on its nails, still dark. Plug the cable back into its right edge to light it.'
   await nextTick()
@@ -512,7 +516,7 @@ onBeforeUnmount(() => {
       <div
         v-if="fallen"
         ref="fallenSign"
-        class="gl-fallen"
+        :class="['gl-fallen', { 'is-landing': landing }]"
         :style="{ width: `${fallenWidth}px` }"
         role="button"
         tabindex="0"
@@ -700,7 +704,7 @@ onBeforeUnmount(() => {
 .gl-nail {
   position: absolute;
   z-index: 1;
-  width: 6%;
+  width: 4.5%;
   aspect-ratio: 1;
   padding: 0;
   border: 0;
@@ -806,6 +810,10 @@ onBeforeUnmount(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.gl-fallen.is-landing {
+  pointer-events: none;
+}
+
 .gl-fallen:active {
   cursor: grabbing;
 }
@@ -871,6 +879,7 @@ onBeforeUnmount(() => {
    header, and the code block or install tabs inside drop their own frame. */
 .gl-hero-tabs {
   --gl-frame-border: color-mix(in oklab, var(--gl-cyan, var(--ui-primary)) 20%, var(--ui-border));
+  position: relative;
   max-width: 36rem;
   margin-top: 1.75rem;
   overflow: hidden;
@@ -926,20 +935,26 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-/* The prompt's "text" label says nothing, so its bar goes and the copy button floats in the corner. */
+/* The prompt's "text" label says nothing, so its bar leaves the code and its copy button sits at the right end of the
+   audience switch, in the frame's header. The install tabs keep their copy button in their own tab row. The bar is
+   placed against the frame, and `--_ck-bar` is comark-ui's bar height, which also sets the space above the code. */
 .gl-hero-panel :deep(.ck-title) {
   display: none;
 }
 
-.gl-hero-panel > :deep(.ck) > .ck-bar {
-  left: auto;
-  border: 0;
-  background: transparent;
+.gl-hero-panel > :deep(div.ck) {
+  --_ck-bar: 0.375rem;
+  position: static;
 }
 
-.gl-hero-tabs .gl-hero-panel > :deep(div.ck) > pre {
-  padding-top: 1rem;
-  padding-right: 3rem;
+.gl-hero-panel > :deep(div.ck) > .ck-bar {
+  --_comark-border: transparent;
+  top: 0;
+  right: 0;
+  left: auto;
+  height: calc(2 * 0.375rem + 1.8125rem);
+  padding: 0 0.375rem;
+  background: transparent;
 }
 
 /* The agent prompt is prose for copying, so it wraps instead of scrolling out of the box. */

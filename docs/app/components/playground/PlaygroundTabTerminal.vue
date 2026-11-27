@@ -97,23 +97,53 @@ function hide(now = false) {
 }
 
 function toggle(id: string | undefined, event: Event) {
+  if (opensFile(event)) {
+    const finding = id ? findings.value.get(id) : undefined
+    if (finding) reveal(finding.file)
+    return
+  }
   if (card.value?.pinned && card.value.finding.id === id) return hide(true)
   open(id, event, true)
 }
 
 const keep = () => clearTimeout(hideTimer)
 
+// Ctrl+click (Cmd+click on a Mac) on a path, or on a finding, opens its file, as in an editor's terminal. While the key
+// is held the paths underline, so they read as links.
+const linking = ref(false)
+const opensFile = (event: Event) => event instanceof MouseEvent && (event.ctrlKey || event.metaKey)
+const pathFile = (text: string) => text.trim().replace(/(?::\d+){1,2}$/, '')
+
+function reveal(path: string) {
+  if (!(path in files.value)) return
+  hide(true)
+  show(path)
+}
+
+function openPath(text: string, event: MouseEvent) {
+  if (!opensFile(event)) return
+  event.stopPropagation()
+  reveal(pathFile(text))
+}
+
 function onKey(event: KeyboardEvent) {
   if (event.key === 'Escape') hide(true)
+  linking.value = event.ctrlKey || event.metaKey
 }
+const onKeyUp = (event: KeyboardEvent) => (linking.value = event.ctrlKey || event.metaKey)
+const unlink = () => (linking.value = false)
 onMounted(() => {
   window.addEventListener('keydown', onKey)
+  window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', unlink)
   window.addEventListener('scroll', closeOnScroll, true)
   // The terminal is what the page is about, so it opens first, over the Output tab of the render runner.
   showTab('terminal')
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
+  window.removeEventListener('keyup', onKeyUp)
+  window.removeEventListener('blur', unlink)
   window.removeEventListener('scroll', closeOnScroll, true)
 })
 function closeOnScroll(event: Event) {
@@ -170,7 +200,7 @@ function severityOf(line: OutputLine) {
       <span v-if="last" class="pg-bar-count">{{ findings.size }} finding{{ findings.size === 1 ? '' : 's' }}<template v-if="fixable">, {{ fixable }} fix alone</template></span>
     </div>
 
-    <div class="pg-screen" role="log" aria-live="polite">
+    <div class="pg-screen" :class="{ 'is-linking': linking }" role="log" aria-live="polite">
       <template v-if="!last">
         <p class="pg-line"><span class="pg-prompt">$</span> <span class="pg-dim">Lint runs glosslint check, ESLint and x18n on these files. Doctor checks the glossary.</span></p>
         <p class="pg-line pg-dim">Hover a finding to see its fix, as in your editor.</p>
@@ -192,8 +222,20 @@ function severityOf(line: OutputLine) {
             @blur="hide()"
             @click="toggle(line.finding, $event)"
             @keydown.enter.prevent="toggle(line.finding, $event)"
-          ><span v-for="(part, at) in parts(line)" :key="at" :class="part.style && `pg-${part.style}`">{{ part.text }}</span></p>
-          <p v-else class="pg-line" :style="indent(line)"><span v-for="(part, at) in parts(line)" :key="at" :class="part.style && `pg-${part.style}`">{{ part.text }}</span></p>
+          ><span
+            v-for="(part, at) in parts(line)"
+            :key="at"
+            :class="part.style && `pg-${part.style}`"
+            :title="part.style === 'path' ? 'Ctrl+click to open' : undefined"
+            @click="part.style === 'path' && openPath(part.text, $event)"
+          >{{ part.text }}</span></p>
+          <p v-else class="pg-line" :style="indent(line)"><span
+            v-for="(part, at) in parts(line)"
+            :key="at"
+            :class="part.style && `pg-${part.style}`"
+            :title="part.style === 'path' ? 'Ctrl+click to open' : undefined"
+            @click="part.style === 'path' && openPath(part.text, $event)"
+          >{{ part.text }}</span></p>
         </template>
       </section>
       <p v-if="note" class="pg-line pg-note">{{ note }}</p>
@@ -279,6 +321,14 @@ function severityOf(line: OutputLine) {
 .pg-dim { color: var(--ui-text-muted); }
 .pg-bold { font-weight: 600; }
 .pg-path { color: var(--ui-info); }
+.is-linking .pg-path,
+.is-linking .pg-finding {
+  cursor: pointer;
+}
+.is-linking .pg-path:hover,
+.is-linking .pg-finding:hover .pg-path {
+  text-decoration: underline;
+}
 .pg-error, .pg-code { color: var(--ui-error); font-weight: 600; }
 .pg-warning { color: var(--ui-warning); font-weight: 600; }
 .pg-ok { color: var(--ui-success); }

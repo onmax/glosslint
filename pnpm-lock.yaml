@@ -293,6 +293,9 @@ importers:
       vue:
         specifier: ^3.5.44
         version: 3.5.46(@typescript/typescript6@6.0.2)
+      vue-eslint-parser:
+        specifier: ^10.4.2
+        version: 10.4.2(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
     devDependencies:
       drizzle-kit:
         specifier: 1.0.0-rc.6

@@ -1,244 +1,506 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-label="glosslint — neon sign reading glosslint above e-bike rack corrected to eBike dock">
+<!-- The site hero's neon sign (docs/app/components/GlosslintSign.vue), rendered lit, with the same ignite and flicker.
+     When the sign changes, copy the hero's rendered <svg> here again. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" width="760" height="400" role="img" aria-label="A neon sign reading glosslint. Under it, e-bike rack is a dark tube with a red line through it, and eBike dock is lit in green." class="gl-sign is-lit">
   <title>glosslint</title>
+  <style>
+.gl-sign-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 24px; font-weight: 600; }
+.gl-sign-sputter, .gl-sign-unlit { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .gl-sign-lit, .gl-sign-pools { animation: gl-sign-ignite 1.6s linear 0.2s both; }
+  .gl-sign-stutter { animation: gl-sign-stutter 9.7s linear 2.2s infinite; }
+  .gl-sign-buzz { animation: gl-sign-buzz 13.3s linear 4.1s infinite; }
+  .gl-sign-brownout { animation: gl-sign-brownout 17.9s linear 1s infinite; }
+  .gl-sign-sputter { animation: gl-sign-sputter 11s linear 5s infinite; }
+}
+@keyframes gl-sign-ignite { 0% { opacity: 0.1; } 10% { opacity: 1; } 16% { opacity: 0.3; } 26%, 46% { opacity: 1; } 52% { opacity: 0.6; } 58%, 100% { opacity: 1; } }
+@keyframes gl-sign-stutter { 0%, 20% { opacity: 1; } 20.3%, 21.4% { opacity: 0.12; } 21.7%, 26.6% { opacity: 1; } 26.9%, 27.8% { opacity: 0.45; } 28.1%, 100% { opacity: 1; } }
+@keyframes gl-sign-buzz { 0%, 58% { opacity: 1; } 58.2%, 58.8% { opacity: 0.2; } 59%, 59.4% { opacity: 0.9; } 59.6%, 60.2% { opacity: 0.25; } 60.5%, 100% { opacity: 1; } }
+@keyframes gl-sign-brownout { 0%, 80% { opacity: 1; } 81%, 84% { opacity: 0.55; } 85%, 100% { opacity: 1; } }
+@keyframes gl-sign-sputter { 0%, 84%, 85.6%, 87.4%, 100% { opacity: 0; } 84.6% { opacity: 0.32; } 86.6% { opacity: 0.14; } }
+</style>
   <defs>
-    <!-- Sign backing gradients -->
-    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#070911"/>
-      <stop offset="50%" stop-color="#0b101d"/>
-      <stop offset="100%" stop-color="#070a12"/>
+    <linearGradient id="gl-board" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#101624"/>
+      <stop offset="0.55" stop-color="#0a0e18"/>
+      <stop offset="1" stop-color="#06080f"/>
     </linearGradient>
-
-    <!-- Subtle architectural grid revealed inside the neon spill -->
-    <pattern id="wall-grid" width="32" height="32" patternUnits="userSpaceOnUse">
-      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#9ec5ff" stroke-width="0.75"/>
-    </pattern>
-
-    <radialGradient id="grid-mask-grad" cx="640" cy="200" r="560" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.09"/>
-      <stop offset="58%" stop-color="#ffffff" stop-opacity="0.045"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <mask id="grid-mask">
-      <rect width="1280" height="400" fill="url(#grid-mask-grad)"/>
-    </mask>
-
-    <!-- Ambient neon light pools cast onto the dark sign backing -->
-    <radialGradient id="pool-cyan" cx="465" cy="158" r="300" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#22e8ff" stop-opacity="0.21"/>
-      <stop offset="46%" stop-color="#0ea5e9" stop-opacity="0.08"/>
-      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="pool-mint" cx="835" cy="158" r="285" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#2ef5a3" stop-opacity="0.19"/>
-      <stop offset="48%" stop-color="#10b981" stop-opacity="0.07"/>
-      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="pool-coral" cx="460" cy="322" r="190" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ff4770" stop-opacity="0.14"/>
-      <stop offset="60%" stop-color="#ff4770" stop-opacity="0.04"/>
-      <stop offset="100%" stop-color="#ff4770" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="pool-fix" cx="820" cy="322" r="200" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#38f9b8" stop-opacity="0.17"/>
-      <stop offset="60%" stop-color="#22e8ff" stop-opacity="0.05"/>
-      <stop offset="100%" stop-color="#22e8ff" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- Frame and pill border gradients -->
-    <linearGradient id="frame-grad" x1="18" y1="18" x2="1262" y2="382" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#22e8ff" stop-opacity="0.34"/>
-      <stop offset="50%" stop-color="#283854" stop-opacity="0.26"/>
-      <stop offset="100%" stop-color="#2ef5a3" stop-opacity="0.34"/>
+    <linearGradient id="gl-edge" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.16"/>
+      <stop offset="0.3" stop-color="#fff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.02"/>
     </linearGradient>
-    <linearGradient id="tray-border" x1="312" y1="322" x2="968" y2="322" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ff4770" stop-opacity="0.45"/>
-      <stop offset="45%" stop-color="#283650" stop-opacity="0.55"/>
-      <stop offset="55%" stop-color="#283650" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#34f5a8" stop-opacity="0.55"/>
+    <radialGradient id="gl-pool-cyan" cx="250" cy="140" r="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22e8ff" stop-opacity="0.2"/>
+      <stop offset="0.5" stop-color="#0ea5e9" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#0ea5e9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gl-pool-mint" cx="540" cy="150" r="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2ef5a3" stop-opacity="0.17"/>
+      <stop offset="0.5" stop-color="#10b981" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gl-pool-line" cx="420" cy="322" r="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38f9b8" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#22e8ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gl-arrow" x1="368" y1="0" x2="404" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2ee6ff"/>
+      <stop offset="1" stop-color="#3af5a8"/>
     </linearGradient>
-    <linearGradient id="arrow-grad" x1="612" y1="322" x2="668" y2="322" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ff6b8d"/>
-      <stop offset="48%" stop-color="#6eedff"/>
-      <stop offset="100%" stop-color="#45ffd0"/>
-    </linearGradient>
-
-    <!-- Generous user-space glow filters covering both local glyph space (y < 0) and root space -->
-    <filter id="glow-wide" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="b1"/>
-      <feGaussianBlur in="SourceGraphic" stdDeviation="5.5" result="b2"/>
-      <feMerge>
-        <feMergeNode in="b1"/>
-        <feMergeNode in="b2"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <clipPath id="gl-face">
+      <rect width="760" height="400" rx="16"/>
+    </clipPath>
+    <filter id="gl-grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
     </filter>
-    <filter id="glow-tube" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.4" result="b"/>
+    <filter id="gl-halo" filterUnits="userSpaceOnUse" x="-120" y="-160" width="900" height="460">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="gl-bloom" filterUnits="userSpaceOnUse" x="-120" y="-160" width="900" height="460">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="b"/>
       <feMerge>
         <feMergeNode in="b"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    <filter id="glow-soft" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="6.5" result="b1"/>
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b2"/>
+    <filter id="gl-soft" filterUnits="userSpaceOnUse" x="0" y="240" width="760" height="160">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="b2"/>
       <feMerge>
         <feMergeNode in="b1"/>
         <feMergeNode in="b2"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    <filter id="wall-shadow" filterUnits="userSpaceOnUse" x="-300" y="-200" width="1880" height="800">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="4"/>
+    <filter id="gl-shadow" filterUnits="userSpaceOnUse" x="-120" y="-160" width="900" height="460">
+      <feGaussianBlur stdDeviation="4"/>
     </filter>
-
-    <!-- Hand-crafted monoline neon tube glyphs for "gloss" -->
-    <g id="glyphs-gloss" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <!-- g -->
+  </defs>
+  <!-- The backing board: a dark painted panel with a fine grain, a light top edge, and an inset frame. -->
+  <g clip-path="url(#gl-face)">
+    <rect width="760" height="400" fill="url(#gl-board)"/>
+    <rect width="760" height="400" filter="url(#gl-grain)" opacity="0.07"/>
+    <g class="gl-sign-pools">
+      <rect width="760" height="400" fill="url(#gl-pool-cyan)"/>
+      <rect width="760" height="400" fill="url(#gl-pool-mint)"/>
+      <rect width="760" height="400" fill="url(#gl-pool-line)"/>
+    </g>
+  </g>
+  <rect x="0.5" y="0.5" width="759" height="399" rx="15.5" fill="none" stroke="url(#gl-edge)"/>
+  <rect x="14" y="14" width="732" height="372" rx="9" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="1.5"/>
+  <rect x="15.5" y="15.5" width="729" height="369" rx="8" fill="none" stroke="#fff" stroke-opacity="0.035"/>
+  <!-- The nail holes, which show once a nail is out. -->
+  <!--[-->
+  <g transform="translate(32 30)">
+    <circle r="2.6" fill="#020306"/>
+    <circle r="3.4" fill="none" stroke="#fff" stroke-opacity="0.06"/>
+  </g>
+  <g transform="translate(728 30)">
+    <circle r="2.6" fill="#020306"/>
+    <circle r="3.4" fill="none" stroke="#fff" stroke-opacity="0.06"/>
+  </g>
+  <!--]-->
+  <!-- The cable leaves the board on its right edge through a rubber grommet. -->
+  <!-- The wordmark. -->
+  <g transform="translate(98 104)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Shadows of the tubes on the board. -->
+    <g transform="translate(0 8)" filter="url(#gl-shadow)" opacity="0.85" stroke="#010205" stroke-width="13">
+      <!--[-->
+      <!--[-->
+      <!--[-->
       <path d="M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42"/>
       <path d="M 68 4 L 68 86 C 68 118, 42 126, 12 114"/>
-      <!-- l -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 92 -46 L 92 66 Q 92 82, 108 82"/>
-      <!-- o -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42"/>
-      <!-- s -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70"/>
-      <!-- s -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70"/>
-    </g>
-
-    <!-- Hand-crafted monoline neon tube glyphs for "lint" -->
-    <g id="glyphs-lint" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <!-- l -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 372 -46 L 372 66 Q 372 82, 388 82"/>
-      <!-- i -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 412 4 L 412 66 Q 412 82, 428 82"/>
       <path d="M 412 -27 L 412 -25"/>
-      <!-- n -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 450 4 L 450 82"/>
       <path d="M 450 32 C 450 -7, 506 -7, 506 32 L 506 82"/>
-      <!-- t -->
+      <!--]-->
+      <!--]-->
+      <!--[-->
+      <!--[-->
       <path d="M 542 -32 L 542 64 Q 542 82, 562 82"/>
       <path d="M 526 6 L 564 6"/>
+      <!--]-->
+      <!--]-->
+      <!--]-->
     </g>
-
-    <!-- Arrow path -->
-    <g id="arrow-glyph" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M 616 322 L 662 322"/>
-      <path d="M 650 311 L 663 322 L 650 333"/>
+    <!-- Clear acrylic posts: a faint rim and a contact shadow, mostly hidden under the glass. -->
+    <!--[-->
+    <g transform="translate(68 60)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
     </g>
-  </defs>
-
-  <style>
-    .mono {
-      font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
-      font-size: 25px;
-      font-weight: 600;
-    }
-    .wrong-flicker {
-      animation: wrongFlicker 7s ease-in-out infinite;
-    }
-    .neon-hum {
-      animation: neonHum 5.5s ease-in-out infinite;
-    }
-    @keyframes wrongFlicker {
-      0%, 82%, 86%, 91%, 100% { opacity: 1; }
-      84% { opacity: 0.54; }
-      88% { opacity: 0.74; }
-    }
-    @keyframes neonHum {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.94; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .wrong-flicker, .neon-hum { animation: none; }
-    }
-  </style>
-
-  <!-- Dark sign housing -->
-  <rect width="1280" height="400" rx="20" fill="url(#bg)"/>
-  <rect width="1280" height="400" rx="20" fill="url(#wall-grid)" mask="url(#grid-mask)"/>
-
-  <!-- Ambient neon reflections on the backing wall -->
-  <rect width="1280" height="400" rx="20" fill="url(#pool-cyan)"/>
-  <rect width="1280" height="400" rx="20" fill="url(#pool-mint)"/>
-  <rect width="1280" height="400" rx="20" fill="url(#pool-coral)"/>
-  <rect width="1280" height="400" rx="20" fill="url(#pool-fix)"/>
-
-  <!-- Outer sign frame and corner mounting screws -->
-  <rect x="0.75" y="0.75" width="1278.5" height="398.5" rx="19.5" fill="none" stroke="#182236" stroke-width="1.5"/>
-  <rect x="18" y="18" width="1244" height="364" rx="13" fill="none" stroke="url(#frame-grad)" stroke-width="1.5"/>
-  <g fill="#1c273d" stroke="#2c3c5a" stroke-width="1">
-    <circle cx="40" cy="40" r="3.5"/>
-    <circle cx="1240" cy="40" r="3.5"/>
-    <circle cx="40" cy="360" r="3.5"/>
-    <circle cx="1240" cy="360" r="3.5"/>
-  </g>
-
-  <!-- WORDMARK: glosslint (centered at x=640, scale 1.18, width ~666px) -->
-  <g class="neon-hum" transform="translate(307, 114) scale(1.18)">
-    <!-- Physical drop shadows onto the sign backing -->
-    <g transform="translate(0, 7)" filter="url(#wall-shadow)" opacity="0.82">
-      <use href="#glyphs-gloss" stroke="#020408" stroke-width="15"/>
-      <use href="#glyphs-lint" stroke="#020408" stroke-width="15"/>
+    <g transform="translate(92 12)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
     </g>
-
-    <!-- Subtle unlit glass outer casing -->
-    <use href="#glyphs-gloss" stroke="#0b2f3d" stroke-width="15.5" opacity="0.55"/>
-    <use href="#glyphs-lint" stroke="#0b3629" stroke-width="15.5" opacity="0.55"/>
-
-    <!-- Wide ambient neon halo -->
-    <g filter="url(#glow-wide)" opacity="0.78">
-      <use href="#glyphs-gloss" stroke="#15dcff" stroke-width="13"/>
-      <use href="#glyphs-lint" stroke="#1ff098" stroke-width="13"/>
+    <g transform="translate(160 81)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
     </g>
-
-    <!-- Saturated glowing glass tube -->
-    <g filter="url(#glow-tube)">
-      <use href="#glyphs-gloss" stroke="#42f0ff" stroke-width="11"/>
-      <use href="#glyphs-lint" stroke="#45f9ad" stroke-width="11"/>
+    <g transform="translate(244 42)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
     </g>
-
-    <!-- Hot white-tinted gas filament core -->
-    <use href="#glyphs-gloss" stroke="#ebfeff" stroke-width="4.2" opacity="0.96"/>
-    <use href="#glyphs-lint" stroke="#edfff6" stroke-width="4.2" opacity="0.96"/>
-  </g>
-
-  <!-- CORRECTION TRAY: x e-bike rack (struck) -> eBike dock ✓ -->
-  <g>
-    <!-- Recessed dark glass pill aligned with the wordmark width -->
-    <rect x="312" y="291" width="656" height="62" rx="31" fill="#060911" fill-opacity="0.82" stroke="url(#tray-border)" stroke-width="1.5"/>
-
-    <!-- Left: Wrong term, dimmed coral-rose neon + subtle angled neon strike + muted x -->
-    <g class="wrong-flicker">
-      <!-- Muted neon x mark balancing the checkmark on the right -->
-      <g opacity="0.72">
-        <path d="M 344 316 L 356 328 M 356 316 L 344 328" fill="none" stroke="#ff4770" stroke-width="3" stroke-linecap="round" filter="url(#glow-soft)"/>
-        <path d="M 344 316 L 356 328 M 356 316 L 344 328" fill="none" stroke="#ffb3c5" stroke-width="1.2" stroke-linecap="round"/>
+    <g transform="translate(318 42)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
+    </g>
+    <g transform="translate(372 12)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
+    </g>
+    <g transform="translate(506 52)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
+    </g>
+    <g transform="translate(542 34)">
+      <ellipse cx="1" cy="3" rx="8" ry="7" fill="#000" opacity="0.35"/>
+      <circle r="8" fill="#9fb4d0" fill-opacity="0.05" stroke="#c8d6ea" stroke-opacity="0.16" stroke-width="0.8"/>
+      <path d="M -5.6 -5.6 A 8 8 0 0 1 3 -7.4" stroke="#fff" stroke-opacity="0.22" stroke-width="0.9"/>
+    </g>
+    <!--]-->
+    <g stroke="#121926" stroke-width="8">
+      <!--[-->
+      <path d="M 108 82 Q 124 82, 131 63"/>
+      <path d="M 194 42 Q 200 64, 217 70"/>
+      <path d="M 342 65 Q 352 82, 372 66"/>
+      <path d="M 428 82 L 450 82"/>
+      <path d="M 506 82 Q 522 84, 542 70"/>
+      <!--]-->
+    </g>
+    <g stroke="#2a3447" stroke-width="1.2" transform="translate(-1 -2)">
+      <!--[-->
+      <path d="M 108 82 Q 124 82, 131 63"/>
+      <path d="M 194 42 Q 200 64, 217 70"/>
+      <path d="M 342 65 Q 352 82, 372 66"/>
+      <path d="M 428 82 L 450 82"/>
+      <path d="M 506 82 Q 522 84, 542 70"/>
+      <!--]-->
+    </g>
+    <!-- Unlit, each tube is still tinted glass. -->
+    <!--[-->
+    <!--[-->
+    <!--[-->
+    <path d="M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42" stroke="#0c3240" stroke-width="13"/>
+    <path d="M 68 4 L 68 86 C 68 118, 42 126, 12 114" stroke="#0c3240" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 92 -46 L 92 66 Q 92 82, 108 82" stroke="#0c3240" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42" stroke="#0c3240" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70" stroke="#0c3240" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70" stroke="#0c3240" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 372 -46 L 372 66 Q 372 82, 388 82" stroke="#0b3a2a" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 412 4 L 412 66 Q 412 82, 428 82" stroke="#0b3a2a" stroke-width="13"/>
+    <path d="M 412 -27 L 412 -25" stroke="#0b3a2a" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 450 4 L 450 82" stroke="#0b3a2a" stroke-width="13"/>
+    <path d="M 450 32 C 450 -7, 506 -7, 506 32 L 506 82" stroke="#0b3a2a" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--[-->
+    <!--[-->
+    <path d="M 542 -32 L 542 64 Q 542 82, 562 82" stroke="#0b3a2a" stroke-width="13"/>
+    <path d="M 526 6 L 564 6" stroke="#0b3a2a" stroke-width="13"/>
+    <!--]-->
+    <!--]-->
+    <!--]-->
+    <!-- Tube ends: painted glass a shade off the board, and the dark hole where the tube turns back. -->
+    <!--[-->
+    <g>
+      <path d="M 22.59 117.45 Q 17.6 116.2, 12 114" stroke="#121a28" stroke-width="12"/>
+      <path d="M 22.59 117.45 Q 17.6 116.2, 12 114" stroke="#8fa3c0" stroke-opacity="0.14" stroke-width="1" transform="translate(-2.4 -1.6)"/>
+      <circle cx="12" cy="114" r="3.2" fill="#03050a" opacity="0.55"/>
+    </g>
+    <g>
+      <path d="M 92 -35 L 92 -46" stroke="#121a28" stroke-width="12"/>
+      <path d="M 92 -35 L 92 -46" stroke="#8fa3c0" stroke-opacity="0.14" stroke-width="1" transform="translate(-2.4 -1.6)"/>
+      <circle cx="92" cy="-46" r="3.2" fill="#03050a" opacity="0.55"/>
+    </g>
+    <g>
+      <path d="M 372 -35 L 372 -46" stroke="#121a28" stroke-width="12"/>
+      <path d="M 372 -35 L 372 -46" stroke="#8fa3c0" stroke-opacity="0.14" stroke-width="1" transform="translate(-2.4 -1.6)"/>
+      <circle cx="372" cy="-46" r="3.2" fill="#03050a" opacity="0.55"/>
+    </g>
+    <g>
+      <path d="M 542 -21 L 542 -32" stroke="#121a28" stroke-width="12"/>
+      <path d="M 542 -21 L 542 -32" stroke="#8fa3c0" stroke-opacity="0.14" stroke-width="1" transform="translate(-2.4 -1.6)"/>
+      <circle cx="542" cy="-32" r="3.2" fill="#03050a" opacity="0.55"/>
+    </g>
+    <g>
+      <path d="M 537 6 L 526 6" stroke="#121a28" stroke-width="12"/>
+      <path d="M 537 6 L 526 6" stroke="#8fa3c0" stroke-opacity="0.14" stroke-width="1" transform="translate(-2.4 -1.6)"/>
+      <circle cx="526" cy="6" r="3.2" fill="#03050a" opacity="0.55"/>
+    </g>
+    <!--]-->
+    <!-- Lit: the halo, the gas, its brighter middle, and the core. A worn tube flickers on its own. -->
+    <g class="gl-sign-lit">
+      <!--[-->
+      <g class="gl-sign-brownout">
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42" stroke="#15dcff" stroke-width="16"/>
+          <path d="M 68 4 L 68 86 C 68 114.16, 47.87 123.73, 22.59 117.45" stroke="#15dcff" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42" stroke="#2ee6ff" stroke-width="10"/>
+          <path d="M 68 4 L 68 86 C 68 114.16, 47.87 123.73, 22.59 117.45" stroke="#2ee6ff" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42" stroke="#9cf4ff" stroke-width="5.5" opacity="0.85"/>
+        <path d="M 68 4 L 68 86 C 68 114.16, 47.87 123.73, 22.59 117.45" stroke="#9cf4ff" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 68 42 A 34 39 0 1 0 0 42 A 34 39 0 1 0 68 42" stroke="#f2feff" stroke-width="2.4"/>
+        <path d="M 68 4 L 68 86 C 68 114.16, 47.87 123.73, 22.59 117.45" stroke="#f2feff" stroke-width="2.4"/>
+        <!--]-->
       </g>
-
-      <text x="484" y="330" text-anchor="middle" class="mono" fill="#ff4770" filter="url(#glow-soft)" opacity="0.46">e-bike rack</text>
-      <text x="484" y="330" text-anchor="middle" class="mono" fill="#ffa0b6" opacity="0.84">e-bike rack</text>
-      <!-- Gently angled neon coral strike so the hyphen in e-bike stays legible -->
-      <line x1="410" y1="327" x2="558" y2="317" stroke="#ff3562" stroke-width="2.8" stroke-linecap="round" filter="url(#glow-soft)" opacity="0.82"/>
-      <line x1="410" y1="327" x2="558" y2="317" stroke="#ff7a98" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>
+      <g>
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 92 -35 L 92 66 Q 92 82, 108 82" stroke="#15dcff" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 92 -35 L 92 66 Q 92 82, 108 82" stroke="#2ee6ff" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 92 -35 L 92 66 Q 92 82, 108 82" stroke="#9cf4ff" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 92 -35 L 92 66 Q 92 82, 108 82" stroke="#f2feff" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <g>
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42" stroke="#15dcff" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42" stroke="#2ee6ff" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42" stroke="#9cf4ff" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 194 42 A 34 39 0 1 0 126 42 A 34 39 0 1 0 194 42" stroke="#f2feff" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <g>
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70" stroke="#15dcff" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70" stroke="#2ee6ff" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70" stroke="#9cf4ff" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 264 14 C 258 1, 222 0, 219 20 C 216 36, 232 39, 244 42 C 258 45, 271 50, 268 65 C 265 83, 226 85, 217 70" stroke="#f2feff" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <g class="gl-sign-stutter">
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70" stroke="#15dcff" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70" stroke="#2ee6ff" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70" stroke="#9cf4ff" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 338 14 C 332 1, 296 0, 293 20 C 290 36, 306 39, 318 42 C 332 45, 345 50, 342 65 C 339 83, 300 85, 291 70" stroke="#f2feff" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <g>
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 372 -35 L 372 66 Q 372 82, 388 82" stroke="#1ff098" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 372 -35 L 372 66 Q 372 82, 388 82" stroke="#3af5a8" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 372 -35 L 372 66 Q 372 82, 388 82" stroke="#a8fbd7" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 372 -35 L 372 66 Q 372 82, 388 82" stroke="#f2fff9" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <g class="gl-sign-buzz">
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 412 4 L 412 66 Q 412 82, 428 82" stroke="#1ff098" stroke-width="16"/>
+          <path d="M 412 -27 L 412 -25" stroke="#1ff098" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 412 4 L 412 66 Q 412 82, 428 82" stroke="#3af5a8" stroke-width="10"/>
+          <path d="M 412 -27 L 412 -25" stroke="#3af5a8" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 412 4 L 412 66 Q 412 82, 428 82" stroke="#a8fbd7" stroke-width="5.5" opacity="0.85"/>
+        <path d="M 412 -27 L 412 -25" stroke="#a8fbd7" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 412 4 L 412 66 Q 412 82, 428 82" stroke="#f2fff9" stroke-width="2.4"/>
+        <path d="M 412 -27 L 412 -25" stroke="#f2fff9" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <g>
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 450 4 L 450 82" stroke="#1ff098" stroke-width="16"/>
+          <path d="M 450 32 C 450 -7, 506 -7, 506 32 L 506 82" stroke="#1ff098" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 450 4 L 450 82" stroke="#3af5a8" stroke-width="10"/>
+          <path d="M 450 32 C 450 -7, 506 -7, 506 32 L 506 82" stroke="#3af5a8" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 450 4 L 450 82" stroke="#a8fbd7" stroke-width="5.5" opacity="0.85"/>
+        <path d="M 450 32 C 450 -7, 506 -7, 506 32 L 506 82" stroke="#a8fbd7" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 450 4 L 450 82" stroke="#f2fff9" stroke-width="2.4"/>
+        <path d="M 450 32 C 450 -7, 506 -7, 506 32 L 506 82" stroke="#f2fff9" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <g>
+        <g filter="url(#gl-halo)" opacity="0.75">
+          <!--[-->
+          <path d="M 542 -21 L 542 64 Q 542 82, 562 82" stroke="#1ff098" stroke-width="16"/>
+          <path d="M 537 6 L 564 6" stroke="#1ff098" stroke-width="16"/>
+          <!--]-->
+        </g>
+        <g filter="url(#gl-bloom)">
+          <!--[-->
+          <path d="M 542 -21 L 542 64 Q 542 82, 562 82" stroke="#3af5a8" stroke-width="10"/>
+          <path d="M 537 6 L 564 6" stroke="#3af5a8" stroke-width="10"/>
+          <!--]-->
+        </g>
+        <!--[-->
+        <path d="M 542 -21 L 542 64 Q 542 82, 562 82" stroke="#a8fbd7" stroke-width="5.5" opacity="0.85"/>
+        <path d="M 537 6 L 564 6" stroke="#a8fbd7" stroke-width="5.5" opacity="0.85"/>
+        <!--]-->
+        <!--[-->
+        <path d="M 542 -21 L 542 64 Q 542 82, 562 82" stroke="#f2fff9" stroke-width="2.4"/>
+        <path d="M 537 6 L 564 6" stroke="#f2fff9" stroke-width="2.4"/>
+        <!--]-->
+      </g>
+      <!--]-->
     </g>
-
-    <!-- Center: Glowing neon arrow -->
-    <g>
-      <use href="#arrow-glyph" stroke="url(#arrow-grad)" stroke-width="4.2" filter="url(#glow-soft)" opacity="0.85"/>
-      <use href="#arrow-glyph" stroke="#e9fff8" stroke-width="1.8" opacity="0.95"/>
-    </g>
-
-    <!-- Right: Correct term, brightly glowing electric mint-cyan neon + glowing checkmark -->
-    <g>
-      <text x="796" y="330" text-anchor="middle" class="mono" fill="#20f0a0" filter="url(#glow-wide)" opacity="0.88">eBike dock</text>
-      <text x="796" y="330" text-anchor="middle" class="mono" fill="#5bffc2" filter="url(#glow-tube)">eBike dock</text>
-      <text x="796" y="330" text-anchor="middle" class="mono" fill="#f0fff9" opacity="0.96">eBike dock</text>
-
-      <!-- Glowing mint checkmark balancing the x on the left -->
-      <path d="M 920 322 L 926 328 L 938 315" fill="none" stroke="#2ef5a3" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-soft)"/>
-      <path d="M 920 322 L 926 328 L 938 315" fill="none" stroke="#ecfff7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
+  </g>
+  <!-- The second line, in smaller tubes: the wrong words are a dead coral tube with a lit strike, the right ones glow. -->
+  <g class="gl-sign-wrong">
+    <text x="236" y="334" text-anchor="middle" class="gl-sign-mono" fill="#4a2633" stroke="#86465a" stroke-opacity="0.55" stroke-width="0.8">e-bike rack</text>
+    <text x="236" y="334" text-anchor="middle" class="gl-sign-mono gl-sign-sputter" fill="#ff4770" filter="url(#gl-soft)" opacity="0">e-bike rack</text>
+  </g>
+  <g class="gl-sign-lit" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 156 330 L 316 314" stroke="#ff3562" stroke-width="4.4" filter="url(#gl-soft)" opacity="0.8"/>
+    <path d="M 156 330 L 316 314" stroke="#ffd0db" stroke-width="1.6"/>
+    <path d="M 368 322 L 402 322 M 392 313 L 403 322 L 392 331" stroke="url(#gl-arrow)" stroke-width="4.2" filter="url(#gl-soft)" opacity="0.8"/>
+    <path d="M 368 322 L 402 322 M 392 313 L 403 322 L 392 331" stroke="#eafffb" stroke-width="1.6"/>
+  </g>
+  <g class="gl-sign-unlit" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 156 330 L 316 314" stroke="#3a2029" stroke-width="3.6"/>
+    <path d="M 368 322 L 402 322 M 392 313 L 403 322 L 392 331" stroke="#0c3240" stroke-width="3.6"/>
+  </g>
+  <text x="518" y="334" text-anchor="middle" class="gl-sign-mono" fill="#0b3a2a">eBike dock</text>
+  <g class="gl-sign-lit">
+    <text x="518" y="334" text-anchor="middle" class="gl-sign-mono" fill="#20f0a0" filter="url(#gl-soft)" opacity="0.85">eBike dock</text>
+    <text x="518" y="334" text-anchor="middle" class="gl-sign-mono" fill="#effff8">eBike dock</text>
   </g>
 </svg>

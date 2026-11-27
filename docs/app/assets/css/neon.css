@@ -259,6 +259,29 @@ html.vh-docs a[href] > :is(svg, .iconify) {
   scale: none !important;
 }
 
+/* The narrow strip beside the playground only opens the sidebar or search, so its buttons don't squash either. */
+html.vh-docs .vh-docs-strip button,
+html.vh-docs .vh-docs-strip button > :is(svg, .iconify) {
+  scale: none !important;
+}
+
+/* ---- Header ---- */
+
+/* Lucide's moon and sun fill their whole box, so at the social icons' size they look larger than them. */
+html.vh-docs .vh-docs-header button[aria-label^="Switch to"] .iconify {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* ---- Playground ---- */
+
+/* The workspace bar (issue count, Reset, Download, Copy link) sits under the code and the terminal, not over them. */
+html.vh-docs .vh-ws-shell > .vh-ws-bar {
+  order: 1;
+  border-top: 1px solid var(--vh-border);
+  border-bottom: 0;
+}
+
 /* ---- Page ---- */
 
 /* The title starts lower on wide screens, where nothing sits above it. */

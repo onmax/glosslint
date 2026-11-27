@@ -10,17 +10,17 @@ tabs:
 examples:
   - id: bike-share
     label: Bike share
-    description: A glossary, a checkout screen, its English messages and a help page.
+    description: A small Vue app with a glossary, a checkout card, its English messages and a help page.
     dir: playground/bike-share
-    open: src/checkout.js
+    open: src/components/CheckoutCard.vue
 seo.title: glosslint playground
 # The playground renders in the browser only, so its prerendered page has no text for search engines.
 seo.index: false
 ---
 
-The example is a small bike-share app with a few wrong words. Its glossary, `.agents/glossary.md`, says to write "eBike", to say "dock" instead of "rack", and to call people riders, not customers.
+The example is a small Vue app for a bike-share service, with a few wrong words. Its glossary, `.agents/glossary.md`, says to write "eBike", to say "dock" instead of "rack", and to call people riders, not customers.
 
-- **Lint** runs `glosslint check` on `docs/`, ESLint with the glosslint rules on `src/`, and `x18n check` on `locales/en.json`.
+- **Lint** runs `glosslint check` on `docs/`, ESLint with the glosslint rules on the components and scripts in `src/`, and `x18n check` on `locales/en.json`.
 - **Doctor** checks the glossary file itself.
 - Hover or tap a finding to see what it means and to apply its fix. **Fix all** applies every fix that needs no choice, as each tool's `--fix` does.
 

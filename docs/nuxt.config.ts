@@ -13,7 +13,20 @@ const generated = new URL('.generated/public/', root)
 // The brand files, from where the README shows them, so the site and the README can't drift apart.
 const brand = ['banner.svg', 'logo.svg', 'favicon.svg']
 
-const nodePath = (id: string) => id === 'node:path' ? fileURLToPath(new URL('app/playground/node-path.ts', root)) : undefined
+// The playground runs ESLint's Linter and vue-eslint-parser in the browser. They import a few Node modules, which
+// resolve to the small shims in app/playground/ in the client build.
+const shims: Record<string, string> = {
+  'node:path': 'node-path',
+  'path': 'node-path',
+  'assert': 'node-assert',
+  'events': 'node-events',
+  'module': 'node-module',
+}
+const shim = (name: string) => fileURLToPath(new URL(`app/playground/${name}.ts`, root))
+function nodeShim(id: string, importer?: string) {
+  if (id === 'eslint' && importer?.includes('vue-eslint-parser')) return shim('node-eslint')
+  return shims[id] ? shim(shims[id]) : undefined
+}
 
 export default defineNuxtConfig({
   modules: [
@@ -109,15 +122,15 @@ export default defineNuxtConfig({
     })),
   },
   vite: {
-    // The playground runs ESLint's Linter in the browser, which needs `path.sep` and `path.extname` from node:path.
-    // The dev optimizer pre-bundles ESLint with its own plugins, so it gets the shim too.
+    // The dev optimizer pre-bundles ESLint and vue-eslint-parser with its own plugins, so it gets the shims too.
     plugins: [{
-      name: 'glosslint-playground-node-path',
+      name: 'glosslint-playground-node-shims',
       enforce: 'pre',
-      resolveId: (id, _importer, options) => options?.ssr ? undefined : nodePath(id),
+      resolveId: (id, importer, options) => options?.ssr ? undefined : nodeShim(id, importer),
     }],
     optimizeDeps: {
-      rolldownOptions: { plugins: [{ name: 'glosslint-playground-node-path', resolveId: nodePath }] },
+      include: ['vue-eslint-parser'],
+      rolldownOptions: { plugins: [{ name: 'glosslint-playground-node-shims', resolveId: nodeShim }] },
     },
   },
   compatibilityDate: '2026-11-01',
