@@ -38,3 +38,10 @@ Exact terms and abbreviations like `eBike` stay checked, and possessive `'s` nev
 - `import` and `export` lines in `.mdx`.
 - Comark markup like `::note`, `#title` slots, YAML props blocks, and styling props. Text inside components, slots, and text props like `title` or `label` is still checked.
 - `node_modules`, `.git`, and the glossary file loaded directly.
+
+To skip one line, such as a heading you keep for its anchor, put `<!-- glosslint-ignore -->` on the line above it, or at the end of the line itself. A reason can follow: `<!-- glosslint-ignore: keeps the #pre-rendering anchor -->`.
+
+```md
+<!-- glosslint-ignore: keeps the #pre-rendering anchor -->
+## Pre-rendering
+```

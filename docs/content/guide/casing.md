@@ -28,6 +28,8 @@ Case: exact
 Case: context
 ```
 
+An `exact` name written as one word, like `NuxtApp`, doesn't match the same words with spaces between them: "a Nuxt app" passes, while "Nuxt-app" is reported. A one-letter word still counts as part of the name, so "E Bike" → "eBike". To report a spaced form too, list it under the term's `Avoid:`, as the `tech` preset does with `web assembly` for `WebAssembly`.
+
 Omit `Case:` when you want `spelling`. In `.agents/glossary.md`, names with a capital after the first letter (`eBike`, `SOS`) pick `exact` without a `Case:` line. A term's `Casing:` without `Case:` makes it `context`, as `casing` without `case` does in `defineCorpus`. glosslint always checks abbreviations like `DP` as `exact`, except all-lowercase forms pass: `"dp"` passes, `"Dp"` is reported.
 
 ## How context picks text kind

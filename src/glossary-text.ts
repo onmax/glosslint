@@ -104,6 +104,7 @@ const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const ITEM = /^ {0,3}([-*+])(?:[ \t]+(.*))?$/;
 const TABLE = /^ {0,3}\|/;
+const COMMENT = /^ {0,3}<!--/;
 const FIELD = /^ {0,3}([A-Za-z]+(?: [A-Za-z]+){0,2}):(?:[ \t]+(.*))?$/;
 const LINK = /^\[([^\]]*\S[^\]]*)\]\((https?:\/\/[^\s()]+)\)$/;
 const BARE_URL = /^<?(https?:\/\/[^\s<>()]+)>?$/;
@@ -128,7 +129,7 @@ interface Item {
 }
 
 interface Block {
-  kind: "h1" | "h2" | "heading" | "paragraph" | "list" | "table" | "fence";
+  kind: "h1" | "h2" | "heading" | "paragraph" | "list" | "table" | "fence" | "comment";
   /** 1-based first and last line. */
   start: number;
   end: number;
@@ -144,7 +145,11 @@ function scan(lines: readonly string[]): Block[] {
   let i = 0;
   const isBlank = (line: string | undefined) => line === undefined || line.trim() === "";
   const startsBlock = (line: string) =>
-    HEADING.test(line) || FENCE.test(line) || ITEM.test(line) || TABLE.test(line);
+    HEADING.test(line) ||
+    FENCE.test(line) ||
+    ITEM.test(line) ||
+    TABLE.test(line) ||
+    COMMENT.test(line);
   while (i < lines.length) {
     const line = lines[i]!;
     if (isBlank(line)) {
@@ -159,6 +164,18 @@ function scan(lines: readonly string[]): Block[] {
       while (i < lines.length && !close.test(lines[i]!)) i++;
       i = Math.min(i + 1, lines.length);
       blocks.push({ kind: "fence", start: first + 1, end: i, lines: lines.slice(first, i) });
+      continue;
+    }
+    // An HTML comment is a block of its own, so one right above `Allow:` doesn't pull the field into
+    // the introduction, and one right below doesn't join its last entry.
+    if (COMMENT.test(line)) {
+      while (
+        i < lines.length &&
+        !lines[i]!.slice(i === first ? line.indexOf("<!--") + 4 : 0).includes("-->")
+      )
+        i++;
+      i = Math.min(i + 1, lines.length);
+      blocks.push({ kind: "comment", start: first + 1, end: i, lines: lines.slice(first, i) });
       continue;
     }
     const heading = HEADING.exec(line);
@@ -434,14 +451,14 @@ class Reader {
       lists: 0,
     };
     let current: FieldNode | undefined;
-    const noPlace = (line: number, what: string) =>
+    const noPlace = (line: number, what: string, fix?: string) =>
       this.add(
         P.noPlace,
         line,
         `${what} has no place in a glossary${term === undefined ? "" : " term"}.`,
         term === undefined
           ? "Move it to the introduction above the first field, or remove it."
-          : "Write it as a field, such as `How:`, or remove it.",
+          : (fix ?? "Write it as a field, such as `How:`, or remove it."),
         term,
       );
 
@@ -491,6 +508,12 @@ class Reader {
       }
       if (block.kind !== "paragraph") {
         if (block.kind === "h1") this.secondTitle(block);
+        else if (block.kind === "comment")
+          noPlace(
+            block.start,
+            "An HTML comment among the fields",
+            "Move it to the introduction, or remove it.",
+          );
         else
           noPlace(
             block.start,
