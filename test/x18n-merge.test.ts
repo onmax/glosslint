@@ -150,6 +150,17 @@ describe("mergeX18nGlossary", () => {
     ).toEqual([{ term: "prerendering", from: "Prerendering", fields: ["note"] }]);
   });
 
+  it("throws, naming the entry and the flag, when it would translate an entry marked doNotTranslate", () => {
+    expect(() =>
+      mergeX18nGlossary(shared, [
+        { term: "Prerendering", note: "At build time." },
+        { term: "nuxt", translations: { fr: "Nuxt" } },
+      ]),
+    ).toThrow(
+      '"Nuxt" has doNotTranslate: true, and the glossary\'s "nuxt" gives it translations (fr).',
+    );
+  });
+
   it("starts an empty file and throws on YAML that is not a list of entries", () => {
     expect(mergeX18nGlossary("", [{ term: "Dock" }]).text).toBe("- term: Dock\n");
     expect(() => mergeX18nGlossary("term: Dock\n", [])).toThrow("not a list of glossary entries");

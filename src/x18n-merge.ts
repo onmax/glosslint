@@ -83,10 +83,11 @@ function formKeys(map: YAMLMap, locale: string): string[] {
  * Merges glossary entries into the text of an x18n glossary YAML file, a list of `{ term, … }` maps.
  * An entry matches one in the file when the two share a term or a source-locale form, in any case and with
  * hyphens and spaces ignored, so "Prerendering" matches "prerendering", and "Prerender" with the form
- * "prerendering" matches it too. Other punctuation counts, so "C#" does not match "C++". An entry that
- * matches more than one in the file throws an `X18nMergeError` naming them. A match keeps the file's `term` and every field and translation it has:
- * the glossary sets `note`, adds `doNotTranslate: true`, adds translations for locales the entry lacks, and
- * adds forms the entry lacks. Every other entry is added at the end. Comments and order are kept.
+ * "prerendering" matches it too. Other punctuation counts, so "C#" does not match "C++". A match keeps the
+ * file's `term` and every field and translation it has: the glossary sets `note`, adds `doNotTranslate: true`,
+ * adds translations for locales the entry lacks, and adds forms the entry lacks. Every other entry is added
+ * at the end. Comments and order are kept. Throws an `X18nMergeError`, and merges nothing, when an entry
+ * matches more than one in the file or gives translations to one marked `doNotTranslate: true`.
  */
 export function mergeX18nGlossary(
   source: string,
@@ -147,6 +148,13 @@ export function mergeX18nGlossary(
       continue;
     }
     const term = text(map.get("term", true))!;
+    // x18n reads doNotTranslate before translations, so an entry with both is never translated.
+    const locales = Object.keys(entry.translations ?? {});
+    if (locales.length > 0 && map.get("doNotTranslate") === true)
+      throw new X18nMergeError(
+        `"${term}" has doNotTranslate: true, and the glossary's "${entry.term}" gives it translations (${locales.join(", ")}).`,
+        `Remove doNotTranslate: true from "${term}" in the file to translate it, or remove Translations from "${entry.term}" in the glossary to keep it as written.`,
+      );
     const fields = mergeEntry(doc, map, entry, (local, kept, dropped) =>
       result.conflicts.push({ term, locale: local, kept, dropped }),
     );

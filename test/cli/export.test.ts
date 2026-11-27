@@ -127,6 +127,30 @@ describe("glosslint export", () => {
     expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(file);
   });
 
+  it("does not mark a translated exact term doNotTranslate, and fails when a merge would translate an entry marked so", async () => {
+    const exact = "# Glossary\n\n## eBike\nWhat: An electric bike.\n";
+    writeFileSync(join(dir, "EBIKE.md"), exact);
+    writeFileSync(join(dir, "glossary.yml"), "");
+    const args = ["export", "--glossary", "EBIKE.md", "--merge", "glossary.yml"];
+    expect((await run(args, dir)).code).toBe(0);
+    const first = readFileSync(join(dir, "glossary.yml"), "utf8");
+    expect(parse(first)).toEqual([
+      { term: "eBike", note: "An electric bike.", doNotTranslate: true },
+    ]);
+
+    writeFileSync(join(dir, "EBIKE.md"), `${exact}Translations: fr: vélo électrique\n`);
+    expect(parse((await run(["export", "--glossary", "EBIKE.md"], dir)).stdout)).toEqual([
+      { term: "eBike", note: "An electric bike.", translations: { fr: "vélo électrique" } },
+    ]);
+    const second = await run(args, dir);
+    expect(second.code).toBe(2);
+    expect(second.stderr).toContain(
+      'glossary.yml: "eBike" has doNotTranslate: true, and the glossary\'s "eBike" gives it translations (fr).',
+    );
+    expect(second.stderr).toContain("Remove doNotTranslate: true from");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(first);
+  });
+
   it("exits 2 on a missing file, a file that is not a list, or another --note", async () => {
     const missing = await run(["export", "--glossary", "GLOSSARY.md", "--merge", "no.yml"], dir);
     expect(missing.code).toBe(2);
