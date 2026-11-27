@@ -56,7 +56,7 @@ Case: context
 - `What`, `How` and `Why` are text, kept as written; line and paragraph breaks read as one space. `Avoid`, `Good`, `Bad` and `Links` are `-` lists. `Presets`, `Allow`, `Casing` and `Avoid` also take a comma list on the field's line.
 - An avoid item is `word` or `word: reason`, split at the first colon followed by a space. Backticks around the word are dropped, which is how a word holding a comma or a colon is written. A link is `[title](url)` with an http or https URL.
 - `## Day Pass (DP, D)` gives the term and its abbreviations. Parentheses in a heading hold only abbreviations: single words that are one capital or have a capital after their first letter.
-- A name with a capital right after a letter (`eBike`, `SOS`) is `exact` unless `Case` says otherwise. Nothing is inferred from the text of `How`.
+- A name with a capital right after a letter (`eBike`, `SOS`) is `exact` unless `Case` or a term-level `Casing` says otherwise. Nothing is inferred from the text of `How`.
 - `skip`, `forms`, `translations` and `wholeLabel` have no field. A project that needs them writes `defineCorpus({ extends: [fromGlossary()], … })` and passes the corpus to the runner that needs it: `glosslint({ corpus })` in ESLint or x18n, `--corpus <module>` in the CLI. No file is discovered by name besides `.agents/glossary.md`.
 
 ## Behaviour
@@ -68,7 +68,7 @@ Each scenario names the test file that proves it. Fixtures are in `test/fixtures
 3. **Loaders throw on what they cannot read.** `fromGlossary` throws a `GlosslintConfigError` with the code, `path:line` and the fix for `G004` to `G008`. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. `test/glossary.test.ts`
 4. **No glossary.** A missing file throws `GLOSSLINT_C009`, naming the path it looked for. `test/glossary.test.ts`
 5. **`Why` in findings.** An avoid finding prints the avoid word's own reason, else the term's `why`, else its `nuance`. `explain` prints `why`. `test/core/matcher.test.ts`, `test/tools.test.ts`
-6. **CLI loading.** `check`, `test`, `print` and `explain` take the corpus from the `--corpus` module's default export, else the `--glossary` file, else `.agents/glossary.md`. A `glosslint.config.*` file is never read. Both flags together exit 2 with `GLOSSLINT_USAGE`. A missing file exits 2 with `GLOSSLINT_C009`. `test/cli/load.test.ts`
+6. **CLI loading.** `check`, `test`, `print` and `explain` take the corpus from the `--corpus` module's default export, else the `--glossary` file, else `.agents/glossary.md`. A `glosslint.config.*` file is no longer discovered; it loads only when named with `--corpus`. Both flags together exit 2 with `GLOSSLINT_USAGE`. A missing file exits 2 with `GLOSSLINT_C009`. `test/cli/load.test.ts`
 7. **`check` leaves the glossary alone.** The file loaded by `--glossary` or by default is never checked, even when named or inside a checked folder. `test/cli/check.test.ts`
 8. **`doctor` reports.** On a fixture with one problem of each code it prints each with its line and fix and exits 1. A clean file exits 0. A missing file exits 2. `test/cli/doctor.test.ts`
 9. **`doctor --fix` repairs.** A file with `G001` to `G003` problems is rewritten in canonical form, `doctor` then exits 0, and a second `--fix` changes no byte. Term order, introduction and text are kept. `test/cli/doctor.test.ts`

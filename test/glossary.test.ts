@@ -167,6 +167,7 @@ describe("readGlossary", () => {
   it("reports bad values: Case, Casing, presets, links and empty fields", () => {
     const head = "# Glossary\n\n";
     expect(codes(`${head}Presets: tech, prose\n`)).toEqual(["GLOSSLINT_G006"]);
+    expect(codes(`${head}Presets: constructor\n`)).toEqual(["GLOSSLINT_G006"]);
     expect(codes(`${head}Casing: label loud\n`)).toEqual(["GLOSSLINT_G006"]);
     expect(codes(`${head}## Dock\nLinks:\n- [Docks](ftp://a)\n`)).toEqual(["GLOSSLINT_G006"]);
     expect(codes(`${head}## Dock\nWhat:\n`)).toEqual(["GLOSSLINT_G006"]);

@@ -691,7 +691,7 @@ class Reader {
       const text = itemText(item);
       if (text === "")
         bad(item.line, `An item of ${name} is empty.`, "Write the item, or remove its line.");
-      else if (name === "Presets" && !(text in PRESETS))
+      else if (name === "Presets" && !Object.hasOwn(PRESETS, text))
         bad(item.line, `"${text}" is not a preset.`, `Use ${quoteList(Object.keys(PRESETS))}.`);
       else if (name === "Casing" && !CASING.test(text))
         bad(
