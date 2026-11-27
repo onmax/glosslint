@@ -118,7 +118,7 @@ Looks up what `corpus` says about a word or phrase, matching terms, abbreviation
 function toX18nGlossary(corpus: Corpus, options?: X18nGlossaryOptions): X18nGlossaryEntry[]
 ```
 
-Converts each term in `corpus` into an `X18nGlossaryEntry` with `term`, `translations`, `forms`, a `note` combining `description` and `nuance`, and `doNotTranslate: true` for `exact` terms without `translations`. With `{ note: "short" }`, the note is the `description` alone. `glosslint export` writes these entries as YAML, or merges them into an existing file with `--merge`.
+Converts each term in `corpus`, except those the `tech` and `inclusive` presets add, into an `X18nGlossaryEntry` with `term`, `translations`, `forms`, a `note` combining `description` and `nuance`, and `doNotTranslate: true` for `exact` terms without `translations`. With `{ note: "short" }`, the note is the `description` alone. `glosslint export` writes these entries as YAML, or merges them into an existing file with `--merge`.
 
 ### GlosslintConfigError
 

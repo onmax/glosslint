@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { parse } from "yaml";
 import { run } from "./run.ts";
 
 const glossary = `# Glossary
@@ -61,6 +62,19 @@ describe("glosslint export", () => {
 `);
   });
 
+  it("exports the glossary's own terms, without the ones its Presets add", async () => {
+    writeFileSync(
+      join(dir, "PRESETS.md"),
+      "# Glossary\n\nPresets: tech\n\n## Dock\nWhat: A powered stand.\n\n## eBike\nWhat: An electric bike.\n",
+    );
+    const result = await run(["export", "--glossary", "PRESETS.md"], dir);
+    expect(result.code).toBe(0);
+    expect(parse(result.stdout)).toEqual([
+      { term: "Dock", note: "A powered stand." },
+      { term: "eBike", note: "An electric bike.", doNotTranslate: true },
+    ]);
+  });
+
   it("merges into the file with --merge, keeping its translations and comments, and prints what changed", async () => {
     const result = await run(
       ["export", "--glossary", "GLOSSARY.md", "--note", "short", "--merge", "glossary.yml"],
@@ -96,6 +110,45 @@ describe("glosslint export", () => {
   note: The per-request runtime app.
   doNotTranslate: true
 `);
+  });
+
+  it("exits 2 and writes nothing when a term matches more than one entry", async () => {
+    const file = "- term: prerender\n- term: prerendering\n";
+    writeFileSync(join(dir, "glossary.yml"), file);
+    const result = await run(
+      ["export", "--glossary", "GLOSSARY.md", "--merge", "glossary.yml"],
+      dir,
+    );
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain(
+      'glossary.yml: "Prerender" matches 2 entries: "prerender" and "prerendering".',
+    );
+    expect(result.stderr).toContain("Merge those entries into one");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(file);
+  });
+
+  it("does not mark a translated exact term doNotTranslate, and fails when a merge would translate an entry marked so", async () => {
+    const exact = "# Glossary\n\n## eBike\nWhat: An electric bike.\n";
+    writeFileSync(join(dir, "EBIKE.md"), exact);
+    writeFileSync(join(dir, "glossary.yml"), "");
+    const args = ["export", "--glossary", "EBIKE.md", "--merge", "glossary.yml"];
+    expect((await run(args, dir)).code).toBe(0);
+    const first = readFileSync(join(dir, "glossary.yml"), "utf8");
+    expect(parse(first)).toEqual([
+      { term: "eBike", note: "An electric bike.", doNotTranslate: true },
+    ]);
+
+    writeFileSync(join(dir, "EBIKE.md"), `${exact}Translations: fr: vélo électrique\n`);
+    expect(parse((await run(["export", "--glossary", "EBIKE.md"], dir)).stdout)).toEqual([
+      { term: "eBike", note: "An electric bike.", translations: { fr: "vélo électrique" } },
+    ]);
+    const second = await run(args, dir);
+    expect(second.code).toBe(2);
+    expect(second.stderr).toContain(
+      'glossary.yml: "eBike" has doNotTranslate: true, and the glossary\'s "eBike" gives it translations (fr).',
+    );
+    expect(second.stderr).toContain("Remove doNotTranslate: true from");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(first);
   });
 
   it("exits 2 on a missing file, a file that is not a list, or another --note", async () => {

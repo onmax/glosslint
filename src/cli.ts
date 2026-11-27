@@ -449,7 +449,8 @@ export async function runExport(options: ExportOptions, io: CliIo): Promise<numb
     throw new CliError({
       code: CLI_ERRORS.failed,
       why: `${shown}: ${error.message}`,
-      fix: "Pass --merge an x18n glossary: a YAML list of entries, each with a `term`.",
+      fix:
+        error.fix ?? "Pass --merge an x18n glossary: a YAML list of entries, each with a `term`.",
     });
   }
   writeFileSync(file, result.text);
