@@ -212,7 +212,34 @@ const CAMEL_SHAPE = /^\p{Ll}[\p{Ll}\p{N}]*\p{Lu}[\p{L}\p{N}_\-./:]*$/u;
 /** A dotted path of names that each start in lowercase, such as the i18n key `alarm.activeAlarms`. */
 const PATH_SHAPE = /^\p{Ll}[\p{L}\p{N}_$-]*(?:\.[\p{Ll}\p{N}_$][\p{L}\p{N}_$-]*)+$/u;
 
+/**
+ * A line of JS source: a statement keyword, an object property, a member access called, indexed
+ * or assigned, a line of brackets, or a line that opens a block or ends a statement. Sentences don't.
+ */
+const SOURCE_LINES = [
+  /^(?:import\s*[{*'"]|import\s+[\w$]+\s*(?:,|from\s*['"])|export\s+(?:(?:default|const|let|function|class|async)\b|[{*]))/u,
+  /^(?:const|let|var)\s+[\w${}[\],\s]+=/u,
+  /^(?:if|for|while|switch)\s*\(/u,
+  /^[\p{Ll}_$][\w$]*:\s*(?:.*,|'[^']*'|"[^"]*"|[\w$.]+)$/u,
+  /^[\p{Ll}_$][\w$]*(?:\.[\w$]+)+(?:[([]|\s*=(?!=))/u,
+  /^[\s()[\]{},;]+$/u,
+  /(?:[{([;]|=>)$/u,
+];
+
+/** Whether every line of a text is a line of JS source, as in a module a template writes to disk. */
+function isSource(text: string): boolean {
+  const lines = text
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return (
+    lines.length > 0 && lines.every((line) => SOURCE_LINES.some((pattern) => pattern.test(line)))
+  );
+}
+
 /** Whether a JS string, attribute or prop value is shaped like code, so it is skipped (decision 7). */
 export function isCodeShape(text: string): boolean {
-  return LOWER_SHAPE.test(text) || CAMEL_SHAPE.test(text) || PATH_SHAPE.test(text);
+  return (
+    LOWER_SHAPE.test(text) || CAMEL_SHAPE.test(text) || PATH_SHAPE.test(text) || isSource(text)
+  );
 }

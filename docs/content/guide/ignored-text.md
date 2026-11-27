@@ -27,6 +27,7 @@ Exact terms and abbreviations like `eBike` stay checked, and possessive `'s` nev
 - Non-text Vue attributes such as `class`, `id`, `href`, `data-*`, and id-holding `aria-*`.
 - YAML and JSON keys. Only string values are checked.
 - Spaceless strings shaped like code, including lowercase keys, `camelCase`, paths, and dotted keys like `alarm.activeAlarms`.
+- Strings and templates whose every line reads as JS source, such as a module a template writes to disk.
 
 `glosslint/comment` skips directives like `eslint-disable` and `@ts-expect-error`, and `glosslint/identifier` skips shorthand destructuring like `const { daypass } = response`. Strings whose escapes a fix would break, and YAML block scalars, still report findings without an autofix. See [ESLint](/integrations/eslint) and [Oxlint](/integrations/oxlint) for rule options and `ignoreCallees`.
 

@@ -158,6 +158,37 @@ describe("term in TS", () => {
     await valid("const q = sql`Check-out`;");
   });
 
+  describe("source code in strings", () => {
+    const nuxt = tester("term", "ts", {
+      corpus: defineCorpus({ terms: [{ term: "NuxtApp", case: "exact" }] }),
+    });
+
+    it("skips a template that holds a generated module", async () => {
+      await nuxt.valid(`const src = \`import { defineNuxtPlugin } from '#app/nuxt'
+export default defineNuxtPlugin({
+  name: 'nuxt:vue-app-config',
+  enforce: 'pre',
+  setup (nuxtApp) {
+    \${keys.map(k => \`    nuxtApp.vueApp.config[\${JSON.stringify(k)}] = 1\`).join('\\n')}
+  }
+})\`;`);
+      await nuxt.valid(
+        `const src = "setup (nuxtApp) {\\n  nuxtApp.hook('app:mounted', () => {})\\n}";`,
+      );
+    });
+
+    it("still checks prose templates", async () => {
+      await nuxt.invalid(
+        "const message = `Could not access \\`${p.key}\\` on the nuxtApp. The only available runtime config keys on the client side are ${p.keys}.`;",
+        {
+          output:
+            "const message = `Could not access \\`${p.key}\\` on the NuxtApp. The only available runtime config keys on the client side are ${p.keys}.`;",
+          errors: ["GLOSSLINT_CASE"],
+        },
+      );
+    });
+  });
+
   it("reports the range of the reported text", async () => {
     const code = `const a = 'It\\'s the re-charge point';`;
     const { result } = await invalid(code, { errors: 1 });
