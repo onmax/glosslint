@@ -108,6 +108,20 @@ describe("CASE", () => {
     expect(hits("Bikeshare")).toEqual(["CASE Bikeshare -> BikeShare"]);
   });
 
+  it("exact: reads a CamelCase name split at spaces as a phrase, not the name", () => {
+    expect(hits("Join the bike share, or the Bike Share app")).toEqual([]);
+    expect(hits("two bike shares")).toEqual([]);
+    expect(hits("the Bike-Share")).toEqual(["TERM Bike-Share -> BikeShare"]);
+    // A one-letter word is still part of the name.
+    expect(hits("an E Bike")).toEqual(["TERM E Bike -> eBike"]);
+    const listed = createMatcher(
+      defineCorpus({ terms: [{ term: "WebAssembly", case: "exact", avoid: ["web assembly"] }] }),
+    );
+    expect(hits("Web assembly and web assemblies", undefined, listed)).toEqual([
+      "TERM Web assembly -> WebAssembly",
+    ]);
+  });
+
   it("abbr: always exact, whatever the term's mode, and plurals keep a lowercase s", () => {
     expect(hits("Your Dp")).toEqual(["CASE Dp -> DP"]);
     expect(hits("Two DPs and two DPS")).toEqual([]);
@@ -157,6 +171,118 @@ describe("CASE", () => {
       /^"day pass" is written "Day Pass" in labels\./,
     );
     expect(matcher.check("Ride an Ebike")[0]?.message).toMatch(/^"Ebike" is written "eBike"\./);
+  });
+});
+
+describe("inflected forms", () => {
+  const m = createMatcher(
+    defineCorpus({
+      terms: [
+        {
+          term: "Prerendering",
+          avoid: [
+            { word: "pre-rendered", why: "One word, as the API writes it." },
+            "pre-rendering",
+          ],
+        },
+        { term: "Auto-import", avoid: ["auto imported", "automatically imported"] },
+        { term: "Cache" },
+        { term: "Day Pass", case: "context" },
+        { term: "Cancel", avoid: ["canceling"] },
+        { term: "eBike", case: "exact" },
+      ],
+    }),
+  );
+
+  it("reports ed and ing forms of a term spelled another way, keeping the ending", () => {
+    expect(hits("auto imported and auto importing", undefined, m)).toEqual([
+      "TERM auto imported -> auto-imported",
+      "TERM auto importing -> auto-importing",
+    ]);
+    expect(hits("AUTO IMPORTED", undefined, m)).toEqual(["TERM AUTO IMPORTED -> AUTO-IMPORTED"]);
+    expect(hits("cach-ing and cach-ed", undefined, m)).toEqual([
+      "TERM cach-ing -> caching",
+      "TERM cach-ed -> cached",
+    ]);
+  });
+
+  it("drops a final e before ing and writes d after it when the ending is split off", () => {
+    expect(hits("It was cache-ed and cache-ing.", undefined, m)).toEqual([
+      "TERM cache-ed -> cached",
+      "TERM cache-ing -> caching",
+    ]);
+    expect(hits("CACHE-ED and CACHE-ING", undefined, m)).toEqual([
+      "TERM CACHE-ED -> CACHED",
+      "TERM CACHE-ING -> CACHING",
+    ]);
+  });
+
+  it("follows the final-e rules of English for a split-off ending", () => {
+    const e = createMatcher(
+      defineCorpus({
+        terms: [
+          { term: "Free" },
+          { term: "Tie" },
+          { term: "Dye" },
+          { term: "Hoe" },
+          { term: "Prerender" },
+        ],
+      }),
+    );
+    expect(hits("free-ed, tie-ed, dye-ed, hoe-ed", undefined, e)).toEqual([
+      "TERM free-ed -> freed",
+      "TERM tie-ed -> tied",
+      "TERM dye-ed -> dyed",
+      "TERM hoe-ed -> hoed",
+    ]);
+    expect(hits("free-ing, tie-ing, dye-ing, hoe-ing, prerender-ing", undefined, e)).toEqual([
+      "TERM free-ing -> freeing",
+      "TERM tie-ing -> tying",
+      "TERM dye-ing -> dyeing",
+      "TERM hoe-ing -> hoeing",
+      "TERM prerender-ing -> prerendering",
+    ]);
+    expect(hits("cache-ed, cache-ing", undefined, m)).toEqual([
+      "TERM cache-ed -> cached",
+      "TERM cache-ing -> caching",
+    ]);
+  });
+
+  it("reads the stem forms of a term that ends in ing", () => {
+    expect(hits("Pre-rendered pages, pre-renders, pre-render", undefined, m)).toEqual([
+      "TERM Pre-rendered -> Prerendered",
+      "TERM pre-renders -> prerenders",
+      "TERM pre-render -> prerender",
+    ]);
+  });
+
+  it("leaves the right form of an avoid spelling alone", () => {
+    expect(hits("prerendered, prerendering, auto-imported, auto-importing", undefined, m)).toEqual(
+      [],
+    );
+  });
+
+  it("gives a spelling the reason of the avoid entry written that way", () => {
+    expect(m.check("pre-rendered")[0]).toMatchObject({
+      code: "GLOSSLINT_TERM",
+      why: "One word, as the API writes it.",
+    });
+  });
+
+  it("checks only the spelling of an ed or ing form", () => {
+    expect(hits("Another Day Passed", "label", m)).toEqual([]);
+    expect(hits("eBiked and e-biked", undefined, m)).toEqual([]);
+  });
+
+  it("keeps the ending of an avoid word in its fix", () => {
+    expect(hits("automatically imported", undefined, m)).toEqual([
+      "AVOID automatically imported -> auto-imported",
+    ]);
+  });
+
+  it("keeps an avoid word written as one word, with the term as its fix", () => {
+    expect(hits("canceling", undefined, m)).toEqual(["AVOID canceling -> cancel"]);
+    expect(hits("cancelled", undefined, m)).toEqual([]);
   });
 });
 

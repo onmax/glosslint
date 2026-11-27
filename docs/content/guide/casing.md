@@ -15,6 +15,8 @@ Use the default `spelling` mode for most terms, `exact` for names that keep one 
 | `exact` | One form must appear everywhere. | `"E-bike"` and `"Ebike"` → `"eBike"` |
 | `context` | Capitals depend on where the text is: Title Case in labels, lowercase in sentences. | `"Buy a day pass"` → `"Buy a Day Pass"` on a button; `"Buy a day pass at the kiosk."` in a sentence |
 
+Every term matches its plurals. Outside `exact`, it also matches its `ed` and `ing` forms, and a term ending in `ing` matches its stem: under `Prerendering`, `"pre-rendered"` → `"prerendered"` and `"pre-renders"` → `"prerenders"`. glosslint checks only the spelling of an `ed` or `ing` form, so `"Another Day Passed"` in a label is not a `Day Pass`. It doesn't read doubled consonants, as in `"shipped"`.
+
 ```md [.agents/glossary.md]
 # Glossary
 
@@ -27,6 +29,8 @@ Case: exact
 ## Day Pass (DP)
 Case: context
 ```
+
+An `exact` name written as one word, like `NuxtApp`, doesn't match the same words with spaces between them: "a Nuxt app" passes, while "Nuxt-app" is reported. A one-letter word still counts as part of the name, so "E Bike" → "eBike". To report a spaced form too, list it under the term's `Avoid:`, as the `tech` preset does with `web assembly` for `WebAssembly`.
 
 Omit `Case:` when you want `spelling`. In `.agents/glossary.md`, names with a capital after the first letter (`eBike`, `SOS`) pick `exact` without a `Case:` line. A term's `Casing:` without `Case:` makes it `context`, as `casing` without `case` does in `defineCorpus`. glosslint always checks abbreviations like `DP` as `exact`, except all-lowercase forms pass: `"dp"` passes, `"Dp"` is reported.
 
