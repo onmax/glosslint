@@ -52,7 +52,7 @@ export default defineNuxtConfig({
     site: {
       name: 'glosslint',
       url: 'https://glosslint.onmax.me',
-      description: 'Lint your product vocabulary in code, translations and docs from one glossary.',
+      description: 'Lint your product vocabulary in code, source messages and docs from one glossary.',
       // The tile with its colors, as the README and the favicon show it.
       logo: { light: '/logo.svg' },
     },
