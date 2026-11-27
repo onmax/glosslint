@@ -9,7 +9,8 @@
 // - `length` is the stub's length in CSS px. It doesn't stretch: a dragged end stops at the length from the plug.
 // - `socket`, in wall units, is where the hung board takes the cable, passed only while there is one to plug into. A
 //   held end that comes within 40px of it wiggles for a moment, as if feeling for the hole, then arcs across the gap
-//   in the sign's cyan.
+//   in the sign's cyan. Until the end is picked up, a dashed path in the same cyan marches from it to the socket, so
+//   it's clear where the cable goes.
 // - The cord is heavy: a held end trails the pointer through a damped spring, and let go it swings on and settles.
 //   The rope never stretches.
 // - The wire canvas carries `data-state` (`live`, or `held` while dragged), `data-len` (the rope's measured length in
@@ -278,6 +279,7 @@ function draw() {
 
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
+  drawGuide(ctx, dark)
   const trace = (from = 0) => {
     ctx.beginPath()
     ctx.moveTo(knots[from]!.x, knots[from]!.y)
@@ -421,6 +423,39 @@ function draw() {
   canvas.dataset.len = measured().toFixed(1)
   canvas.dataset.tip = `${tip.x.toFixed(1)},${tip.y.toFixed(1)}`
   if (end.value) end.value.style.translate = `${tip.x - 22}px ${tip.y - 22}px`
+}
+
+// The way to the socket: a dashed curve from the torn end, bowed away from the board, fading in once the board is
+// back up and marching toward the socket. Under reduced motion it stands still.
+let guideSince = 0
+
+function drawGuide(ctx: CanvasRenderingContext2D, dark: boolean) {
+  const socket = socketPoint()
+  if (!socket || target) {
+    guideSince = 0
+    return
+  }
+  const now = performance.now()
+  guideSince ||= now
+  const alpha = reduced ? 1 : Math.min(1, Math.max(0, (now - guideSince - 900) / 400))
+  if (!alpha) return
+  const tip = knots[count - 1]!
+  const dx = socket.x - tip.x
+  const dy = socket.y - tip.y
+  // The bow goes to the right of the line, away from the board.
+  const bow = dy < 0 ? 0.3 : -0.3
+  const cx = (tip.x + socket.x) / 2 - dy * bow
+  const cy = (tip.y + socket.y) / 2 + dx * bow
+  ctx.save()
+  ctx.setLineDash([5, 7])
+  ctx.lineDashOffset = reduced ? 0 : -now / 1000 * 24
+  ctx.lineWidth = 2
+  ctx.strokeStyle = dark ? `rgb(34 232 255 / ${0.6 * alpha})` : `rgb(8 145 178 / ${0.7 * alpha})`
+  ctx.beginPath()
+  ctx.moveTo(tip.x, tip.y)
+  ctx.quadraticCurveTo(cx, cy, socket.x, socket.y)
+  ctx.stroke()
+  ctx.restore()
 }
 
 // ---- Sparks: long quiet stretches, then a short, violent burst from the torn end. ----
@@ -738,6 +773,9 @@ function onUp(event: PointerEvent) {
 function onClick(event: MouseEvent) {
   if (event.detail === 0) emit('plug')
 }
+
+// Under reduced motion nothing redraws on its own, so the path to the socket is drawn when the socket appears.
+watch(() => props.socket, () => reduced && draw())
 
 defineExpose({ focus: () => end.value?.focus() })
 </script>

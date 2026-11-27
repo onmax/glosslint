@@ -5,8 +5,10 @@
 // The sign hangs on two nails. Each click on a nail turns it a third of the way round; a nail turned six times falls
 // out. With one nail out the sign swings and hangs from the other. With both out it falls to the bottom edge of the
 // window, over the page, and its cable tears out of the board: the sign goes dark, and a stub of cable stays in the
-// outlet, swaying and sparking. Drag the sign back onto the wall to hang it on its nails, still dark, then drag the
-// cable's end into the socket on the board's right edge to light it again. Enter does each step from the keyboard.
+// outlet, swaying and sparking. Thrown, the sign flies and falls back to the bottom of the window. While it is held, a
+// dashed outline on the wall shows where it hangs. Drag it there to hang it on its nails, still dark; a pulsing socket
+// and a dashed path then show where the cable goes, and dragging the cable's end into the socket on the board's right
+// edge lights it again. Enter does each step from the keyboard.
 //
 // `data-state` on the root says where it is: `hung-live` (on the wall, plugged in, even on one nail), `fallen`, or
 // `hung-dark` (back on the wall, unplugged).
@@ -192,18 +194,43 @@ const midpoint = (els: Iterable<Element>) => {
   return points.length ? { x: points.reduce((sum, p) => sum + p.x, 0) / points.length, y: points.reduce((sum, p) => sum + p.y, 0) / points.length } : undefined
 }
 
+// The board's nail holes over the wall's.
+function hangMagnet() {
+  const anchor = fallenSign.value && midpoint(fallenSign.value.querySelectorAll('.gl-hole-mark'))
+  const target = wall.value && midpoint(wall.value.querySelectorAll('.gl-wall-hole'))
+  return anchor && target && { anchor, target, radius: hangReach }
+}
+
 const throwable = useThrowable(fallenSign, {
   position: fallenPosition,
   bounds: () => ({ left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }),
   reducedMotion: prefersReducedMotion,
-  // The board's nail holes over the wall's.
-  magnet: () => {
-    const anchor = fallenSign.value && midpoint(fallenSign.value.querySelectorAll('.gl-hole-mark'))
-    const target = wall.value && midpoint(wall.value.querySelectorAll('.gl-wall-hole'))
-    return anchor && target && { anchor, target, radius: hangReach }
-  },
+  magnet: hangMagnet,
   onLatch: () => hangBack(),
+  onImpact: squash,
 })
+
+// It hits the floor: it squashes about its bottom edge, harder the faster it came down, and springs back.
+function squash(speed: number) {
+  const k = Math.min(1, speed / 2600)
+  fallenBody.value?.animate([
+    { scale: '1' },
+    { offset: 0.3, scale: `${1 + 0.05 * k} ${1 - 0.1 * k}` },
+    { offset: 0.65, scale: `${1 - 0.015 * k} ${1 + 0.025 * k}` },
+    { scale: '1' },
+  ], { duration: 300, easing: 'ease-out' })
+}
+
+// While the sign is held, the wall shows where it hangs: faint at first, brighter as the nail holes come close, and
+// lit once letting go would hang it.
+const reach = ref<'far' | 'near' | 'ready'>('far')
+watch(fallenPosition, () => {
+  if (!throwable.dragging.value) return
+  const magnet = hangMagnet()
+  const d = magnet ? Math.hypot(magnet.anchor.x - magnet.target.x, magnet.anchor.y - magnet.target.y) : Infinity
+  reach.value = d <= hangReach ? 'ready' : d <= hangReach * 5 ? 'near' : 'far'
+})
+watch(throwable.dragging, held => held || (reach.value = 'far'))
 
 async function fall() {
   cancelAnimationFrame(frame)
@@ -370,21 +397,22 @@ function onWireRelease(point: { x: number, y: number }) {
   if (Math.hypot(point.x - at.x, point.y - at.y) <= plugReach) reconnect()
 }
 
-// Enter or Space hangs the fallen sign back up; arrow keys nudge it.
+// Enter or Space hangs the fallen sign back up; the left and right arrow keys slide it along the floor.
 function onFallenKey(event: KeyboardEvent) {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     hangBack(true)
     return
   }
-  const nudge = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[event.key]
+  const nudge = { ArrowLeft: -24, ArrowRight: 24 }[event.key]
   if (!nudge) return
   event.preventDefault()
-  fallenPosition.value = { x: fallenPosition.value.x + nudge[0]!, y: fallenPosition.value.y + nudge[1]! }
+  fallenPosition.value = { ...fallenPosition.value, x: fallenPosition.value.x + nudge }
   throwable.clamp()
 }
 
-const onResize = () => fallen.value && throwable.clamp()
+// A resize moves the floor, so the sign falls to the new one.
+const onResize = () => fallen.value && throwable.drop()
 onMounted(() => window.addEventListener('resize', onResize, { passive: true }))
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
@@ -440,7 +468,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div ref="wall" :class="['glosslint-hero-sign', { 'is-hanging': pivot && !fallen, 'is-fallen': fallen, 'is-powered': powered }]">
+    <div ref="wall" :class="['glosslint-hero-sign', { 'is-hanging': pivot && !fallen, 'is-fallen': fallen, 'is-powered': powered, 'is-unplugged': state === 'hung-dark' }]">
       <div class="gl-wall-bricks" aria-hidden="true" />
 
       <!-- The wall behind the sign: the nail holes and the outlet, which show once the sign is gone. -->
@@ -460,6 +488,18 @@ onBeforeUnmount(() => {
         <GlosslintSign :lit="powered" />
         <span class="gl-grommet" />
       </div>
+
+      <!-- Where the fallen sign hangs, shown while it is held. -->
+      <div v-if="fallen" :class="['gl-ghost', `is-${reach}`, { 'is-shown': throwable.dragging.value }]" aria-hidden="true">
+        <span v-for="side in sides" :key="side" class="gl-ghost-hole" :style="{ left: `${nails[side].x / 7.6}%`, top: `${nails[side].y / 4}%` }" />
+        <span class="gl-ghost-label">{{ reach === 'ready' ? 'Let go to hang it' : 'Hang it here' }}</span>
+      </div>
+
+      <!-- Back on the wall and dark: where the cable goes. -->
+      <p v-if="state === 'hung-dark'" class="gl-plug-hint" aria-hidden="true">
+        <UIcon name="i-lucide-plug" />
+        Plug the cable back in
+      </p>
 
       <!-- The cable into its plug, in front of the wall, while it is plugged into the board. -->
       <svg class="gl-wall-layer" viewBox="0 0 800 480" aria-hidden="true">
@@ -520,7 +560,7 @@ onBeforeUnmount(() => {
         :style="{ width: `${fallenWidth}px` }"
         role="button"
         tabindex="0"
-        aria-label="The fallen sign. Drag it back onto the wall, or press Enter to hang it back up. Arrow keys move it."
+        aria-label="The fallen sign. Drag it back onto the wall, or press Enter to hang it back up. The left and right arrow keys move it."
         @keydown="onFallenKey"
       >
         <div ref="fallenBody" class="gl-fallen-body">
@@ -844,6 +884,117 @@ onBeforeUnmount(() => {
 .gl-grommet {
   top: calc(284 / 400 * 100%);
   left: calc(764 / 760 * 100%);
+}
+
+/* ---- Where things go back ---- */
+
+/* The board's outline on the wall while the fallen sign is held, with its two nail holes. */
+.gl-ghost {
+  --gl-ghost: color-mix(in oklab, var(--gl-cyan) 55%, transparent);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 95%;
+  aspect-ratio: 760 / 400;
+  border: 2px dashed var(--gl-ghost);
+  border-radius: 2.1% / 4%;
+  background: color-mix(in oklab, var(--gl-cyan) 4%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-out, border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+.gl-ghost.is-shown {
+  opacity: 0.6;
+}
+
+.gl-ghost.is-shown.is-near {
+  opacity: 0.85;
+}
+
+.gl-ghost.is-shown.is-ready {
+  --gl-ghost: var(--gl-cyan);
+  border-style: solid;
+  background: color-mix(in oklab, var(--gl-cyan) 10%, transparent);
+  box-shadow: 0 0 24px -4px color-mix(in oklab, var(--gl-cyan) 60%, transparent);
+  opacity: 1;
+}
+
+.gl-ghost-hole {
+  position: absolute;
+  width: 4.7%;
+  aspect-ratio: 1;
+  border: 2px solid var(--gl-ghost);
+  border-radius: 50%;
+  translate: -50% -50%;
+}
+
+.gl-ghost-label {
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* Back on the wall and dark, the socket on the board's right edge pulses until the cable goes in. */
+.is-unplugged .gl-board .gl-grommet::before {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--gl-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 12px color-mix(in oklab, var(--gl-cyan) 60%, transparent);
+  translate: -50% -50%;
+  content: "";
+}
+
+.gl-plug-hint {
+  position: absolute;
+  top: calc(408 / 480 * 100%);
+  right: calc(68 / 800 * 100%);
+  z-index: 1;
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .is-unplugged .gl-board .gl-grommet::before {
+    animation: gl-socket-pulse 1.4s ease-out 0.9s infinite backwards;
+  }
+
+  .gl-plug-hint {
+    animation: gl-hint-in 0.4s ease-out 0.9s backwards;
+  }
+}
+
+@keyframes gl-socket-pulse {
+  from {
+    opacity: 1;
+    scale: 0.6;
+  }
+
+  to {
+    opacity: 0;
+    scale: 1.6;
+  }
+}
+
+@keyframes gl-hint-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
 }
 
 .gl-visually-hidden {
