@@ -137,6 +137,8 @@ interface Block {
   /** A heading's text. */
   text?: string;
   items?: Item[];
+  /** Whether an HTML comment runs to the end of the file with no `-->`. */
+  unclosed?: boolean;
 }
 
 /** Splits the file into Markdown blocks. Blank lines end every block but a fence. */
@@ -174,8 +176,15 @@ function scan(lines: readonly string[]): Block[] {
         !lines[i]!.slice(i === first ? line.indexOf("<!--") + 4 : 0).includes("-->")
       )
         i++;
+      const unclosed = i === lines.length;
       i = Math.min(i + 1, lines.length);
-      blocks.push({ kind: "comment", start: first + 1, end: i, lines: lines.slice(first, i) });
+      blocks.push({
+        kind: "comment",
+        start: first + 1,
+        end: i,
+        lines: lines.slice(first, i),
+        ...(unclosed ? { unclosed } : {}),
+      });
       continue;
     }
     const heading = HEADING.exec(line);
@@ -305,6 +314,15 @@ class Reader {
 
   constructor(lines: readonly string[]) {
     this.blocks = scan(lines);
+    // Everything after an unclosed comment is inside it, so the glossary would read as empty.
+    for (const block of this.blocks)
+      if (block.unclosed)
+        this.add(
+          P.noPlace,
+          block.start,
+          "An HTML comment has no closing `-->`, so it hides the rest of the file.",
+          "Close the comment with `-->`, or remove it.",
+        );
   }
 
   add(code: string, line: number, why: string, fix: string, term?: string): void {
@@ -508,13 +526,14 @@ class Reader {
       }
       if (block.kind !== "paragraph") {
         if (block.kind === "h1") this.secondTitle(block);
-        else if (block.kind === "comment")
-          noPlace(
-            block.start,
-            "An HTML comment among the fields",
-            "Move it to the introduction, or remove it.",
-          );
-        else
+        else if (block.kind === "comment") {
+          if (!block.unclosed)
+            noPlace(
+              block.start,
+              "An HTML comment among the fields",
+              "Move it to the introduction, or remove it.",
+            );
+        } else
           noPlace(
             block.start,
             block.kind === "heading"
