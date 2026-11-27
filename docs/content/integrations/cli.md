@@ -87,7 +87,7 @@ The heading "Buying a day pass" is a label, so Day Pass takes Title Case there. 
 
 ## doctor
 
-`doctor` lints `.agents/glossary.md` (or `--glossary <path>`) against the [glossary file format](/glossary) (`GLOSSLINT_G001` to `GLOSSLINT_G008`) and tests every term's `Good` and `Bad` examples against the file's own corpus (`GLOSSLINT_G009`). Pass `--format json` to print `{ problems, summary }`.
+`doctor` lints `.agents/glossary.md` (or `--glossary <path>`) against the [glossary file format](/guide/glossary) (`GLOSSLINT_G001` to `GLOSSLINT_G008`) and tests every term's `Good` and `Bad` examples against the file's own corpus (`GLOSSLINT_G009`). Pass `--format json` to print `{ problems, summary }`.
 
 On a clean file such as `examples/basic/.agents/glossary.md`, `doctor` exits `0`:
 

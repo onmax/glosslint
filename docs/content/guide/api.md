@@ -18,7 +18,7 @@ The main entry point exports glossary file readers, `defineCorpus`, the matcher,
 function fromGlossary(path?: string | URL): Corpus
 ```
 
-Reads a glossary Markdown file synchronously and returns a validated flat `Corpus`. Defaults to `".agents/glossary.md"`; a string resolves from `process.cwd()`, and a `URL` resolves as a file URL. Throws `GlosslintConfigError` with `GLOSSLINT_C009` when the file is missing, or with the first `GLOSSLINT_G004` to `GLOSSLINT_G008` problem when the file cannot be loaded. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. See [The glossary file](/glossary).
+Reads a glossary Markdown file synchronously and returns a validated flat `Corpus`. Defaults to `".agents/glossary.md"`; a string resolves from `process.cwd()`, and a `URL` resolves as a file URL. Throws `GlosslintConfigError` with `GLOSSLINT_C009` when the file is missing, or with the first `GLOSSLINT_G004` to `GLOSSLINT_G008` problem when the file cannot be loaded. A file with only fixable problems (`G001` to `G003`) loads as its fixed form would. See [The glossary file](/guide/glossary).
 
 ### readGlossary
 

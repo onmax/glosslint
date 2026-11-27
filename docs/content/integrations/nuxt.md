@@ -6,7 +6,7 @@ navigation.order: 2.5
 icon: i-simple-icons-nuxt
 ---
 
-There is no Nuxt module. glosslint runs in the ESLint config `@nuxt/eslint` gives you, as one spread in `eslint.config.mjs`. It reads [`.agents/glossary.md`](/glossary) by default and takes the same options as the [ESLint integration](/integrations/eslint).
+There is no Nuxt module. glosslint runs in the ESLint config `@nuxt/eslint` gives you, as one spread in `eslint.config.mjs`. It reads [`.agents/glossary.md`](/guide/glossary) by default and takes the same options as the [ESLint integration](/integrations/eslint).
 
 ## Setup
 

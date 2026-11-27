@@ -13,7 +13,7 @@ Keep your terms in `.agents/glossary.md` and check code, translations, and docs 
 #agents
 ```text
 Install glosslint as a dev dependency.
-Write our product's terms to .agents/glossary.md following https://glosslint.onmax.me/glossary, with a comment under the title that links that page.
+Write our product's terms to .agents/glossary.md following https://glosslint.onmax.me/guide/glossary, with a comment under the title that links that page.
 Run npx glosslint doctor --fix until it passes.
 Add the glosslint/eslint or glosslint/oxlint plugin.
 ```
@@ -26,7 +26,7 @@ pnpm add -D glosslint
 
 ## One glossary, four runners
 
-Every runner reads [`.agents/glossary.md`](/glossary) by default, with optional `tech` and `inclusive` [presets](/guide/presets).
+Every runner reads [`.agents/glossary.md`](/guide/glossary) by default, with optional `tech` and `inclusive` [presets](/guide/presets).
 
 ::card-group
 :::card{title="ESLint" icon="i-simple-icons-eslint" to="/integrations/eslint"}

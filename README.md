@@ -13,7 +13,7 @@
 
 glosslint checks your product's vocabulary against one Markdown file, `.agents/glossary.md`. People and coding agents read that file directly, while ESLint, Oxlint, x18n and the CLI enforce it on code, translations and docs. Every finding carries the reason and meaning alongside the fix.
 
-[Docs](https://glosslint.onmax.me) · [Installation](https://glosslint.onmax.me/guide/installation) · [The glossary file](https://glosslint.onmax.me/glossary) · [ESLint](https://glosslint.onmax.me/integrations/eslint) · [Oxlint](https://glosslint.onmax.me/integrations/oxlint) · [x18n](https://glosslint.onmax.me/integrations/x18n) · [CLI](https://glosslint.onmax.me/integrations/cli) · [For agents](https://glosslint.onmax.me/guide/agents)
+[Docs](https://glosslint.onmax.me) · [Installation](https://glosslint.onmax.me/guide/installation) · [The glossary file](https://glosslint.onmax.me/guide/glossary) · [ESLint](https://glosslint.onmax.me/integrations/eslint) · [Oxlint](https://glosslint.onmax.me/integrations/oxlint) · [x18n](https://glosslint.onmax.me/integrations/x18n) · [CLI](https://glosslint.onmax.me/integrations/cli) · [For agents](https://glosslint.onmax.me/guide/agents)
 
 ## The glossary
 
@@ -23,7 +23,7 @@ Write your product's terms in `.agents/glossary.md`. This excerpt comes from the
 ```md
 # Glossary
 
-<!-- Format and checks: https://glosslint.onmax.me/glossary -->
+<!-- Format and checks: https://glosslint.onmax.me/guide/glossary -->
 
 The words the rider app and the help center use.
 

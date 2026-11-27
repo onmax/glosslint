@@ -6,7 +6,7 @@ navigation.title: Introduction
 icon: i-lucide-book-open
 ---
 
-glosslint checks your product vocabulary across code, translations, and Markdown docs from one file, [`.agents/glossary.md`](/glossary).
+glosslint checks your product vocabulary across code, translations, and Markdown docs from one file, [`.agents/glossary.md`](/guide/glossary).
 
 ```md [.agents/glossary.md]
 # Glossary

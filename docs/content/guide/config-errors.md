@@ -7,7 +7,7 @@ navigation.group: Reference
 icon: i-lucide-shield-alert
 ---
 
-glosslint validates [`.agents/glossary.md`](/glossary) and [`defineCorpus`](/guide/corpus) as soon as they load, so typos, bad fields, and invalid glossary entries fail with a stable code, a reason, and a fix. Read this reference when `fromGlossary`, `readGlossary`, `defineCorpus`, `glosslint/eslint`, or the CLI reports a config or glossary problem.
+glosslint validates [`.agents/glossary.md`](/guide/glossary) and [`defineCorpus`](/guide/corpus) as soon as they load, so typos, bad fields, and invalid glossary entries fail with a stable code, a reason, and a fix. Read this reference when `fromGlossary`, `readGlossary`, `defineCorpus`, `glosslint/eslint`, or the CLI reports a config or glossary problem.
 
 ## Error output and exit code
 
@@ -174,7 +174,7 @@ Fix: narrow the avoid word or adjust the example so `Good` passes and `Bad` trig
 { term: "Dock", avoid: ["rack"] }
 ```
 
-See [Term fields](/glossary#term-fields) and [TypeScript-only term fields](/guide/corpus#typescript-only-term-fields) for all accepted field names.
+See [Term fields](/guide/glossary#term-fields) and [TypeScript-only term fields](/guide/corpus#typescript-only-term-fields) for all accepted field names.
 
 ### GLOSSLINT_C002
 

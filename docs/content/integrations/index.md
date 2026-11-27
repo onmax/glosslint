@@ -6,7 +6,7 @@ navigation.title: Overview
 icon: i-lucide-plug
 ---
 
-Every integration reads [`.agents/glossary.md`](/glossary) by default, or a [`defineCorpus`](/guide/corpus) corpus you pass in when you need TypeScript options. Pick the ones that fit your repository.
+Every integration reads [`.agents/glossary.md`](/guide/glossary) by default, or a [`defineCorpus`](/guide/corpus) corpus you pass in when you need TypeScript options. Pick the ones that fit your repository.
 
 - **[ESLint](/integrations/eslint).** Checks JS, TS, Vue templates and `<script>`, YAML and JSON locales, comments, and identifiers, with autofixes via `eslint --fix`.
 - **[Nuxt](/integrations/nuxt).** Runs `glosslint/eslint` inside `withNuxt()` on `.ts`, `.vue`, and `vue-i18n` locale files, with autofixes via `eslint --fix`.
