@@ -34,7 +34,7 @@ Omit `Case:` when you want `spelling`. In `.agents/glossary.md`, names with a ca
 
 - **Headers.** Names containing `header`, `column`, `col`, or `th` (like AG Grid's `headerName`), max 7 words, no closing `.`, `!`, or `?`.
 - **Labels.** Names such as `label`, `title`, `button`, `tab`, `heading`, or ending in `name`, max 7 words, no closing `.`, `!`, or `?`.
-- **Sentences.** Names such as `description`, `tooltip`, `text`, `message`, `hint`, or `help`, or ending in `.`, `!`, or `?`.
+- **Sentences.** Names such as `description`, `tooltip`, `text`, `message`, `hint`, or `help`, or ending in `.`, `!`, or `?`. A name that ends in one of these words is a sentence even when an earlier word places it, so `headerTooltip` is a sentence.
 - **Vue templates (ESLint).** Element decides: `<template #header>` is a header, `<h2>` is a label.
 - **Markdown (CLI).** Headings are labels, table first rows are headers, paragraphs and list items are sentences.
 - **Shape fallback.** Template text and YAML values whose name doesn't place them, with 4 or fewer words and no closing stop count as labels unless they open like a sentence (`"There is"`, `"This"`, `"Are you"`). Longer strings count as labels only if already in Title Case. Shape-guessed fixes for `context` terms are suggestions, not autofixes.

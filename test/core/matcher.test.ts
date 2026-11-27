@@ -538,6 +538,9 @@ describe("kindOf", () => {
   it("reads sentences from the key or a final stop", () => {
     expect(kindOf({ name: "description", text: "Docks near you" })).toBe("sentence");
     expect(kindOf({ name: "tooltip", text: "Docks near you" })).toBe("sentence");
+    expect(kindOf({ name: "headerTooltip", text: "Day pass" })).toBe("sentence");
+    expect(kindOf({ name: "columns.dock.tooltip", text: "Day pass" })).toBe("sentence");
+    expect(kindOf({ name: "buttonLabelHelp", text: "Day pass" })).toBe("sentence");
     expect(kindOf({ text: "Return the bike to any dock." })).toBe("sentence");
     expect(kindOf({ name: "buttonLabel", text: "Return the bike to any dock." })).toBe("sentence");
   });
