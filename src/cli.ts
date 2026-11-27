@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
-import { extname, relative, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { cac } from "cac";
@@ -28,7 +29,10 @@ export interface CliIo {
 
 /** Options every command takes. */
 export interface CommandOptions {
-  /** A module whose default export is a corpus, such as one that calls `defineCorpus`. */
+  /**
+   * A module whose default export is a corpus, such as one that calls `defineCorpus`: a path, or a
+   * package specifier such as `glosslint/presets/tech`, resolved from `cwd` and then from glosslint.
+   */
   corpus?: string;
   /** The glossary file, read when there is no `corpus`. Default: `.agents/glossary.md` in `cwd`. */
   glossary?: string;
@@ -217,16 +221,38 @@ function loadGlossary(cwd: string, path: string, given: boolean): LoadedCorpus {
   });
 }
 
+/** A package specifier such as `glosslint/presets/tech`, not a path such as `./glossary.ts`. */
+function isBareSpecifier(given: string): boolean {
+  return !isAbsolute(given) && !/^\.\.?(?:[/\\]|$)/.test(given);
+}
+
+/**
+ * Resolves a package specifier from `cwd`, so the project's own install wins, then from glosslint's,
+ * so `glosslint/presets/tech` works wherever glosslint runs from.
+ */
+function resolveSpecifier(cwd: string, given: string): string | undefined {
+  for (const from of [join(cwd, "noop.js"), import.meta.url]) {
+    try {
+      return createRequire(from).resolve(given);
+    } catch {}
+  }
+  return undefined;
+}
+
 /** Imports the module given to `--corpus` and returns its default export, which must be a corpus. */
 async function importCorpus(cwd: string, given: string): Promise<LoadedCorpus> {
-  const file = resolve(cwd, given);
-  if (!existsSync(file))
+  const path = resolve(cwd, given);
+  const bare = isBareSpecifier(given);
+  const file = existsSync(path) ? path : bare ? resolveSpecifier(cwd, given) : undefined;
+  if (file === undefined)
     throw new CliError({
       code: CLI_ERRORS.noCorpus,
       why: `The corpus module "${given}" does not exist.`,
-      fix: "Check the path given to --corpus.",
+      fix: bare
+        ? "Check the path given to --corpus, or install the package that exports it."
+        : "Check the path given to --corpus.",
     });
-  const shown = displayPath(cwd, file);
+  const shown = file === path ? displayPath(cwd, file) : given;
   let loaded: { default?: unknown };
   try {
     loaded = (await import(pathToFileURL(file).href)) as { default?: unknown };
@@ -546,7 +572,8 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
   const cli = cac("glosslint");
   let run: (() => Promise<number>) | undefined;
   let color = io.color ?? false;
-  const corpusOption = "Module whose default export is a corpus, instead of a glossary file";
+  const corpusOption =
+    "Module or package whose default export is a corpus, instead of a glossary file";
   const glossaryOption = `Glossary file (default: ${DEFAULT_GLOSSARY})`;
   const colorOption = "Color the output (default: when writing to a terminal)";
 

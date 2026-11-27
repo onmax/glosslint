@@ -15,6 +15,12 @@ Use the glosslint CLI to check Markdown and text files, validate and repair `.ag
 npx glosslint check docs --corpus ./glossary.ts
 ```
 
+`--corpus` also takes a package specifier. It resolves from the current folder's `node_modules`, then from glosslint's own install, so the bundled presets work without a module of your own:
+
+```sh
+npx glosslint check docs --corpus glosslint/presets/tech
+```
+
 Passing both `--corpus` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. A missing glossary file or module exits `2` with `GLOSSLINT_C009`.
 
 `glosslint doctor` reads only the glossary file (`.agents/glossary.md` or `--glossary <path>`), never a corpus module. `check`, `test`, and `doctor` also accept `--color`, which is on by default when writing to a terminal unless `NO_COLOR` is set.
