@@ -140,7 +140,7 @@ terms:
     expect(kept.unchanged).toEqual(["layer"]);
   });
 
-  it("keeps the file's match and caseSensitive, lists a kept match, and adds a match the entry lacks", () => {
+  it("keeps the file's match and caseSensitive, lists a kept match, and adds no match to an entry without one", () => {
     const result = mergeDiglotGlossary(file, [
       input({
         term: "server route",
@@ -152,12 +152,10 @@ terms:
       input({ term: "bundle", match: "\\bbundles?\\b", decision: "keep" }),
     ]);
     expect(result.text).toContain("    match: \\bserver routes?\\b\n    caseSensitive: false\n");
-    expect(result.text).toContain(
-      "  - term: bundle\n    match: \\bbundles?\\b\n    decision: keep\n",
-    );
+    expect(result.text).toContain("  - term: bundle\n    decision: keep\n");
     expect(result.keptMatch).toEqual(["Server Route"]);
-    expect(result.unchanged).toEqual(["server route"]);
-    expect(result.updated).toEqual([{ term: "bundle", changes: ["match"] }]);
+    expect(result.unchanged).toEqual(["server route", "bundle"]);
+    expect(result.updated).toEqual([]);
   });
 
   it("adds accept patterns the entry lacks and removes none", () => {

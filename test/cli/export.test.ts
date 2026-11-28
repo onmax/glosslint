@@ -288,7 +288,7 @@ describe("glosslint export --diglot", () => {
       code: 0,
       stdout: `fr/glossary.yml: 3 terms merged, 1 added, 1 updated, 1 unchanged, 1 kept \`match\`.
 + Nuxt
-~ server-route: match, note, decision (was keep), target, accept
+~ server-route: note, decision (was keep), target, accept
 `,
       stderr: "",
     });
@@ -302,7 +302,6 @@ terms:
     decision: keep-gloss
     gloss: couche
   - term: server-route # reviewed in June
-    match: \\b(?:Server[- ]?routing|Server[- ]?routed|Server[- ]?routes|Server[- ]?route)\\b
     note: "Feminine: la route serveur."
     decision: translate
     target: route serveur

@@ -94,8 +94,9 @@ function ordered(entry: DiglotGlossaryEntry): Record<string, unknown> {
  * hyphens and spaces ignored, trying the term first and then its forms; the entry keeps the file's spelling
  * of `term`. The merge sets the fields the glossary owns: `decision`, `target`, `gloss`, and `note` when
  * `ownsNote`. It removes `target` and `gloss` when the decision no longer uses them, adds `accept` patterns
- * the entry lacks and removes none, and keeps `match`, `caseSensitive`, every other key and the file's note
- * otherwise. Entries the input doesn't match stay as they are, and new terms are added at the end of
+ * the entry lacks and removes none, and keeps `match` (or its absence, so diglot keeps matching the entry
+ * as before), `caseSensitive`, every other key and the file's note otherwise. Only new entries get the
+ * generated `match`. Entries the input doesn't match stay as they are, and new terms are added at the end of
  * `terms`. A second merge of the same input changes nothing. Throws an `X18nMergeError`, and merges
  * nothing, when the file is not valid YAML, is not a `terms:` map, or when one term matches two entries or
  * two terms match one entry.
@@ -221,7 +222,6 @@ function mergeEntry(doc: Document, map: YAMLMap, input: DiglotEntryInput): strin
     return true;
   };
 
-  if (!map.has("match") && set("match", entry.match)) changes.push("match");
   if (!map.has("caseSensitive") && set("caseSensitive", entry.caseSensitive))
     changes.push("caseSensitive");
   if (input.ownsNote && set("note", entry.note)) changes.push("note");
