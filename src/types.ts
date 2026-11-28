@@ -57,7 +57,25 @@ export interface Term {
   forms?: Record<string, string[]>;
   /** The term's translation per locale, passed to x18n's glossary as it is. */
   translations?: Record<string, string>;
+  /**
+   * Per locale, a decision other than a translation: keep the term, keep it with a gloss, or translate it
+   * with no set target. A locale here wins over the same locale in `translations`; `termDecisions` reads both.
+   */
+  decisions?: Record<string, TranslationDecision>;
+  /** Regular expression sources per locale that a translation of the term may also be written as, compiled with the `u` flag. */
+  patterns?: Record<string, string[]>;
+  /** A note for translators per locale, such as the article to use or the word not to write. */
+  hints?: Record<string, string>;
 }
+
+/**
+ * What translators do with a term in one locale: `keep` it as it is, keep it and explain it once with a
+ * `gloss` (`keep-gloss`), or `translate` it, to `target` when one is set.
+ */
+export type TranslationDecision =
+  | { decision: "keep" }
+  | { decision: "keep-gloss"; gloss: string }
+  | { decision: "translate"; target?: string };
 
 /** What `defineCorpus` takes: presets and other corpora to extend, your own terms, and allowed phrases. */
 export interface CorpusInput {

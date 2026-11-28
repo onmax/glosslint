@@ -76,7 +76,7 @@ function marked(doc: Document, map: YAMLMap): boolean {
 }
 
 /** A match key: the text in lowercase without hyphens and spaces. Other punctuation stays, so `C#` is not `C++`. */
-const matchKey = (value: string): string => value.toLowerCase().replace(/[\s\-‐‑]+/g, "");
+export const matchKey = (value: string): string => value.toLowerCase().replace(/[\s\-‐‑]+/g, "");
 
 /** The source-locale forms of an entry, as keys. */
 function formKeys(map: YAMLMap, locale: string): string[] {
@@ -96,7 +96,7 @@ function formKeys(map: YAMLMap, locale: string): string[] {
  * at the end. An entry whose term matches one in the file goes to that one, before any form is compared.
  * Comments and order are kept. Throws an `X18nMergeError`, and merges nothing, when an entry matches more
  * than one in the file, when two entries match the same one, or when an entry gives translations to one
- * marked `doNotTranslate: true`.
+ * marked `doNotTranslate: true`, other than the term itself, which a locale that keeps it writes.
  */
 export function mergeX18nGlossary(
   source: string,
@@ -178,14 +178,22 @@ export function mergeX18nGlossary(
       continue;
     }
     const term = text(map.get("term", true))!;
-    // x18n reads doNotTranslate before translations, so an entry with both is never translated.
-    const locales = Object.keys(entry.translations ?? {});
-    if (locales.length > 0 && marked(doc, map))
-      throw new X18nMergeError(
-        `"${term}" has doNotTranslate: true, and the glossary's "${entry.term}" gives it translations (${locales.join(", ")}).`,
-        `Remove doNotTranslate: true from "${term}" in the file to translate it, or remove Translations from "${entry.term}" in the glossary to keep it as written.`,
-      );
-    const fields = mergeEntry(doc, map, entry, (local, kept, dropped) =>
+    let merged = entry;
+    if (marked(doc, map)) {
+      // A locale that keeps the term agrees with doNotTranslate, so only another translation conflicts.
+      const kept = (value: string) =>
+        [entry.term, term].some((same) => matchKey(same) === matchKey(value));
+      const translations = Object.entries(entry.translations ?? {});
+      // x18n reads doNotTranslate before translations, so an entry with both is never translated.
+      const locales = translations.filter(([, value]) => !kept(value)).map(([locale]) => locale);
+      if (locales.length > 0)
+        throw new X18nMergeError(
+          `"${term}" has doNotTranslate: true, and the glossary's "${entry.term}" gives it translations (${locales.join(", ")}).`,
+          `Remove doNotTranslate: true from "${term}" in the file to translate it, or remove Translations from "${entry.term}" in the glossary to keep it as written.`,
+        );
+      merged = { ...entry, translations: undefined };
+    }
+    const fields = mergeEntry(doc, map, merged, (local, kept, dropped) =>
       result.conflicts.push({ term, locale: local, kept, dropped }),
     );
     if (fields.length > 0) result.updated.push({ term, from: entry.term, fields });

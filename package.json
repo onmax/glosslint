@@ -107,6 +107,8 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@diglot/core": "^0.2.0",
+    "@diglot/store": "^0.2.0",
     "@types/node": "^26.6.10",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@x18n/core": "^0.1.14",

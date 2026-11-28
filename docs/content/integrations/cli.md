@@ -33,6 +33,7 @@ Passing both `--corpus` and `--glossary` exits `2` with `GLOSSLINT_USAGE`. A mis
 | `glosslint print [--format md\|json]` | Print the corpus as a Markdown glossary or as JSON. |
 | `glosslint explain <query>` | Show what the corpus says about a word or phrase. |
 | `glosslint export [--merge <file>] [--note full\|short]` | Print the corpus as an x18n glossary in YAML, or merge it into one. |
+| `glosslint export --diglot <locale> [--merge <file>]` | Print one locale's diglot glossary in YAML, or merge it into one. |
 
 > [!NOTE]
 > `glosslint check --fix` fixes docs, `glosslint doctor --fix` repairs `.agents/glossary.md`, and [ESLint](/integrations/eslint) or [Oxlint](/integrations/oxlint) autofix code.
@@ -137,7 +138,7 @@ When the file has problems, `doctor` prints each one with its code, file and lin
 
 [GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations" or "Forms", or reword the line so it does not start with "Note:".
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations", "Forms" or "Hints", or reword the line so it does not start with "Note:".
 
 [GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
 ├▶ term: Dock
@@ -257,4 +258,16 @@ npx glosslint export --note short --merge ../translations/glossary.yml
 + Server route
 + NuxtApp
 ~ prerendering (Prerender): note, forms
+```
+
+`--diglot <locale>` exports that locale's [diglot glossary](/integrations/x18n#exporting-a-locale-to-diglot) instead, a `terms:` map with each term's decision, `accept` patterns, hint and a generated `match`, for the terms that have an item for the locale in `Translations`. With `--merge`, it writes into the locale's file in place, keeps the file's `match`, `caseSensitive`, other keys and comments, and prints the same `+` and `~` lines after a summary that also counts the entries whose own `match` it kept:
+
+```sh
+npx glosslint export --diglot fr --merge ../translations/fr/glossary.yml
+```
+
+```txt
+../translations/fr/glossary.yml: 2 terms merged, 1 added, 1 updated, 0 unchanged, 1 kept `match`.
++ Week Pass
+~ dock: note, decision (was keep), target, accept
 ```

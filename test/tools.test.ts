@@ -1,8 +1,53 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 import { defineCorpus } from "../src/corpus.ts";
+import { readGlossary } from "../src/glossary.ts";
 import tech from "../src/presets/tech.ts";
-import { explain, explainMatches, printCorpus, testCorpus, toX18nGlossary } from "../src/tools.ts";
+import {
+  diglotMatch,
+  explain,
+  explainMatches,
+  printCorpus,
+  testCorpus,
+  toDiglotGlossary,
+  toX18nGlossary,
+} from "../src/tools.ts";
+import type { Corpus } from "../src/types.ts";
 import { bike, bikeTerms } from "./core/bike.ts";
+
+/** The corpus of a glossary file's text, which must have no problems. */
+function glossaryCorpus(text: string): Corpus {
+  const { corpus, problems } = readGlossary(text);
+  expect(problems).toEqual([]);
+  return corpus!;
+}
+
+/** Day Pass, with a decision per locale in each of the forms the Translations field takes. */
+const decisions = `# Glossary
+
+## Day Pass (DP)
+What: Unlimited rides for one day.
+Avoid: day ticket
+Translations:
+- fr: forfait journée
+- de: keep
+- es: translate
+- it: keep (abbonamento giornaliero)
+- pt: \`keep\`
+Forms:
+- en: day-pass, daypass
+- fr: forfait jour, \`/forfaits? journ[ée]es?/\`, forfait (1 jour)
+Hints:
+- fr: Masculine: le forfait.
+
+## Nuxt
+Case: exact
+Translations:
+- fr: keep
+
+## eBike
+Case: exact
+`;
 
 describe("testCorpus", () => {
   it("passes when bad examples are reported and good ones are not", () => {
@@ -218,6 +263,24 @@ describe("toX18nGlossary", () => {
     expect(toX18nGlossary(corpus, { note: "full" })).toEqual(toX18nGlossary(corpus));
   });
 
+  it("writes the term for a locale that keeps it, puts a gloss in the note, and skips translate, patterns and hints", () => {
+    expect(toX18nGlossary(glossaryCorpus(decisions))).toEqual([
+      {
+        term: "Day Pass",
+        translations: {
+          fr: "forfait journée",
+          pt: "keep",
+          de: "Day Pass",
+          it: "Day Pass",
+        },
+        forms: { en: ["day-pass", "daypass"], fr: ["forfait jour", "forfait (1 jour)"] },
+        note: 'Unlimited rides for one day. it: keep, gloss as "abbonamento giornaliero"',
+      },
+      { term: "Nuxt", translations: { fr: "Nuxt" } },
+      { term: "eBike", doNotTranslate: true },
+    ]);
+  });
+
   it("leaves out the terms a preset adds, through any corpus that extends it, and keeps a term that replaces one", () => {
     const corpus = defineCorpus({
       extends: [tech],
@@ -229,5 +292,83 @@ describe("toX18nGlossary", () => {
     ]);
     const outer = defineCorpus({ extends: [corpus], terms: [{ term: "Station" }] });
     expect(toX18nGlossary(outer).map((entry) => entry.term)).toEqual(["Dock", "GitHub", "Station"]);
+  });
+});
+
+describe("toDiglotGlossary", () => {
+  it("exports the locale's decision, hint and accepted forms for each term with an item for it", () => {
+    const corpus = glossaryCorpus(decisions);
+    const match =
+      "\\b(?:Day[- ]?Passing|day[- ]?tickets|Day[- ]?Passed|Day[- ]?Passes|day[- ]?ticket|daypassing|daypassed|daypasses|Day[- ]?Pass|daypass|DPs|DP)\\b";
+    expect(toDiglotGlossary(corpus, "fr")).toEqual([
+      {
+        term: "Day Pass",
+        forms: ["day-pass", "daypass"],
+        ownsNote: true,
+        entry: {
+          term: "Day Pass",
+          match,
+          note: "Masculine: le forfait.",
+          decision: "translate",
+          target: "forfait journée",
+          accept: ["forfait jour", "forfait \\(1 jour\\)", "forfaits? journ[ée]es?"],
+        },
+      },
+      {
+        term: "Nuxt",
+        forms: [],
+        ownsNote: false,
+        entry: {
+          term: "Nuxt",
+          match: "\\b(?:Nuxts|Nuxt)\\b",
+          caseSensitive: true,
+          decision: "keep",
+        },
+      },
+    ]);
+    const entries = (locale: string) =>
+      toDiglotGlossary(corpus, locale).map(({ entry }) => ({ ...entry, match: undefined }));
+    expect(entries("de")).toEqual([{ term: "Day Pass", decision: "keep" }]);
+    expect(entries("es")).toEqual([{ term: "Day Pass", decision: "translate" }]);
+    expect(entries("it")).toEqual([
+      { term: "Day Pass", decision: "keep-gloss", gloss: "abbonamento giornaliero" },
+    ]);
+    expect(entries("pt")).toEqual([{ term: "Day Pass", decision: "translate", target: "keep" }]);
+    expect(entries("nl")).toEqual([]);
+  });
+
+  it("borders a spelling that \\b can't border with letters and digits, and adds source patterns as they are", () => {
+    const corpus = glossaryCorpus(
+      "# Glossary\n\n## C#\nCase: exact\n\n## Café\nForms:\n- en: `/caf[eé]s?/`\n",
+    );
+    const [csharp, cafe] = corpus.terms.slice(-2);
+    expect(diglotMatch(csharp!)).toBe("(?<![\\p{L}\\p{N}_])(?:C#)(?![\\p{L}\\p{N}_])");
+    const pattern = new RegExp(diglotMatch(cafe!), "iu");
+    expect(["Café", "cafés", "cafe", "cafes"].every((text) => pattern.test(text))).toBe(true);
+    expect(pattern.test("cafébar")).toBe(false);
+  });
+
+  it("matches every term, form, abbreviation and good example of the docs example and the presets", () => {
+    const example = readFileSync(
+      new URL("../examples/basic/.agents/glossary.md", import.meta.url),
+      "utf8",
+    );
+    const corpora = [glossaryCorpus(example), bike];
+    let checked = 0;
+    for (const corpus of corpora)
+      for (const term of corpus.terms) {
+        const pattern = new RegExp(diglotMatch(term), term.case === "exact" ? "u" : "iu");
+        const texts = [
+          term.term,
+          ...(term.abbr ?? []),
+          ...(term.forms?.en ?? []),
+          ...(term.examples?.good ?? []),
+        ];
+        for (const text of texts) {
+          checked++;
+          expect(pattern.test(text), `${term.term}: ${text}`).toBe(true);
+        }
+      }
+    expect(checked).toBeGreaterThan(500);
   });
 });

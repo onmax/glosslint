@@ -2,7 +2,7 @@
 import { defineCorpus, distance, nearest } from "./corpus.ts";
 import inclusive from "./presets/inclusive.ts";
 import tech from "./presets/tech.ts";
-import { testCorpus } from "./tools.ts";
+import { literalTarget, testCorpus } from "./tools.ts";
 import type {
   Avoid,
   CaseMode,
@@ -12,6 +12,7 @@ import type {
   Corpus,
   Link,
   Term,
+  TranslationDecision,
 } from "./types.ts";
 import { termKey } from "./words.ts";
 
@@ -83,6 +84,7 @@ const TERM_FIELDS: readonly FieldSpec[] = [
   { name: "Casing", kind: "list", comma: true },
   { name: "Translations", kind: "list", comma: true },
   { name: "Forms", kind: "list" },
+  { name: "Hints", kind: "list" },
 ];
 const ALIASES: Record<string, string> = {
   extends: "Presets",
@@ -104,7 +106,9 @@ const CASING = /^(label|header|sentence)\s+(title|sentence|lower|upper|as-writte
 /** A BCP 47 tag such as `fr`, `de` or `pt-BR`. */
 const LOCALE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 /** The fields whose items are `locale: value`. */
-const LOCALE_FIELDS: ReadonlySet<string> = new Set(["Translations", "Forms"]);
+const LOCALE_FIELDS: ReadonlySet<string> = new Set(["Translations", "Forms", "Hints"]);
+/** A `Translations` value that keeps the term and glosses it, such as `keep (couche)`. */
+const KEEP_GLOSS = /^keep\s*\((.*)\)$/;
 
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
@@ -294,6 +298,22 @@ function parseLocaleItem(raw: string): { locale: string; value: string } | undef
   const at = raw.indexOf(":");
   if (at < 0) return undefined;
   return { locale: raw.slice(0, at).trim(), value: raw.slice(at + 1).trim() };
+}
+
+/**
+ * A `Translations` value that is a decision rather than a translation: `keep`, `keep (gloss)` or
+ * `translate`. Any other value, a backticked one included, is the translation.
+ */
+function parseDecision(value: string): TranslationDecision | undefined {
+  if (value === "keep") return { decision: "keep" };
+  if (value === "translate") return { decision: "translate" };
+  const gloss = KEEP_GLOSS.exec(value)?.[1];
+  return gloss === undefined ? undefined : { decision: "keep-gloss", gloss: gloss.trim() };
+}
+
+/** The source of a `Forms` entry written as `/pattern/`, with or without backticks around it. */
+function formPattern(form: string): string | undefined {
+  return /^(`?)\/(.*)\/\1$/.exec(form)?.[2];
 }
 
 /** A single word that is one capital or has a capital after its first letter, such as `DP`, `D` or `eB`. */
@@ -791,14 +811,19 @@ class Reader {
   ): void {
     const { name } = node.spec;
     const text = itemText(item);
-    const example = name === "Forms" ? "`fr: routes serveur`" : "`fr: route serveur`";
+    const example = {
+      Translations: "`fr: route serveur`",
+      Forms: "`fr: routes serveur`",
+      Hints: "`de: der Layer, die Layer`",
+    }[name];
+    const what = { Translations: "translation", Forms: "forms", Hints: "hint" }[name];
     const parsed = parseLocaleItem(text);
     if (!parsed || parsed.locale === "") {
       this.add(
         P.badValue,
         item.line,
         `"${text}" in ${name} has no locale.`,
-        `Write it as ${example}: a locale, a colon, then the ${name === "Forms" ? "forms" : "translation"}.`,
+        `Write it as ${example}: a locale, a colon, then the ${what}.`,
         term,
       );
       return;
@@ -813,16 +838,48 @@ class Reader {
       );
       return;
     }
-    if (parsed.value === "" || (name === "Forms" && splitCommas(parsed.value).length === 0)) {
+    if (
+      parsed.value === "" ||
+      (name === "Forms" && splitCommas(parsed.value).length === 0) ||
+      (name === "Translations" && literalTarget(parsed.value) === "")
+    ) {
       this.add(
         P.badValue,
         item.line,
-        `${parsed.locale} in ${name} has no ${name === "Forms" ? "forms" : "translation"}.`,
+        `${parsed.locale} in ${name} has no ${what}.`,
         `Write it after "${parsed.locale}:", or remove the line.`,
         term,
       );
       return;
     }
+    if (name === "Translations") {
+      const decision = parseDecision(parsed.value);
+      if (decision?.decision === "keep-gloss" && decision.gloss === "") {
+        this.add(
+          P.badValue,
+          item.line,
+          `${parsed.locale} in Translations keeps the term with an empty gloss.`,
+          "Write the gloss inside the parentheses, such as `keep (couche)`, or write `keep`.",
+          term,
+        );
+        return;
+      }
+    }
+    if (name === "Forms")
+      for (const form of splitCommas(parsed.value)) {
+        const source = formPattern(form);
+        if (source === undefined) continue;
+        const error = patternError(source);
+        if (error === undefined) continue;
+        this.add(
+          P.badValue,
+          item.line,
+          `The pattern ${form} in Forms does not compile: ${error}`,
+          "Fix the regular expression, which is compiled with the `u` flag.",
+          term,
+        );
+        return;
+      }
     const key = parsed.locale.toLowerCase();
     const previous = seen.get(key);
     if (previous !== undefined) {
@@ -838,6 +895,17 @@ class Reader {
       return;
     }
     seen.set(key, parsed.locale);
+  }
+}
+
+/** Why a pattern does not compile with the `u` flag, or `undefined` when it does. */
+function patternError(source: string): string | undefined {
+  if (source === "") return "it is empty.";
+  try {
+    new RegExp(source, "u");
+    return undefined;
+  } catch (error) {
+    return `${(error as Error).message}.`;
   }
 }
 
@@ -920,11 +988,28 @@ function buildTerm(node: TermNode): Term {
   if (links.length) term.links = links;
   const casing = parseCasing(items("Casing"));
   if (Object.keys(casing).length) term.casing = casing;
-  const translations = localeItems(items("Translations"));
+  const translations: [string, string][] = [];
+  const decisions: [string, TranslationDecision][] = [];
+  for (const [locale, value] of localeItems(items("Translations"))) {
+    const decision = parseDecision(value);
+    if (decision) decisions.push([locale, decision]);
+    else translations.push([locale, value]);
+  }
   if (translations.length) term.translations = Object.fromEntries(translations);
-  const forms = localeItems(items("Forms"));
-  if (forms.length)
-    term.forms = Object.fromEntries(forms.map(([locale, value]) => [locale, splitCommas(value)]));
+  if (decisions.length) term.decisions = Object.fromEntries(decisions);
+  const forms: [string, string[]][] = [];
+  const patterns: [string, string[]][] = [];
+  for (const [locale, value] of localeItems(items("Forms"))) {
+    const entries = splitCommas(value);
+    const sources = entries.flatMap((form) => formPattern(form) ?? []);
+    const plain = entries.filter((form) => formPattern(form) === undefined);
+    if (plain.length) forms.push([locale, plain]);
+    if (sources.length) patterns.push([locale, sources]);
+  }
+  if (forms.length) term.forms = Object.fromEntries(forms);
+  if (patterns.length) term.patterns = Object.fromEntries(patterns);
+  const hints = localeItems(items("Hints"));
+  if (hints.length) term.hints = Object.fromEntries(hints);
   const mode = field("Case")?.value as CaseMode | undefined;
   if (mode) term.case = mode;
   // Casing without Case makes the term `context`, as in defineCorpus, whatever its name.
