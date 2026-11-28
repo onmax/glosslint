@@ -181,15 +181,19 @@ describe("mergeX18nGlossary", () => {
     ).toThrow('"Render" and "Rendering" both match the entry "rendering".');
   });
 
-  it("throws, naming the entry and the flag, when it would translate an entry marked doNotTranslate", () => {
+  it("throws, naming the entry and the flag, when it would translate an entry marked doNotTranslate, but not for a locale that keeps the term", () => {
     expect(() =>
       mergeX18nGlossary(shared, [
         { term: "Prerendering", note: "At build time." },
-        { term: "nuxt", translations: { fr: "Nuxt" } },
+        { term: "nuxt", translations: { fr: "Nuxt", de: "Nuxt-Framework" } },
       ]),
     ).toThrow(
-      '"Nuxt" has doNotTranslate: true, and the glossary\'s "nuxt" gives it translations (fr).',
+      '"Nuxt" has doNotTranslate: true, and the glossary\'s "nuxt" gives it translations (de).',
     );
+    // A locale that keeps the term, written as the term itself, agrees with the flag and is not written.
+    const keeps = mergeX18nGlossary(shared, [{ term: "nuxt", translations: { fr: "Nuxt" } }]);
+    expect(keeps.text).toBe(shared);
+    expect(keeps.unchanged).toEqual(["nuxt"]);
     // An alias resolves to its anchor's value.
     const aliased =
       "- term: Nuxt\n  doNotTranslate: &locked true\n- term: eBike\n  doNotTranslate: *locked\n";

@@ -28,6 +28,8 @@ What: Unlimited 30-minute rides for seven days.
 Avoid: weekly ticket
 Links:
 - [Passes](https://example.com/docs/passes)
+Translations:
+- fr: keep (abonnement hebdomadaire)
 
 ## kiosk
 What: The screen at a station where you buy passes.
@@ -47,6 +49,12 @@ Bad:
 - Return the bike to any rack
 Links:
 - [Docks](https://example.com/docs/docks)
+Translations:
+- fr: borne
+Forms:
+- fr: bornes
+Hints:
+- fr: Feminine: la borne.
 
 ## Checkout
 

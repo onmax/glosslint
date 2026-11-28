@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
@@ -176,6 +176,21 @@ describe("glosslint export", () => {
     expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(first);
   });
 
+  it("merges a locale that keeps the term into an entry marked doNotTranslate without writing it", async () => {
+    writeFileSync(
+      join(dir, "NUXT.md"),
+      "# Glossary\n\n## Nuxt\nCase: exact\nTranslations: fr: keep\n",
+    );
+    const args = ["export", "--glossary", "NUXT.md", "--merge", "glossary.yml"];
+    expect(parse((await run(["export", "--glossary", "NUXT.md"], dir)).stdout)).toEqual([
+      { term: "Nuxt", translations: { fr: "Nuxt" } },
+    ]);
+    const result = await run(args, dir);
+    expect(result).toMatchObject({ code: 0, stderr: "" });
+    expect(result.stdout).toBe("glossary.yml: 1 term merged, 0 added, 0 updated, 1 unchanged.\n");
+    expect(readFileSync(join(dir, "glossary.yml"), "utf8")).toBe(shared);
+  });
+
   it("exits 2 on a missing file, a file that is not a list, or another --note", async () => {
     const missing = await run(["export", "--glossary", "GLOSSARY.md", "--merge", "no.yml"], dir);
     expect(missing.code).toBe(2);
@@ -191,5 +206,161 @@ describe("glosslint export", () => {
     const note = await run(["export", "--glossary", "GLOSSARY.md", "--note", "long"], dir);
     expect(note.code).toBe(2);
     expect(note.stderr).toContain('--note is "long".');
+  });
+});
+
+const diglotGlossary = `# Glossary
+
+## Layer
+What: A Nuxt project that another one extends.
+Translations:
+- fr: keep (couche)
+
+## Server route
+What: A handler that answers HTTP requests at a path.
+Translations:
+- fr: route serveur
+Forms:
+- fr: routes serveur
+Hints:
+- fr: Feminine: la route serveur.
+
+## Nuxt
+Case: exact
+Translations:
+- fr: keep
+
+## NuxtApp
+Case: exact
+`;
+
+const french = `# French decisions that need diglot-only fields.
+style:
+  - Use "vous".
+terms:
+  - term: layer
+    match: \\blayers?\\b
+    note: the Nuxt layers feature (extends)
+    decision: keep-gloss
+    gloss: couche
+  - term: server-route # reviewed in June
+    decision: keep
+  - term: payload
+    decision: keep-gloss
+    gloss: charge utile
+`;
+
+describe("glosslint export --diglot", () => {
+  const args = ["export", "--glossary", "DIGLOT.md", "--diglot", "fr"];
+  const file = () => readFileSync(join(dir, "fr", "glossary.yml"), "utf8");
+  beforeEach(() => {
+    writeFileSync(join(dir, "DIGLOT.md"), diglotGlossary);
+    mkdirSync(join(dir, "fr"));
+    writeFileSync(join(dir, "fr", "glossary.yml"), french);
+  });
+
+  it("prints the locale's diglot glossary, with only the terms that have an item for it", async () => {
+    const result = await run(args, dir);
+    expect(result).toMatchObject({ code: 0, stderr: "" });
+    expect(result.stdout).toBe(`terms:
+  - term: Layer
+    match: \\b(?:Layering|Layered|Layers|Layer)\\b
+    decision: keep-gloss
+    gloss: couche
+  - term: Server route
+    match: \\b(?:Server[- ]?routing|Server[- ]?routed|Server[- ]?routes|Server[- ]?route)\\b
+    note: "Feminine: la route serveur."
+    decision: translate
+    target: route serveur
+    accept:
+      - routes serveur
+  - term: Nuxt
+    match: \\b(?:Nuxts|Nuxt)\\b
+    caseSensitive: true
+    decision: keep
+`);
+  });
+
+  it("merges into the file, keeping its match, note, comments and other entries, and changes nothing a second time", async () => {
+    const merge = [...args, "--merge", "fr/glossary.yml"];
+    const first = await run(merge, dir);
+    expect(first).toEqual({
+      code: 0,
+      stdout: `fr/glossary.yml: 3 terms merged, 1 added, 1 updated, 1 unchanged, 1 kept \`match\`.
++ Nuxt
+~ server-route: match, note, decision (was keep), target, accept
+`,
+      stderr: "",
+    });
+    expect(file()).toBe(`# French decisions that need diglot-only fields.
+style:
+  - Use "vous".
+terms:
+  - term: layer
+    match: \\blayers?\\b
+    note: the Nuxt layers feature (extends)
+    decision: keep-gloss
+    gloss: couche
+  - term: server-route # reviewed in June
+    match: \\b(?:Server[- ]?routing|Server[- ]?routed|Server[- ]?routes|Server[- ]?route)\\b
+    note: "Feminine: la route serveur."
+    decision: translate
+    target: route serveur
+    accept:
+      - routes serveur
+  - term: payload
+    decision: keep-gloss
+    gloss: charge utile
+  - term: Nuxt
+    match: \\b(?:Nuxts|Nuxt)\\b
+    caseSensitive: true
+    decision: keep
+`);
+    const merged = file();
+    const second = await run(merge, dir);
+    expect(second.stdout).toBe(
+      "fr/glossary.yml: 3 terms merged, 0 added, 0 updated, 3 unchanged, 1 kept `match`.\n",
+    );
+    expect(file()).toBe(merged);
+  });
+
+  it("exits 2 without a BCP 47 locale or a term that has one", async () => {
+    const missing = await run(["export", "--glossary", "DIGLOT.md", "--diglot"], dir);
+    expect(missing.code).toBe(2);
+    expect(missing.stderr).toContain("option `--diglot <locale>` value is missing.");
+    const invalid = await run(["export", "--glossary", "DIGLOT.md", "--diglot", "fr_FR"], dir);
+    expect(invalid.code).toBe(2);
+    expect(invalid.stderr).toContain('--diglot is "fr_FR", which is not a BCP 47 locale.');
+    const none = await run(["export", "--glossary", "DIGLOT.md", "--diglot", "de"], dir);
+    expect(none.code).toBe(2);
+    expect(none.stderr).toContain("No term in the glossary has de in Translations.");
+  });
+
+  it("exits 2 and writes nothing on a missing file, invalid YAML, an x18n list or an ambiguous match", async () => {
+    const merge = [...args, "--merge", "fr/glossary.yml"];
+    const missing = await run([...args, "--merge", "de/glossary.yml"], dir);
+    expect(missing.code).toBe(2);
+    expect(missing.stderr).toContain('The diglot glossary "de/glossary.yml" does not exist.');
+    const fails = async (text: string, why: string) => {
+      writeFileSync(join(dir, "fr", "glossary.yml"), text);
+      const result = await run(merge, dir);
+      expect(result.code).toBe(2);
+      expect(result.stderr).toContain(`fr/glossary.yml: ${why}`);
+      expect(file()).toBe(text);
+    };
+    await fails("terms: [\n", "Not valid YAML:");
+    await fails("- term: Nuxt\n  doNotTranslate: true\n", "The file is an x18n glossary");
+    await fails(
+      "terms:\n  - term: layer\n    decision: keep\n  - term: Layer\n    decision: keep\n",
+      '"Layer" matches 2 entries: "layer" and "Layer".',
+    );
+    writeFileSync(
+      join(dir, "DIGLOT.md"),
+      `${diglotGlossary}\n## Route\nForms: en: server route\nTranslations: fr: route\n`,
+    );
+    await fails(
+      "terms:\n  - term: server route\n    decision: keep\n",
+      '"Server route" and "Route" both match the entry "server route".',
+    );
   });
 });

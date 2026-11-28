@@ -181,7 +181,8 @@ function keepCapitals(canonical: string, surface: string): string {
   return index === letters.length ? out : canonical;
 }
 
-function plural(word: string): string {
+/** Adds `s`, or `es` after `s`, `x`, `z`, `ch` and `sh`, in capitals when `word` is all caps. */
+export function plural(word: string): string {
   const ending = /(?:s|x|z|ch|sh)$/i.test(word) ? "es" : "s";
   return word + (isAllCaps(word) ? ending.toUpperCase() : ending);
 }
@@ -208,7 +209,7 @@ function endingOf(word: string, canonical: string): string {
  * `ie` becomes `y` (tying), `ee`, `ye` and `oe` keep their `e` (freeing, dyeing, hoeing), and any
  * other final `e` drops (caching).
  */
-function inflect(word: string, ending: string): string {
+export function inflect(word: string, ending: string): string {
   if (ending === "") return word;
   const upper = isAllCaps(word);
   let out = word + ending;
