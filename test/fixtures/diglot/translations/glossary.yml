@@ -1,0 +1,9 @@
+# Shared terms, in x18n's glossary shape.
+- term: Nuxt
+  doNotTranslate: true
+- term: layer
+  translations:
+    fr: couche
+- term: prerendering
+  translations:
+    fr: prérendu

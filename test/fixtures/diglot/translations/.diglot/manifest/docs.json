@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "source": "docs",
+  "files": {
+    "docs/index.md": [
+      {
+        "hash": "0000000000000001",
+        "kind": "paragraph",
+        "format": "markdown",
+        "words": 6,
+        "skeleton": "Extend a {0}Nuxt{/0} app with layers."
+      },
+      {
+        "hash": "0000000000000002",
+        "kind": "paragraph",
+        "format": "markdown",
+        "words": 7,
+        "skeleton": "Server routes run during the build, and nuxtapp is lowercase."
+      },
+      {
+        "hash": "0000000000000003",
+        "kind": "paragraph",
+        "format": "markdown",
+        "words": 5,
+        "skeleton": "Use keep alive with NuxtApp."
+      }
+    ]
+  }
+}
