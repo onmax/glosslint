@@ -76,7 +76,7 @@ function marked(doc: Document, map: YAMLMap): boolean {
 }
 
 /** A match key: the text in lowercase without hyphens and spaces. Other punctuation stays, so `C#` is not `C++`. */
-const matchKey = (value: string): string => value.toLowerCase().replace(/[\s\-‐‑]+/g, "");
+export const matchKey = (value: string): string => value.toLowerCase().replace(/[\s\-‐‑]+/g, "");
 
 /** The source-locale forms of an entry, as keys. */
 function formKeys(map: YAMLMap, locale: string): string[] {
