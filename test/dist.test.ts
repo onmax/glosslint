@@ -45,6 +45,7 @@ describe("dist", { timeout: 60_000 }, () => {
       "kindOf",
       "printCorpus",
       "readGlossary",
+      "termDecisions",
       "testCorpus",
       "toJson",
       "toX18nGlossary",

@@ -72,4 +72,11 @@ describe("examples/basic", () => {
     }
     expect((await cli("explain", "scooter")).code).toBe(1);
   });
+
+  it("prints the diglot glossary the docs show for export --diglot fr", async () => {
+    const result = await cli("export", "--diglot", "fr");
+    expect(result).toMatchObject({ code: 0, stderr: "" });
+    expect(result.stdout).toMatch(/^ {2}- term: Dock\n/m);
+    expect(docs).toContain(result.stdout.trimEnd());
+  });
 });

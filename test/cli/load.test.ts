@@ -71,7 +71,7 @@ describe("loading the corpus", () => {
       stdout: "",
       stderr: `[GLOSSLINT_G004] glossaries/broken.md:4: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations" or "Forms", or reword the line so it does not start with "Note:". 1 more problem: run \`glosslint doctor --glossary glossaries/broken.md\` to list them.
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations", "Forms" or "Hints", or reword the line so it does not start with "Note:". 1 more problem: run \`glosslint doctor --glossary glossaries/broken.md\` to list them.
 `,
     });
   });

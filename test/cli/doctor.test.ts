@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,7 +41,7 @@ describe("glosslint doctor", () => {
 
 [GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations" or "Forms", or reword the line so it does not start with "Note:".
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations", "Forms" or "Hints", or reword the line so it does not start with "Note:".
 
 [GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
 ├▶ term: Dock
@@ -153,6 +153,37 @@ describe("glosslint doctor", () => {
     expect((await run(["doctor", "--fix"], dir)).stdout).toMatch(
       /\n\n8 problems in \.agents\/glossary\.md\. The file is unchanged: --fix would drop text, so fix the other problems first\.\n$/,
     );
+  });
+
+  it("--fix moves Hints after Forms, and reports a locale given two hints as G005", async () => {
+    const file = join(dir, ".agents/glossary.md");
+    writeFileSync(
+      file,
+      "# Glossary\n\n## Layer\nHints:\n- de: der Layer\nTranslations: de: keep, fr: keep (couche)\nForms:\n- fr: couches, `/calques?/`\n",
+    );
+    expect(await run(["doctor", "--fix"], dir)).toEqual({
+      code: 0,
+      stdout: "Fixed 2 problems in .agents/glossary.md.\n",
+      stderr: "",
+    });
+    const fixed =
+      "# Glossary\n\n## Layer\nTranslations: de: keep, fr: keep (couche)\nForms:\n- fr: couches, `/calques?/`\nHints:\n- de: der Layer\n";
+    expect(readFileSync(file, "utf8")).toBe(fixed);
+    expect((await run(["doctor", "--fix"], dir)).stdout).toBe(
+      "No problems in .agents/glossary.md.\n",
+    );
+    expect(readFileSync(file, "utf8")).toBe(fixed);
+
+    writeFileSync(file, `${fixed}- de: die Layer\n`);
+    expect(await run(["doctor"], dir)).toEqual({
+      code: 1,
+      stdout: `[GLOSSLINT_G005] .agents/glossary.md:9: Hints lists de twice in "Layer".
+╰▶ fix: Keep one \`de:\` line.
+
+1 problem in .agents/glossary.md.
+`,
+      stderr: "",
+    });
   });
 
   it("reports failing examples as G009, checked against the file alone", async () => {

@@ -1,0 +1,33 @@
+# French decisions that need diglot-only fields.
+terms:
+  # keep-gloss overrides the shared translation
+  - term: layer
+    match: \blayers?\b
+    note: the Nuxt layers feature (extends)
+    decision: keep-gloss
+    gloss: couche
+  - term: build
+    match: \bbuild(?:s|ing)?\b
+    note: as a noun keep "build"; as a verb use "compiler"
+    decision: translate
+  - term: keep alive
+    decision: translate
+    target: keep
+  - term: server route
+    match: \bserver routes?\b
+    decision: translate
+    target: route serveur
+    accept:
+      - routes? (?:de |du )?serveur
+      - route, serveur
+      - dossier
+  - term: NuxtApp
+    caseSensitive: true
+    decision: keep
+    reviewer: someone
+  - term: API route
+    decision: keep
+    accept:
+      - API
+style:
+  - Use vous, never tu.

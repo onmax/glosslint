@@ -64,8 +64,9 @@ Each `##` heading starts one term. All fields below it are optional, so a bare h
 | `Links` | `-` list of `[title](url)` links using `http://` or `https://`. Findings print the first URL. |
 | `Case` | `spelling` by default, `exact` for one form everywhere, or `context` for label, header, and sentence casing. See [Casing rules](/guide/casing). |
 | `Casing` | Overrides the glossary's `Casing` for this term, such as `label as-written`. Setting `Casing` without `Case` treats the term as `context`. See [Casing rules](/guide/casing). |
-| `Translations` | The term's translation per locale, as `locale: translation`. See [Translations and forms](#translations-and-forms). |
-| `Forms` | Other forms of the term per locale, as `locale: form, form`. See [Translations and forms](#translations-and-forms). |
+| `Translations` | The term's translation per locale, as `locale: translation`, or a decision: `keep`, `keep (gloss)` or `translate`. See [Translations and forms](#translations-and-forms). |
+| `Forms` | Other forms of the term per locale, as `locale: form, form`. A form written `/pattern/` is a regular expression. See [Translations and forms](#translations-and-forms). |
+| `Hints` | A note for translators per locale, as a `-` list of `locale: hint`. See [Translations and forms](#translations-and-forms). |
 
 For options this file has no field for, such as `skip`, `wholeLabel`, or merging corpora, use [`defineCorpus`](/guide/corpus).
 
@@ -146,7 +147,29 @@ Forms:
 
 Each item is a locale, a colon, then the value. A `Translations` item holds one translation, and a `Forms` item lists the forms of that locale separated by commas; wrap a value holding a comma in backticks. Short `Translations` fit on the field's line: `Translations: fr: route serveur, de: Server-Route`. `Forms` is always a `-` list.
 
-The locale is a BCP 47 tag such as `fr`, `de` or `pt-BR`. An item with no locale, a locale that is not a tag, or no value is `GLOSSLINT_G006`, and a locale listed twice is `GLOSSLINT_G005`. Both keep the file from loading, so a typo never reaches a translator. The source locale's forms, such as `en` above, are other spellings of the term itself, which `glosslint export --merge` uses to find the term in a shared glossary.
+A `Translations` value can also say what to do instead of giving a translation:
+
+| Value | Meaning |
+| --- | --- |
+| `keep` | Keep the term as it is. |
+| `keep (couche)` | Keep the term, and explain it once as "couche". |
+| `translate` | Translate the term, with no set translation. |
+| `` `keep` `` | The translation is the word "keep". Backticks make any value literal. |
+
+A `Forms` entry written `/pattern/` is a regular expression that a translation of the term may also match, compiled with the `u` flag. Wrap it in backticks when it holds a comma. `Hints` holds a note for each locale's translators, such as the article to use, and is always a `-` list:
+
+```md
+## Layer
+Translations:
+- fr: keep (couche)
+- de: keep
+Forms:
+- fr: couches, `/calques?/`
+Hints:
+- de: der Layer, die Layer (nicht "Schicht")
+```
+
+The locale is a BCP 47 tag such as `fr`, `de` or `pt-BR`. An item with no locale, a locale that is not a tag, no value, an empty gloss such as `keep ()`, or a pattern that does not compile is `GLOSSLINT_G006`, and a locale listed twice in one field is `GLOSSLINT_G005`. Both keep the file from loading, so a typo never reaches a translator. The source locale's forms, such as `en` above, are other spellings of the term itself, which `glosslint export --merge` uses to find the term in a shared glossary.
 
 ## Layout
 

@@ -11,7 +11,14 @@ import { formatDoctor, formatFindings, toJson } from "./format.ts";
 import { DEFAULT_GLOSSARY, GLOSSARY_PROBLEMS, readGlossary } from "./glossary.ts";
 import type { GlossaryProblem } from "./glossary.ts";
 import { createMatcher } from "./matcher.ts";
-import { explain, explainMatches, printCorpus, testCorpus, toX18nGlossary } from "./tools.ts";
+import {
+  explain,
+  explainMatches,
+  printCorpus,
+  testCorpus,
+  toDiglotGlossary,
+  toX18nGlossary,
+} from "./tools.ts";
 import type { CliFinding, Corpus, CorpusTestFailure, Finding } from "./types.ts";
 
 export { checkFileText, maskMarkdown } from "./check-text.ts";
@@ -52,11 +59,13 @@ export interface PrintOptions extends CommandOptions {
 
 /** Options of `glosslint export`. */
 export interface ExportOptions extends CommandOptions {
-  /** An x18n glossary YAML file to merge the corpus into, written in place. Without it the YAML goes to stdout. */
+  /** A BCP 47 locale, such as `fr`: export that locale's diglot glossary, a `terms:` map, instead of the x18n glossary. */
+  diglot?: string;
+  /** A glossary YAML file to merge the corpus into, written in place: x18n's, or diglot's with `diglot`. Without it the YAML goes to stdout. */
   merge?: string;
-  /** `full` (default): the note is the term's What and How. `short`: its What alone. */
+  /** `full` (default): the note is the term's What and How. `short`: its What alone. Not read with `diglot`, whose note is the locale's hint. */
   note?: string;
-  /** The locale whose `forms` spell the term itself, used to match entries in `merge`. Default: `en`. */
+  /** The locale whose `forms` spell the term itself, used to match entries in `merge` and, with `diglot`, in each `match`. Default: `en`. */
   sourceLocale?: string;
 }
 
@@ -418,6 +427,7 @@ export async function runPrint(options: PrintOptions, io: CliIo): Promise<number
  * and prints what changed.
  */
 export async function runExport(options: ExportOptions, io: CliIo): Promise<number> {
+  if (options.diglot !== undefined) return runDiglotExport(options, io);
   const note = options.note ?? "full";
   if (note !== "full" && note !== "short")
     throw usage(`--note is "${note}".`, "Use --note full or --note short.");
@@ -465,6 +475,74 @@ export async function runExport(options: ExportOptions, io: CliIo): Promise<numb
       ({ term, locale, kept, dropped }) =>
         `! ${term}: kept ${locale} "${kept}" over "${dropped}" from the glossary`,
     ),
+  ];
+  io.stdout(`${lines.join("\n")}\n`);
+  return 0;
+}
+
+/** Whether `locale` is a BCP 47 language tag, such as `fr` or `pt-BR`. */
+function isLocale(locale: string): boolean {
+  try {
+    return Intl.getCanonicalLocales(locale).length === 1;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `glosslint export --diglot <locale>`: prints the locale's diglot glossary in YAML, or with `merge` merges
+ * it into that file and prints what changed. Nothing is written when the merge fails.
+ */
+async function runDiglotExport(options: ExportOptions, io: CliIo): Promise<number> {
+  const locale = options.diglot;
+  if (typeof locale !== "string" || !isLocale(locale))
+    throw usage(
+      typeof locale !== "string"
+        ? "--diglot needs a locale."
+        : `--diglot is "${locale}", which is not a BCP 47 locale.`,
+      "Pass the locale of the diglot glossary, such as --diglot fr.",
+    );
+  const { corpus } = await loadCorpus(io.cwd, options);
+  const sourceLocale =
+    options.sourceLocale === undefined ? undefined : String(options.sourceLocale);
+  const entries = toDiglotGlossary(corpus, locale, sourceLocale);
+  if (entries.length === 0)
+    throw usage(
+      `No term in the glossary has ${locale} in Translations.`,
+      `Add a "${locale}: …" item to the Translations of the terms that ${locale} translators decide on, such as "- ${locale}: keep".`,
+    );
+  // `yaml` loads only for this command.
+  const { mergeDiglotGlossary } = await import("./diglot-merge.ts");
+  const { X18nMergeError } = await import("./x18n-merge.ts");
+  if (options.merge === undefined) {
+    io.stdout(mergeDiglotGlossary(undefined, entries).text);
+    return 0;
+  }
+  const file = resolve(io.cwd, String(options.merge));
+  const shown = displayPath(io.cwd, file);
+  if (!existsSync(file))
+    throw usage(
+      `The diglot glossary "${shown}" does not exist.`,
+      "Check the path given to --merge, or run glosslint export --diglot without it and save the output.",
+    );
+  const source = readFileSync(file, "utf8");
+  let result;
+  try {
+    result = mergeDiglotGlossary(source, entries);
+  } catch (error) {
+    if (!(error instanceof X18nMergeError)) throw error;
+    throw new CliError({
+      code: CLI_ERRORS.failed,
+      why: `${shown}: ${error.message}`,
+      fix:
+        error.fix ?? "Pass --merge a diglot glossary: a YAML map with a `terms:` list of entries.",
+    });
+  }
+  if (result.text !== source) writeFileSync(file, result.text);
+  const lines = [
+    `${shown}: ${count(entries.length, "term")} merged, ${result.added.length} added, ${result.updated.length} updated, ${result.unchanged.length} unchanged, ${result.keptMatch.length} kept \`match\`.`,
+    ...result.added.map((term) => `+ ${term}`),
+    ...result.updated.map(({ term, changes }) => `~ ${term}: ${changes.join(", ")}`),
   ];
   io.stdout(`${lines.join("\n")}\n`);
   return 0;
@@ -589,14 +667,21 @@ export async function main(argv: readonly string[], io: CliIo = defaultIo()): Pr
     });
 
   cli
-    .command("export", "Print the corpus as an x18n glossary in YAML, or merge it into one")
+    .command(
+      "export",
+      "Print the corpus as an x18n or diglot glossary in YAML, or merge it into one",
+    )
     .option("--glossary <path>", glossaryOption)
     .option("--corpus <module>", corpusOption)
-    .option("--merge <file>", "x18n glossary YAML to merge into, keeping its entries and comments")
+    .option("--diglot <locale>", "Export the locale's diglot glossary instead of the x18n one")
+    .option("--merge <file>", "Glossary YAML to merge into, keeping its entries and comments")
     .option("--note <length>", "Note per term: full (What and How) or short (What)", {
       default: "full",
     })
-    .option("--source-locale <locale>", "Locale whose forms match entries in --merge (default: en)")
+    .option(
+      "--source-locale <locale>",
+      "Locale whose forms spell the term, matching entries in --merge (default: en)",
+    )
     .action((options: ExportOptions) => {
       run = () => runExport(options, io);
     });
