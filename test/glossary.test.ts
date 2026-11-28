@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { defineCorpus } from "../src/corpus.ts";
 import { GlosslintConfigError } from "../src/errors.ts";
 import { fromGlossary, readGlossary } from "../src/glossary.ts";
+import { termDecisions } from "../src/tools.ts";
 import inclusive from "../src/presets/inclusive.ts";
 import tech from "../src/presets/tech.ts";
 
@@ -318,6 +319,110 @@ Translations: de: Dock, fr: \`borne, station\`
     expect(readGlossary(result.fixed!)).toEqual({ problems: [], corpus: result.corpus });
   });
 
+  it("reads keep, keep (gloss), translate and backticked literals, /pattern/ forms and Hints", () => {
+    const text = `# Glossary
+
+## Layer
+What: A folder that extends an app.
+Translations:
+- fr: keep (couche)
+- de: keep
+- es: translate
+- it: \`keep\`
+- pt: \`translate\`
+- nl: laag
+Forms:
+- en: layers
+- fr: couches, \`/couches? (?:de |du )?base/\`, /calques?/
+- es: /capas?/
+Hints:
+- de: der Layer, die Layer (nicht "Schicht")
+- fr: Gardez "layer" en italique.
+`;
+    const result = readGlossary(text);
+    expect(result.problems).toEqual([]);
+    expect(result.fixed).toBeUndefined();
+    const [term] = result.corpus!.terms;
+    expect(result.corpus).toEqual(
+      defineCorpus({
+        terms: [
+          {
+            term: "Layer",
+            description: "A folder that extends an app.",
+            translations: { it: "`keep`", pt: "`translate`", nl: "laag" },
+            decisions: {
+              fr: { decision: "keep-gloss", gloss: "couche" },
+              de: { decision: "keep" },
+              es: { decision: "translate" },
+            },
+            forms: { en: ["layers"], fr: ["couches"] },
+            patterns: { fr: ["couches? (?:de |du )?base", "calques?"], es: ["capas?"] },
+            hints: {
+              de: 'der Layer, die Layer (nicht "Schicht")',
+              fr: 'Gardez "layer" en italique.',
+            },
+          },
+        ],
+      }),
+    );
+    expect(termDecisions(term!)).toEqual({
+      fr: { decision: "keep-gloss", gloss: "couche" },
+      de: { decision: "keep" },
+      es: { decision: "translate" },
+      it: { decision: "translate", target: "keep" },
+      pt: { decision: "translate", target: "translate" },
+      nl: { decision: "translate", target: "laag" },
+    });
+  });
+
+  it("reports an empty gloss or a pattern that does not compile as G006, and Hints for a locale twice as G005", () => {
+    const term = (fields: string) => `# Glossary\n\n## Layer\n${fields}\n`;
+    const problem = (fields: string) => {
+      const [first, ...rest] = readGlossary(term(fields)).problems;
+      expect(rest).toEqual([]);
+      return `${first?.code} ${first?.line} ${first?.why}`;
+    };
+    expect(problem("Translations:\n- fr: keep ()")).toBe(
+      "GLOSSLINT_G006 5 fr in Translations keeps the term with an empty gloss.",
+    );
+    expect(problem("Translations:\n- fr: keep (  )")).toBe(
+      "GLOSSLINT_G006 5 fr in Translations keeps the term with an empty gloss.",
+    );
+    expect(problem("Translations:\n- fr: ``")).toBe(
+      "GLOSSLINT_G006 5 fr in Translations has no translation.",
+    );
+    expect(problem("Forms:\n- fr: couches, /couche(/")).toBe(
+      "GLOSSLINT_G006 5 The pattern /couche(/ in Forms does not compile: Invalid regular expression: /couche(/u: Unterminated group.",
+    );
+    // `\-` outside a class is valid without the `u` flag and invalid with it.
+    expect(problem("Forms:\n- fr: `/a\\-b/`")).toMatch(/^GLOSSLINT_G006 5 The pattern `\/a\\-b\/`/);
+    expect(problem("Forms:\n- fr: //")).toBe(
+      "GLOSSLINT_G006 5 The pattern // in Forms does not compile: it is empty.",
+    );
+    expect(problem("Hints:\n- de: der Layer\n- DE: die Layer")).toBe(
+      'GLOSSLINT_G005 6 Hints lists DE twice in "Layer".',
+    );
+    expect(problem("Hints:\n- der Layer")).toBe(
+      'GLOSSLINT_G006 5 "der Layer" in Hints has no locale.',
+    );
+    expect(problem("Hints:\n- de:")).toBe("GLOSSLINT_G006 5 de in Hints has no hint.");
+    expect(readGlossary(term("Translations:\n- fr: keep ()")).corpus).toBeUndefined();
+    expect(readGlossary(term("Forms:\n- fr: /couche(/")).corpus).toBeUndefined();
+  });
+
+  it("puts Hints after Forms in the canonical form, always as a - list", () => {
+    const text =
+      "# Glossary\n\n## Layer\nHints: de: der Layer\nForms:\n- fr: couches\nTranslations: fr: keep (couche)\n";
+    const result = readGlossary(text);
+    expect(new Set(result.problems.map((problem) => problem.code))).toEqual(
+      new Set(["GLOSSLINT_G003"]),
+    );
+    expect(result.fixed).toBe(
+      "# Glossary\n\n## Layer\nTranslations: fr: keep (couche)\nForms:\n- fr: couches\nHints:\n- de: der Layer\n",
+    );
+    expect(readGlossary(result.fixed!)).toEqual({ problems: [], corpus: result.corpus });
+  });
+
   it("reports Translations and Forms above the first term as term fields", () => {
     expect(codes("# Glossary\n\nTranslations: fr: route serveur\n\n## Dock\n")).toEqual([
       "GLOSSLINT_G004",
@@ -330,7 +435,7 @@ Translations: de: Dock, fr: \`borne, station\`
       code: "GLOSSLINT_G004",
       line: 5,
       why: '"Note" is not a field.',
-      fix: 'Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations" or "Forms", or reword the line so it does not start with "Note:".',
+      fix: 'Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations", "Forms" or "Hints", or reword the line so it does not start with "Note:".',
       fixable: false,
       term: "Dock",
     });

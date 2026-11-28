@@ -17,6 +17,9 @@ const TERM_FIELDS = [
   "skip",
   "forms",
   "translations",
+  "decisions",
+  "patterns",
+  "hints",
 ] as const;
 const AVOID_FIELDS = ["word", "why"] as const;
 const LINK_FIELDS = ["title", "url"] as const;
@@ -124,6 +127,28 @@ function checkLocaleMap(value: unknown, field: string, list: boolean, fail: Fail
       CONFIG_ERRORS.badType,
       `"${field}" must map each locale to ${list ? "a list of strings" : "a string"}.`,
       list ? `Write it as { de: ["…"] }.` : `Write it as { de: "…" }.`,
+    );
+}
+
+function isDecision(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const { decision, gloss, target } = value;
+  const keys = Object.keys(value).filter((key) => key !== "decision");
+  if (decision === "keep") return keys.length === 0;
+  if (decision === "keep-gloss")
+    return keys.join() === "gloss" && typeof gloss === "string" && gloss.trim() !== "";
+  if (decision === "translate")
+    return keys.length === 0 || (keys.join() === "target" && typeof target === "string");
+  return false;
+}
+
+function checkDecisions(value: unknown, fail: Fail): void {
+  if (value === undefined) return;
+  if (!isRecord(value) || !Object.values(value).every(isDecision))
+    fail(
+      CONFIG_ERRORS.badType,
+      `"decisions" must map each locale to a decision.`,
+      `Write it as { de: { decision: "keep" } }, { decision: "keep-gloss", gloss: "…" } or { decision: "translate", target?: "…" }.`,
     );
 }
 
@@ -256,6 +281,9 @@ function checkTerm(input: unknown, index: number): Term {
   }
   checkLocaleMap(term.forms, "forms", true, fail);
   checkLocaleMap(term.translations, "translations", false, fail);
+  checkLocaleMap(term.patterns, "patterns", true, fail);
+  checkLocaleMap(term.hints, "hints", false, fail);
+  checkDecisions(term.decisions, fail);
   return term as unknown as Term;
 }
 

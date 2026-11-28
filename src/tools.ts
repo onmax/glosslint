@@ -2,8 +2,31 @@ import { kindOf } from "./kind.ts";
 import { createMatcher } from "./matcher.ts";
 import inclusive from "./presets/inclusive.ts";
 import tech from "./presets/tech.ts";
-import type { Corpus, CorpusTestFailure, Finding, Term, X18nGlossaryEntry } from "./types.ts";
+import type {
+  Corpus,
+  CorpusTestFailure,
+  Finding,
+  Term,
+  TranslationDecision,
+  X18nGlossaryEntry,
+} from "./types.ts";
 import { capitalise, splitWords, termKey } from "./words.ts";
+
+/** A translation as written, without the backticks around it when one code span is the whole value, as in `` `keep` ``. */
+export function literalTarget(value: string): string {
+  return /^`([^`]*)`$/.exec(value)?.[1]?.trim() ?? value;
+}
+
+/**
+ * The term's decision per locale: each of `translations` as a `translate` with that target, backticks
+ * around the whole value dropped, then `decisions` over them.
+ */
+export function termDecisions(term: Term): Record<string, TranslationDecision> {
+  const decisions: Record<string, TranslationDecision> = {};
+  for (const [locale, value] of Object.entries(term.translations ?? {}))
+    decisions[locale] = { decision: "translate", target: literalTarget(value) };
+  return { ...decisions, ...term.decisions };
+}
 
 /** Checks every term's examples: each `bad` one must be reported and each `good` one must not. */
 export function testCorpus(corpus: Corpus): CorpusTestFailure[] {

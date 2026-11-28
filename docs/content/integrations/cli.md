@@ -115,7 +115,7 @@ When the file has problems, `doctor` prints each one with its code, file and lin
 
 [GLOSSLINT_G004] .agents/glossary.md:6: "Note" is not a field.
 ├▶ term: Dock
-╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations" or "Forms", or reword the line so it does not start with "Note:".
+╰▶ fix: Use "What", "How", "Why", "Avoid", "Good", "Bad", "Links", "Case", "Casing", "Translations", "Forms" or "Hints", or reword the line so it does not start with "Note:".
 
 [GLOSSLINT_G006] .agents/glossary.md:7: Case is "loud".
 ├▶ term: Dock
